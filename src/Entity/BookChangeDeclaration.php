@@ -7,6 +7,7 @@ namespace App\Entity;
 use App\Enum\BookChangeType;
 use App\Enum\BookDeclarationStatus;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\Mapping as ORM;
 use DomainException;
 use InvalidArgumentException;
@@ -67,7 +68,7 @@ class BookChangeDeclaration
         $this->submittedBy = $submittedBy;
         $this->type = $type;
         $this->payload = $payload;
-        $this->submittedAt = $submittedAt;
+        $this->submittedAt = self::toUtc($submittedAt);
     }
 
     /**
@@ -122,6 +123,7 @@ class BookChangeDeclaration
             throw new DomainException('Only a manager or administrator can review declarations.');
         }
 
+        $reviewedAt = self::toUtc($reviewedAt);
         if ($reviewedAt < $this->submittedAt) {
             throw new InvalidArgumentException('Review time cannot precede submission time.');
         }
@@ -261,5 +263,10 @@ class BookChangeDeclaration
         $value = trim($value);
 
         return '' === $value ? null : $value;
+    }
+
+    private static function toUtc(DateTimeImmutable $dateTime): DateTimeImmutable
+    {
+        return $dateTime->setTimezone(new DateTimeZone('UTC'));
     }
 }
