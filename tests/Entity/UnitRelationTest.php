@@ -35,4 +35,41 @@ final class UnitRelationTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $relation->endAt(new DateTimeImmutable('2026-04-30'));
     }
+
+    public function testLegalEntityCanBeOwnerWithoutCreatingFakePerson(): void
+    {
+        self::assertTrue(method_exists(UnitRelation::class, 'forLegalEntity'));
+
+        $relation = UnitRelation::forLegalEntity(
+            new Unit('Магазин 1'),
+            UnitRelationType::OWNER,
+            new DateTimeImmutable('2026-01-01'),
+            'Пример ООД',
+            '123456789',
+            '100.0000',
+        );
+
+        self::assertNull($relation->getPerson());
+        self::assertSame('Пример ООД', $relation->getLegalEntityName());
+        self::assertSame('123456789', $relation->getLegalEntityIdentifier());
+    }
+
+    public function testUserRelationCanRecordCommonPartsRightsAndObligations(): void
+    {
+        $relation = new UnitRelation(new Person('Иван', 'Иванов'), new Unit('12'), UnitRelationType::USER, new DateTimeImmutable('2026-01-01'));
+
+        self::assertTrue(method_exists($relation, 'setManagementRightsAndObligations'));
+        $relation->setManagementRightsAndObligations('Ползвателят заплаща текущата поддръжка.');
+
+        self::assertSame('Ползвателят заплаща текущата поддръжка.', $relation->getManagementRightsAndObligations());
+    }
+
+    public function testOwnerCannotReceiveUserOnlyManagementAgreement(): void
+    {
+        $relation = new UnitRelation(new Person('Иван', 'Иванов'), new Unit('12'), UnitRelationType::OWNER, new DateTimeImmutable('2026-01-01'));
+
+        self::assertTrue(method_exists($relation, 'setManagementRightsAndObligations'));
+        $this->expectException(InvalidArgumentException::class);
+        $relation->setManagementRightsAndObligations('Невалидно за собственик.');
+    }
 }
