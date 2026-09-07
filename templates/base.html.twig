@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Vhod{% endblock %}</title>
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    {% block javascripts %}
+        {% block importmap %}{{ importmap('app') }}{% endblock %}
+    {% endblock %}
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="{{ path('app_dashboard') }}">Vhod</a>
+        {% if app.user %}
+            <nav>
+                <a href="{{ path('app_dashboard') }}">Начало</a>
+                <a href="{{ path('app_logout') }}">Изход</a>
+            </nav>
+        {% endif %}
+    </header>
+    <main class="container">
+        {% block body %}{% endblock %}
+    </main>
+</body>
+</html>

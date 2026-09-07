@@ -1,0 +1,42 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+
+permissions:
+    contents: read
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: ctype, iconv, mbstring, pdo_sqlite
+                  coverage: none
+                  tools: composer:v2
+
+            - name: Validate Composer metadata
+              run: composer validate --strict
+
+            - name: Install dependencies
+              run: composer install --no-interaction --prefer-dist --no-progress
+
+            - name: Validate container
+              run: php bin/console lint:container
+
+            - name: Validate Doctrine mapping
+              run: php bin/console doctrine:schema:validate --skip-sync --env=test
+
+            - name: PHPUnit
+              run: vendor/bin/phpunit
+
+            - name: PHPStan
+              run: vendor/bin/phpstan analyse --no-progress

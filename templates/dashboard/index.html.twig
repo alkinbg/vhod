@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Начало · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Нашият вход</p>
+        <h1>Здравей{% if person %}, {{ person.firstName }}{% endif %}.</h1>
+        <p class="muted">Всичко важно за входа на едно място.</p>
+    </div>
+</section>
+
+<section class="grid">
+    <article class="card highlight"><span>Моето задължение</span><strong>—</strong><small>Финансовият модул е следващият етап.</small></article>
+    <article class="card"><span>Фонд „Ремонт и обновяване“</span><strong>—</strong></article>
+    <article class="card"><span>Активни сигнали</span><strong>0</strong></article>
+    <article class="card"><span>Следващо общо събрание</span><strong>Няма обявено</strong></article>
+</section>
+
+<section class="columns">
+    <article class="panel">
+        <div class="panel-title"><div><p class="eyebrow">Общност</p><h2>Какво обсъждат съседите</h2></div><span class="badge">Скоро</span></div>
+        <p class="muted">Публикации, идеи, взаимопомощ, анкети и събития — само за хората от входа.</p>
+    </article>
+    <article class="panel">
+        <div class="panel-title"><div><p class="eyebrow">Официално</p><h2>Съобщения и решения</h2></div></div>
+        <p class="muted">Официалните уведомления ще бъдат ясно отделени от разговорите в общността.</p>
+    </article>
+</section>
+{% endblock %}
