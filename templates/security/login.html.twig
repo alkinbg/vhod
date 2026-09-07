@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Вход · Vhod{% endblock %}
+
+{% block body %}
+<section class="auth-card">
+    <p class="eyebrow">Само за съседи</p>
+    <h1>Добре дошли във Vhod</h1>
+    <p class="muted">Вътрешната система на нашия вход.</p>
+
+    {% if error %}
+        <div class="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+    {% endif %}
+
+    <form method="post">
+        <label for="username">Имейл</label>
+        <input id="username" type="email" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+
+        <label for="password">Парола</label>
+        <input id="password" type="password" name="_password" autocomplete="current-password" required>
+
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+        <button type="submit">Вход</button>
+    </form>
+</section>
+{% endblock %}
