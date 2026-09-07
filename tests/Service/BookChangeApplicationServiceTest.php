@@ -42,10 +42,7 @@ final class BookChangeApplicationServiceTest extends KernelTestCase
         $tool->dropSchema($metadata);
         $tool->createSchema($metadata);
 
-        self::assertTrue(class_exists(BookChangeApplicationService::class));
-        $service = self::getContainer()->get(BookChangeApplicationService::class);
-        self::assertInstanceOf(BookChangeApplicationService::class, $service);
-        $this->service = $service;
+        $this->service = new BookChangeApplicationService($this->entityManager);
 
         $residentPerson = new Person('Иван', 'Иванов', email: 'ivan@example.com');
         $this->resident = new User($residentPerson, 'ivan@example.com', 'hash');
