@@ -33,6 +33,7 @@
     },
     "require-dev": {
         "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-doctrine": "^2.0",
         "phpunit/phpunit": "^12.4",
         "symfony/browser-kit": "8.1.*",
         "symfony/css-selector": "8.1.*",
