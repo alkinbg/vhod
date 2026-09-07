@@ -7,7 +7,7 @@ on:
             - main
 
 permissions:
-    contents: read
+    contents: write
 
 jobs:
     test:
@@ -41,9 +41,22 @@ jobs:
             - name: PHPStan
               run: vendor/bin/phpstan analyse --no-progress
 
-            - name: Preserve dependency lock
-              uses: actions/upload-artifact@v4
-              with:
-                  name: composer-lock
-                  path: composer.lock
-                  if-no-files-found: error
+            - name: Commit dependency lock
+              if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              env:
+                  HEAD_REF: ${{ github.head_ref }}
+              run: |
+                  cp composer.lock /tmp/composer.lock
+                  git fetch origin "$HEAD_REF"
+                  git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
+                  cp /tmp/composer.lock composer.lock
+
+                  if git diff --quiet -- composer.lock && git ls-files --error-unmatch composer.lock >/dev/null 2>&1; then
+                      exit 0
+                  fi
+
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git add composer.lock
+                  git commit -m "build: lock dependencies"
+                  git push origin "HEAD:$HEAD_REF"
