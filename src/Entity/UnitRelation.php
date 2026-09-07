@@ -39,21 +39,34 @@ class UnitRelation
     private ?string $ownershipShare;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $legalEntityName = null;
+    private ?string $legalEntityName;
 
     #[ORM\Column(length: 64, nullable: true)]
-    private ?string $legalEntityIdentifier = null;
+    private ?string $legalEntityIdentifier;
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $managementRightsAndObligations = null;
 
     public function __construct(
-        Person $person,
+        ?Person $person,
         Unit $unit,
         UnitRelationType $type,
         DateTimeImmutable $validFrom,
         ?string $ownershipShare = null,
+        ?string $legalEntityName = null,
+        ?string $legalEntityIdentifier = null,
     ) {
+        $legalEntityName = self::nullableTrim($legalEntityName);
+        $legalEntityIdentifier = self::nullableTrim($legalEntityIdentifier);
+
+        if (null === $person && (null === $legalEntityName || null === $legalEntityIdentifier)) {
+            throw new InvalidArgumentException('A person or a complete legal entity identity is required.');
+        }
+
+        if (null !== $person && (null !== $legalEntityName || null !== $legalEntityIdentifier)) {
+            throw new InvalidArgumentException('A relation cannot represent both a person and a legal entity.');
+        }
+
         self::assertOwnershipShare($type, $ownershipShare);
 
         $this->person = $person;
@@ -61,6 +74,8 @@ class UnitRelation
         $this->type = $type;
         $this->validFrom = $validFrom;
         $this->ownershipShare = $ownershipShare;
+        $this->legalEntityName = $legalEntityName;
+        $this->legalEntityIdentifier = $legalEntityIdentifier;
     }
 
     public static function forLegalEntity(
@@ -71,27 +86,15 @@ class UnitRelation
         string $identifier,
         ?string $ownershipShare = null,
     ): self {
-        $name = trim($name);
-        $identifier = trim($identifier);
-
-        if ('' === $name || '' === $identifier) {
-            throw new InvalidArgumentException('Legal entity name and identifier are required.');
-        }
-
-        self::assertOwnershipShare($type, $ownershipShare);
-
-        $relation = new self(
-            new Person('__legal_entity__', '__placeholder__'),
+        return new self(
+            null,
             $unit,
             $type,
             $validFrom,
             $ownershipShare,
+            $name,
+            $identifier,
         );
-        $relation->person = null;
-        $relation->legalEntityName = $name;
-        $relation->legalEntityIdentifier = $identifier;
-
-        return $relation;
     }
 
     public function getId(): ?int { return $this->id; }
