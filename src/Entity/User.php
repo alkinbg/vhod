@@ -32,6 +32,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Person $person;
 
+    /** @var non-empty-string */
     #[ORM\Column(length: 180)]
     private string $email;
 
@@ -48,7 +49,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __construct(Person $person, string $email, string $passwordHash)
     {
         $email = mb_strtolower(trim($email));
-        if (false === filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ('' === $email || false === filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new InvalidArgumentException('Invalid email address.');
         }
         if ('' === $passwordHash) {
@@ -62,6 +63,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getId(): ?int { return $this->id; }
     public function getPerson(): Person { return $this->person; }
+
+    /** @return non-empty-string */
     public function getUserIdentifier(): string { return $this->email; }
 
     /** @return list<string> */
