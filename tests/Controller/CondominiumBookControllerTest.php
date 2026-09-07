@@ -166,7 +166,11 @@ final class CondominiumBookControllerTest extends WebTestCase
         );
         $this->entityManager->persist($declaration);
         $this->entityManager->flush();
-        self::assertNotNull($declaration->getId());
+
+        $declarationId = $declaration->getId();
+        $residentId = $this->resident->getId();
+        self::assertNotNull($declarationId);
+        self::assertNotNull($residentId);
 
         $this->client->loginUser($this->manager);
         $crawler = $this->client->request('GET', '/management/book');
@@ -174,8 +178,16 @@ final class CondominiumBookControllerTest extends WebTestCase
         $this->client->submit($form);
 
         self::assertResponseRedirects('/management/book');
-        self::assertSame(BookDeclarationStatus::ACCEPTED, $declaration->getStatus());
-        self::assertSame('+359888333333', $this->resident->getPerson()->getPhone());
+
+        $entityManager = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+
+        $storedDeclaration = $entityManager->find(BookChangeDeclaration::class, $declarationId);
+        $storedResident = $entityManager->find(User::class, $residentId);
+        self::assertInstanceOf(BookChangeDeclaration::class, $storedDeclaration);
+        self::assertInstanceOf(User::class, $storedResident);
+        self::assertSame(BookDeclarationStatus::ACCEPTED, $storedDeclaration->getStatus());
+        self::assertSame('+359888333333', $storedResident->getPerson()->getPhone());
     }
 
     public function testManagerHasPrintableBookView(): void
