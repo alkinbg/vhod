@@ -1,0 +1,75 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Книга на етажната собственост · Vhod{% endblock %}
+
+{% block body %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Управление</p>
+            <h1>Книга на етажната собственост</h1>
+            <p>Преглед на обектите и подадените промени.</p>
+        </div>
+        <a href="{{ path('app_management_book_print') }}">Печатен изглед</a>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <div class="notice notice-success">{{ message }}</div>
+    {% endfor %}
+
+    <section>
+        <h2>Обекти</h2>
+        <div class="card-grid">
+            {% for unit in units %}
+                <article class="card">
+                    <h3>Обект {{ unit.designation }}</h3>
+                    {% if unit.floor is not null %}<p>Етаж: {{ unit.floor }}</p>{% endif %}
+                    {% if unit.builtArea is not null %}<p>Площ: {{ unit.builtArea }} m²</p>{% endif %}
+                    {% if unit.idealParts is not null %}<p>Идеални части: {{ unit.idealParts }}%</p>{% endif %}
+                    <ul>
+                        {% for relation in relations %}
+                            {% if relation.unit == unit %}
+                                <li>
+                                    {% if relation.person %}
+                                        {{ relation.person.displayName }}
+                                    {% else %}
+                                        {{ relation.legalEntityName }}{% if relation.legalEntityIdentifier %} ({{ relation.legalEntityIdentifier }}){% endif %}
+                                    {% endif %}
+                                    — {{ relation.type.value }}
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </article>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section>
+        <h2>За преглед</h2>
+        {% if pending_declarations is empty %}
+            <p>Няма чакащи декларации.</p>
+        {% else %}
+            <table>
+                <thead><tr><th>Дата</th><th>Обект</th><th>Подател</th><th>Тип</th>{% if can_review %}<th>Действие</th>{% endif %}</tr></thead>
+                <tbody>
+                {% for declaration in pending_declarations %}
+                    <tr>
+                        <td>{{ declaration.submittedAt|date('d.m.Y H:i') }}</td>
+                        <td>Обект {{ declaration.unit.designation }}</td>
+                        <td>{{ declaration.submittedBy.person.displayName }}</td>
+                        <td>{{ declaration.type.value }}</td>
+                        {% if can_review %}
+                            <td>
+                                <form method="post" action="{{ path('app_management_book_accept', {id: declaration.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('book_accept_' ~ declaration.id) }}">
+                                    <button type="submit">Одобри</button>
+                                </form>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+{% endblock %}
