@@ -60,7 +60,18 @@ jobs:
                   php bin/console doctrine:schema:validate --env=test
 
             - name: PHPUnit
-              run: vendor/bin/phpunit
+              run: |
+                  set -o pipefail
+                  vendor/bin/phpunit 2>&1 | tee phpunit-output.txt
+
+            - name: Upload PHPUnit diagnostic output
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: phpunit-output
+                  path: phpunit-output.txt
+                  if-no-files-found: ignore
+                  retention-days: 1
 
             - name: PHPStan
               run: vendor/bin/phpstan analyse --no-progress
