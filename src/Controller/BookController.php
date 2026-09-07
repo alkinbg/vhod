@@ -148,11 +148,12 @@ final class BookController extends AbstractController
             return $eligibleUnits[$requestedId];
         }
 
-        if (1 === count($eligibleUnits)) {
-            return reset($eligibleUnits);
+        $unit = reset($eligibleUnits);
+        if (!$unit instanceof Unit) {
+            throw new \LogicException('Eligible unit list must not be empty.');
         }
 
-        return reset($eligibleUnits);
+        return $unit;
     }
 
     /** @return array<string, bool|int|float|string|null> */
