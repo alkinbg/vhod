@@ -13,6 +13,7 @@ use App\Enum\BookChangeType;
 use App\Enum\BookDeclarationStatus;
 use App\Enum\UnitRelationType;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -116,7 +117,7 @@ final class CondominiumBookControllerTest extends WebTestCase
             $this->resident,
             BookChangeType::CONTACT_UPDATE,
             ['phone' => '+359888222222'],
-            new DateTimeImmutable('2026-09-08 00:30:00'),
+            new DateTimeImmutable('2026-09-08 00:30:00', new DateTimeZone('Europe/Sofia')),
         );
         $this->entityManager->persist($declaration);
         $this->entityManager->flush();
@@ -161,7 +162,7 @@ final class CondominiumBookControllerTest extends WebTestCase
             $this->resident,
             BookChangeType::CONTACT_UPDATE,
             ['phone' => '+359888333333'],
-            new DateTimeImmutable('2026-09-08 00:30:00'),
+            new DateTimeImmutable('2026-09-08 00:30:00', new DateTimeZone('Europe/Sofia')),
         );
         $this->entityManager->persist($declaration);
         $this->entityManager->flush();
