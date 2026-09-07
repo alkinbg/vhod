@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Моята книга · Vhod{% endblock %}
+
+{% block body %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Етажна собственост</p>
+            <h1>Моята книга</h1>
+            <p>Тук виждате данните за обектите, за които имате активно право като собственик или ползвател.</p>
+        </div>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <div class="notice notice-success">{{ message }}</div>
+    {% endfor %}
+
+    <section>
+        <h2>Моите обекти</h2>
+        {% if units is empty %}
+            <p>Няма активни обекти, свързани с профила ви.</p>
+        {% else %}
+            <div class="card-grid">
+                {% for unit in units %}
+                    <article class="card">
+                        <h3>Обект {{ unit.designation }}</h3>
+                        <dl>
+                            {% if unit.floor is not null %}<dt>Етаж</dt><dd>{{ unit.floor }}</dd>{% endif %}
+                            {% if unit.builtArea is not null %}<dt>Площ</dt><dd>{{ unit.builtArea }} m²</dd>{% endif %}
+                            {% if unit.idealParts is not null %}<dt>Идеални части</dt><dd>{{ unit.idealParts }}%</dd>{% endif %}
+                        </dl>
+                    </article>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Подай промяна</h2>
+        <div class="actions">
+            <a href="{{ path('app_book_declaration', {type: 'contact_update'}) }}">Контакти</a>
+            <a href="{{ path('app_book_declaration', {type: 'household_member_add'}) }}">Член на домакинството</a>
+            <a href="{{ path('app_book_declaration', {type: 'absence'}) }}">Период на отсъствие</a>
+            <a href="{{ path('app_book_declaration', {type: 'animal'}) }}">Животно</a>
+        </div>
+    </section>
+
+    <section>
+        <h2>Моите декларации</h2>
+        {% if declarations is empty %}
+            <p>Все още няма подадени декларации.</p>
+        {% else %}
+            <table>
+                <thead><tr><th>Дата</th><th>Обект</th><th>Тип</th><th>Статус</th></tr></thead>
+                <tbody>
+                {% for declaration in declarations %}
+                    <tr>
+                        <td>{{ declaration.submittedAt|date('d.m.Y H:i') }}</td>
+                        <td>{{ declaration.unit.designation }}</td>
+                        <td>{{ declaration.type.value }}</td>
+                        <td>{{ declaration.status.value }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+{% endblock %}

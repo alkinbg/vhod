@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Книга на етажната собственост</title>
+    <style>
+        body { font-family: sans-serif; margin: 2rem; color: #111; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #777; padding: .45rem; vertical-align: top; text-align: left; }
+        h1 { margin-bottom: .25rem; }
+        .meta { margin-top: 0; color: #555; }
+        @media print { body { margin: 0; } }
+    </style>
+</head>
+<body>
+    <h1>Книга на етажната собственост</h1>
+    <p class="meta">Генерирано на {{ generated_at|date('d.m.Y H:i') }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Обект</th>
+                <th>Етаж / площ</th>
+                <th>Лице / юридическо лице</th>
+                <th>Качество</th>
+                <th>Период</th>
+                <th>Идеални части</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for unit in units %}
+            {% set unit_relations = [] %}
+            {% for relation in relations %}
+                {% if relation.unit == unit %}
+                    {% set unit_relations = unit_relations|merge([relation]) %}
+                {% endif %}
+            {% endfor %}
+
+            {% if unit_relations is empty %}
+                <tr>
+                    <td>Обект {{ unit.designation }}</td>
+                    <td>{% if unit.floor is not null %}ет. {{ unit.floor }}{% endif %}{% if unit.builtArea is not null %}<br>{{ unit.builtArea }} m²{% endif %}</td>
+                    <td colspan="4">Няма въведени отношения.</td>
+                </tr>
+            {% else %}
+                {% for relation in unit_relations %}
+                    <tr>
+                        <td>Обект {{ unit.designation }}</td>
+                        <td>{% if unit.floor is not null %}ет. {{ unit.floor }}{% endif %}{% if unit.builtArea is not null %}<br>{{ unit.builtArea }} m²{% endif %}</td>
+                        <td>
+                            {% if relation.person %}
+                                {{ relation.person.displayName }}
+                            {% else %}
+                                {{ relation.legalEntityName }}{% if relation.legalEntityIdentifier %}<br>{{ relation.legalEntityIdentifier }}{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>{{ relation.type.value }}</td>
+                        <td>{{ relation.validFrom|date('d.m.Y') }}{% if relation.validUntil %} – {{ relation.validUntil|date('d.m.Y') }}{% endif %}</td>
+                        <td>{{ relation.ownershipShare ?? '' }}</td>
+                    </tr>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

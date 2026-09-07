@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Декларация · Vhod{% endblock %}
+
+{% block body %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Книга на етажната собственост</p>
+            <h1>Декларация за промяна</h1>
+            <p>Промяната се прилага към официалните данни след преглед от управителя.</p>
+        </div>
+    </section>
+
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('book_declaration_' ~ change_type.value) }}">
+
+        {% if units|length > 1 %}
+            <label for="unit">Обект</label>
+            <select id="unit" name="unit" required>
+                {% for candidate in units %}
+                    <option value="{{ candidate.id }}"{% if candidate.id == unit.id %} selected{% endif %}>Обект {{ candidate.designation }}</option>
+                {% endfor %}
+            </select>
+        {% else %}
+            <input type="hidden" name="unit" value="{{ unit.id }}">
+            <p><strong>Обект {{ unit.designation }}</strong></p>
+        {% endif %}
+
+        {% if change_type.value == 'contact_update' %}
+            <label for="email">Имейл</label>
+            <input id="email" name="email" type="email">
+            <label for="phone">Телефон</label>
+            <input id="phone" name="phone" type="text">
+        {% elseif change_type.value == 'household_member_add' %}
+            <label for="firstName">Име</label>
+            <input id="firstName" name="firstName" type="text" required>
+            <label for="lastName">Фамилия</label>
+            <input id="lastName" name="lastName" type="text" required>
+            <label for="validFrom">От дата</label>
+            <input id="validFrom" name="validFrom" type="date" required>
+        {% elseif change_type.value == 'absence' %}
+            <label for="validFrom">От дата</label>
+            <input id="validFrom" name="validFrom" type="date" required>
+            <label for="validUntil">До дата</label>
+            <input id="validUntil" name="validUntil" type="date">
+        {% elseif change_type.value == 'animal' %}
+            <label for="species">Вид животно</label>
+            <input id="species" name="species" type="text" required>
+            <label for="count">Брой</label>
+            <input id="count" name="count" type="number" min="1" value="1" required>
+            <label for="passport">Номер на ветеринарен паспорт</label>
+            <input id="passport" name="passport" type="text">
+        {% endif %}
+
+        <div class="actions">
+            <button type="submit">Изпрати декларацията</button>
+            <a href="{{ path('app_book') }}">Отказ</a>
+        </div>
+    </form>
+{% endblock %}

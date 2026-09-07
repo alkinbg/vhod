@@ -44,9 +44,7 @@ class Person
             throw new InvalidArgumentException('First name and last name are required.');
         }
 
-        if (null !== $email && false === filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new InvalidArgumentException('Invalid email address.');
-        }
+        self::assertValidEmail($email);
 
         $this->firstName = $firstName;
         $this->lastName = $lastName;
@@ -69,6 +67,23 @@ class Person
             $this->middleName,
             $this->lastName,
         ], static fn (?string $part): bool => null !== $part && '' !== $part));
+    }
+
+    public function updateContact(?string $email, ?string $phone): void
+    {
+        $email = self::nullableTrim($email);
+        $phone = self::nullableTrim($phone);
+        self::assertValidEmail($email);
+
+        $this->email = $email;
+        $this->phone = $phone;
+    }
+
+    private static function assertValidEmail(?string $email): void
+    {
+        if (null !== $email && false === filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('Invalid email address.');
+        }
     }
 
     private static function nullableTrim(?string $value): ?string
