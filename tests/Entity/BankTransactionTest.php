@@ -15,9 +15,13 @@ use PHPUnit\Framework\TestCase;
 
 final class BankTransactionTest extends TestCase
 {
+    private const ACCOUNT_IBAN = 'BG35TEST00000000000000';
+    private const OTHER_ACCOUNT_IBAN = 'BG22DEMO00000000000002';
+    private const PAYER_IBAN = 'BG97FAKE00000000000001';
+
     public function testTransactionKeepsSignedImmutableNormalizedSnapshot(): void
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+        $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
         $import = BankStatementImport::record(
             $account,
             BankStatementFormat::CAMT053,
@@ -36,8 +40,8 @@ final class BankTransactionTest extends TestCase
             ' TX-1 ',
             ' ENTRY-1 ',
             ' E2E-1 ',
-            ' Ivan Ivanov ',
-            ' bg40 bnbg 9661 1000 0661 23 ',
+            ' Test Payer ',
+            ' bg97 fake 0000 0000 0000 01 ',
             ' Такса ап. 12 ',
         );
 
@@ -52,14 +56,14 @@ final class BankTransactionTest extends TestCase
         self::assertSame('TX-1', $transaction->getBankTransactionId());
         self::assertSame('ENTRY-1', $transaction->getEntryReference());
         self::assertSame('E2E-1', $transaction->getEndToEndId());
-        self::assertSame('Ivan Ivanov', $transaction->getCounterpartyName());
-        self::assertSame('BG40BNBG96611000066123', $transaction->getCounterpartyIban());
+        self::assertSame('Test Payer', $transaction->getCounterpartyName());
+        self::assertSame(self::PAYER_IBAN, $transaction->getCounterpartyIban());
         self::assertSame('Такса ап. 12', $transaction->getRemittanceInformation());
     }
 
     public function testNegativeAmountRepresentsOutgoingTransaction(): void
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+        $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
         $import = BankStatementImport::record(
             $account,
             BankStatementFormat::CAMT053,
@@ -82,7 +86,7 @@ final class BankTransactionTest extends TestCase
     #[DataProvider('invalidAmounts')]
     public function testZeroAmountIsRejected(int $amountCents): void
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+        $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
         $import = BankStatementImport::record(
             $account,
             BankStatementFormat::CAMT053,
@@ -110,8 +114,8 @@ final class BankTransactionTest extends TestCase
 
     public function testStatementImportMustBelongToSameBankAccount(): void
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
-        $other = BankAccount::create('Друга сметка', 'BG40BNBG96611000066123');
+        $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
+        $other = BankAccount::create('Друга сметка', self::OTHER_ACCOUNT_IBAN);
         $import = BankStatementImport::record(
             $other,
             BankStatementFormat::CAMT053,
