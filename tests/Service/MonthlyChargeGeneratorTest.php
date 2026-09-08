@@ -21,6 +21,7 @@ use App\Service\MonthlyChargeGenerator;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
+use DomainException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class MonthlyChargeGeneratorTest extends KernelTestCase
@@ -236,6 +237,82 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
         self::assertSame('1.000', $charge->getQuantity());
         self::assertSame(0, $charge->getCalculationDetails()['base_occupancy_count']);
         self::assertTrue($charge->getCalculationDetails()['unoccupied_minimum_applied']);
+    }
+
+    public function testIdealPartsPolicyPreservesExactTotalAndAllocatesRemainderDeterministically(): void
+    {
+        $fund = new Fund('operating', 'Текуща поддръжка', FundType::OPERATING);
+        $policy = FeePolicy::create(
+            'maintenance_ideal',
+            'Поддръжка по идеални части',
+            $fund,
+            FeeCategory::MANAGEMENT_MAINTENANCE,
+            FeeDistribution::IDEAL_PARTS,
+            1001,
+            new DateTimeImmutable('2026-09-01'),
+            'ОС 01/2026, т. 9',
+        );
+        $unit12 = new Unit('12', idealParts: '33.3333');
+        $unit13 = new Unit('13', idealParts: '33.3333');
+        $unit14 = new Unit('14', idealParts: '33.3334');
+
+        foreach ([$fund, $policy, $unit12, $unit13, $unit14] as $entity) {
+            $this->entityManager->persist($entity);
+        }
+        $this->entityManager->flush();
+
+        $result = (new MonthlyChargeGenerator($this->entityManager))->generate(
+            new DateTimeImmutable('2026-09-01'),
+            new DateTimeImmutable('2026-09-08 04:25:00 UTC'),
+        );
+
+        self::assertSame(3, $result->created);
+        self::assertSame(0, $result->skipped);
+        self::assertSame(1001, $result->totalAmountCents);
+
+        $charges = $this->chargesByDesignation();
+        self::assertSame(334, $charges['12']->getAmountCents());
+        self::assertSame(333, $charges['13']->getAmountCents());
+        self::assertSame(334, $charges['14']->getAmountCents());
+        self::assertSame('33.3333', $charges['12']->getCalculationDetails()['ideal_parts']);
+        self::assertSame('33.3333', $charges['13']->getCalculationDetails()['ideal_parts']);
+        self::assertSame('33.3334', $charges['14']->getCalculationDetails()['ideal_parts']);
+        self::assertSame('100.0000', $charges['12']->getCalculationDetails()['ideal_parts_total']);
+        self::assertSame('largest_remainder', $charges['12']->getCalculationDetails()['allocation_method']);
+    }
+
+    public function testIdealPartsPolicyRejectsMissingUnitSharesWithoutPostingPartialCharges(): void
+    {
+        $fund = new Fund('operating', 'Текуща поддръжка', FundType::OPERATING);
+        $policy = FeePolicy::create(
+            'maintenance_ideal',
+            'Поддръжка по идеални части',
+            $fund,
+            FeeCategory::MANAGEMENT_MAINTENANCE,
+            FeeDistribution::IDEAL_PARTS,
+            1000,
+            new DateTimeImmutable('2026-09-01'),
+            'ОС 01/2026, т. 9',
+        );
+        $unit12 = new Unit('12', idealParts: '60.0000');
+        $unit13 = new Unit('13');
+
+        foreach ([$fund, $policy, $unit12, $unit13] as $entity) {
+            $this->entityManager->persist($entity);
+        }
+        $this->entityManager->flush();
+
+        try {
+            (new MonthlyChargeGenerator($this->entityManager))->generate(
+                new DateTimeImmutable('2026-09-01'),
+                new DateTimeImmutable('2026-09-08 04:25:00 UTC'),
+            );
+            self::fail('Expected missing ideal parts to abort charge generation.');
+        } catch (DomainException $exception) {
+            self::assertSame('Unit "13" is missing ideal parts.', $exception->getMessage());
+        }
+
+        self::assertCount(0, $this->entityManager->getRepository(Charge::class)->findAll());
     }
 
     /** @return array<string, Charge> */
