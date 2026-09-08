@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+{% block title %}Нов разход{% endblock %}
+{% block body %}
+<main class="container py-4">
+    <h1 class="h2">Нов разход</h1>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('finance_expense_new') }}">
+        <div class="mb-3"><label class="form-label">Фонд</label><select class="form-select" name="fund_id" required>{% for fund in funds %}<option value="{{ fund.id }}">{{ fund.name }}</option>{% endfor %}</select></div>
+        <div class="mb-3"><label class="form-label">Категория</label><select class="form-select" name="category" required>{% for category in categories %}<option value="{{ category.value }}">{{ category.labelBg }}</option>{% endfor %}</select></div>
+        <div class="mb-3"><label class="form-label">Сума (EUR)</label><input class="form-control" name="amount" inputmode="decimal" required></div>
+        <div class="mb-3"><label class="form-label">Дата на плащане</label><input class="form-control" type="date" name="paid_at" required></div>
+        <div class="mb-3"><label class="form-label">Описание</label><input class="form-control" name="description" required></div>
+        <div class="mb-3"><label class="form-label">Получател</label><input class="form-control" name="payee"></div>
+        <div class="mb-3"><label class="form-label">Документ</label><input class="form-control" name="document_reference"></div>
+        <div class="mb-3"><label class="form-label">Решение на ОС / основание</label><input class="form-control" name="decision_reference"></div>
+        <div class="mb-3"><label class="form-label">Бележка</label><textarea class="form-control" name="note"></textarea></div>
+        <button class="btn btn-primary" type="submit">Запиши разход</button>
+        <a class="btn btn-link" href="{{ path('app_management_finance') }}">Отказ</a>
+    </form>
+</main>
+{% endblock %}
