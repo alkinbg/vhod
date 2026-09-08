@@ -12,7 +12,6 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
-use LogicException;
 
 final readonly class CommunityModerationService
 {
@@ -20,7 +19,7 @@ final readonly class CommunityModerationService
 
     public function reportPost(User $reporter, CommunityPost $post, string $reason, DateTimeImmutable $createdAt): CommunityReport
     {
-        $result = $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($reporter, $post, $reason, $createdAt): CommunityReport {
+        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($reporter, $post, $reason, $createdAt): CommunityReport {
             $entityManager->lock($post, LockMode::PESSIMISTIC_WRITE);
             if (!$post->isPublished()) {
                 throw new DomainException('Hidden community posts cannot be reported through the resident workflow.');
@@ -31,17 +30,14 @@ final readonly class CommunityModerationService
             }
             $report = CommunityReport::forPost($reporter, $post, $reason, $createdAt);
             $entityManager->persist($report);
+
             return $report;
         });
-        if (!$result instanceof CommunityReport) {
-            throw new LogicException('Community report transaction returned an unexpected result.');
-        }
-        return $result;
     }
 
     public function reportComment(User $reporter, CommunityComment $comment, string $reason, DateTimeImmutable $createdAt): CommunityReport
     {
-        $result = $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($reporter, $comment, $reason, $createdAt): CommunityReport {
+        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($reporter, $comment, $reason, $createdAt): CommunityReport {
             $post = $comment->getPost();
             $entityManager->lock($post, LockMode::PESSIMISTIC_WRITE);
             $entityManager->lock($comment, LockMode::PESSIMISTIC_WRITE);
@@ -54,12 +50,9 @@ final readonly class CommunityModerationService
             }
             $report = CommunityReport::forComment($reporter, $comment, $reason, $createdAt);
             $entityManager->persist($report);
+
             return $report;
         });
-        if (!$result instanceof CommunityReport) {
-            throw new LogicException('Community report transaction returned an unexpected result.');
-        }
-        return $result;
     }
 
     public function setPostHidden(User $moderator, CommunityPost $post, bool $hidden): void
