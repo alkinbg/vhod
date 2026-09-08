@@ -64,13 +64,22 @@ class FeePolicyUnitRule
             throw new InvalidArgumentException('Rule effective-from date must be the first day of a month.');
         }
 
+        $normalizedQuantityOverride = null === $quantityOverride
+            ? null
+            : self::normalizePositiveDecimal3($quantityOverride, 'Quantity override');
+        $normalizedMultiplier = self::normalizeMultiplier($multiplier);
+
+        if (null === $normalizedQuantityOverride && '1.000' === $normalizedMultiplier) {
+            throw new InvalidArgumentException('A fee rule must change quantity or multiplier.');
+        }
+
         $this->policy = $policy;
         $this->unit = $unit;
         $this->effectiveFrom = $effectiveFrom;
         $this->reason = $reason;
         $this->decisionReference = self::nullableTrim($decisionReference);
-        $this->quantityOverride = null === $quantityOverride ? null : self::normalizePositiveDecimal3($quantityOverride, 'Quantity override');
-        $this->multiplier = self::normalizeMultiplier($multiplier);
+        $this->quantityOverride = $normalizedQuantityOverride;
+        $this->multiplier = $normalizedMultiplier;
     }
 
     public function getId(): ?int { return $this->id; }
