@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+{% block title %}Месечен финансов отчет{% endblock %}
+{% block body %}
+<main class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div><h1 class="h2 mb-1">Месечен финансов отчет</h1><p class="text-muted mb-0">{{ report.month|date('m.Y') }}</p></div>
+        <button class="btn btn-outline-secondary d-print-none" onclick="window.print()">Печат</button>
+    </div>
+
+    <h2 class="h4">Приходи</h2>
+    <table class="table table-sm"><tbody>{% for line in report.incomeLines %}<tr><td>{{ line.label }}</td><td class="text-end">{{ (line.amountCents / 100)|number_format(2, '.', '') }} €</td></tr>{% else %}<tr><td class="text-muted">Няма приходи.</td><td></td></tr>{% endfor %}</tbody><tfoot><tr><th>Общо приходи</th><th class="text-end">{{ (report.totalIncomeCents / 100)|number_format(2, '.', '') }} €</th></tr></tfoot></table>
+
+    <h2 class="h4 mt-4">Разходи</h2>
+    <table class="table table-sm"><tbody>{% for line in report.expenseLines %}<tr><td>{{ line.label }}</td><td class="text-end">{{ (line.amountCents / 100)|number_format(2, '.', '') }} €</td></tr>{% else %}<tr><td class="text-muted">Няма разходи.</td><td></td></tr>{% endfor %}</tbody><tfoot><tr><th>Общо разходи</th><th class="text-end">{{ (report.totalExpenseCents / 100)|number_format(2, '.', '') }} €</th></tr><tr><th>Нетно</th><th class="text-end">{{ (report.netCents / 100)|number_format(2, '.', '') }} €</th></tr></tfoot></table>
+
+    <h2 class="h4 mt-4">Годишен бюджет и изпълнение</h2>
+    <table class="table table-sm">
+        <thead><tr><th>Фонд</th><th>Категория</th><th class="text-end">Бюджет</th><th class="text-end">Изпълнение</th><th class="text-end">Остатък</th></tr></thead>
+        <tbody>{% for line in budget_actual %}<tr><td>{{ line.fund.name }}</td><td>{{ line.category.labelBg }}</td><td class="text-end">{{ (line.budgetCents / 100)|number_format(2, '.', '') }} €</td><td class="text-end">{{ (line.actualCents / 100)|number_format(2, '.', '') }} €</td><td class="text-end">{{ (line.remainingCents / 100)|number_format(2, '.', '') }} €</td></tr>{% endfor %}</tbody>
+    </table>
+</main>
+{% endblock %}

@@ -49,6 +49,9 @@ class Expense
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $note;
 
+    #[ORM\Column(length: 190, nullable: true)]
+    private ?string $decisionReference;
+
     private function __construct(
         Fund $fund,
         ExpenseCategory $category,
@@ -59,6 +62,7 @@ class Expense
         ?string $payee,
         ?string $documentReference,
         ?string $note,
+        ?string $decisionReference,
     ) {
         if ($amountCents <= 0) {
             throw new InvalidArgumentException('Expense amount must be positive.');
@@ -84,6 +88,7 @@ class Expense
         $this->payee = self::nullableTrim($payee);
         $this->documentReference = self::nullableTrim($documentReference);
         $this->note = self::nullableTrim($note);
+        $this->decisionReference = self::nullableTrim($decisionReference);
     }
 
     public static function post(
@@ -96,6 +101,7 @@ class Expense
         ?string $payee = null,
         ?string $documentReference = null,
         ?string $note = null,
+        ?string $decisionReference = null,
     ): self {
         return new self(
             $fund,
@@ -107,6 +113,7 @@ class Expense
             $payee,
             $documentReference,
             $note,
+            $decisionReference,
         );
     }
 
@@ -120,6 +127,7 @@ class Expense
     public function getPayee(): ?string { return $this->payee; }
     public function getDocumentReference(): ?string { return $this->documentReference; }
     public function getNote(): ?string { return $this->note; }
+    public function getDecisionReference(): ?string { return $this->decisionReference; }
 
     private static function nullableTrim(?string $value): ?string
     {

@@ -181,6 +181,7 @@ final class CondominiumBookControllerTest extends WebTestCase
 
         $entityManager = self::getContainer()->get('doctrine.orm.entity_manager');
         self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+        $entityManager->clear();
 
         $storedDeclaration = $entityManager->find(BookChangeDeclaration::class, $declarationId);
         $storedResident = $entityManager->find(User::class, $residentId);
