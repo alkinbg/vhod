@@ -13,6 +13,7 @@ use App\Enum\FeeDistribution;
 use App\Enum\FundType;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class FeePolicyUnitRuleTest extends TestCase
@@ -81,7 +82,7 @@ final class FeePolicyUnitRuleTest extends TestCase
         $rule->endAt(new DateTimeImmutable('2026-10-30'));
     }
 
-    /** @dataProvider invalidMultipliers */
+    #[DataProvider('invalidMultipliers')]
     public function testRuleRejectsInvalidMultiplier(string $multiplier): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -99,12 +100,12 @@ final class FeePolicyUnitRuleTest extends TestCase
     public static function invalidMultipliers(): iterable
     {
         yield 'negative' => ['-0.001'];
-        yield 'above legal configured ceiling' => ['5.001'];
+        yield 'above configured ceiling' => ['5.001'];
         yield 'too many decimals' => ['1.0001'];
         yield 'not numeric' => ['abc'];
     }
 
-    /** @dataProvider invalidQuantities */
+    #[DataProvider('invalidQuantities')]
     public function testRuleRejectsInvalidQuantityOverride(string $quantity): void
     {
         $this->expectException(InvalidArgumentException::class);
