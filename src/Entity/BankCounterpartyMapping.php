@@ -12,7 +12,6 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'bank_counterparty_mapping')]
 #[ORM\UniqueConstraint(name: 'uniq_bank_counterparty_mapping_active_iban', columns: ['counterparty_iban', 'active'])]
-#[ORM\Index(name: 'idx_bank_counterparty_mapping_lookup', columns: ['counterparty_iban', 'active'])]
 #[ORM\Index(name: 'idx_bank_counterparty_mapping_unit', columns: ['unit_id'])]
 class BankCounterpartyMapping
 {
