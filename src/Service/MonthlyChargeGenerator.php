@@ -52,7 +52,6 @@ final readonly class MonthlyChargeGenerator
                             'base_quantity' => '1.000',
                         ]],
                         FeeDistribution::PER_PERSON => $this->perPersonQuantity($policy, $unit, $billingMonth),
-                        FeeDistribution::IDEAL_PARTS => throw new DomainException('Distribution "ideal_parts" is not implemented yet.'),
                     };
 
                     $quantity = $rule?->getQuantityOverride() ?? $baseQuantity;
