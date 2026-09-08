@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\FeeDistribution;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use InvalidArgumentException;
@@ -62,6 +63,9 @@ class FeePolicyUnitRule
         }
         if ('01' !== $effectiveFrom->format('d')) {
             throw new InvalidArgumentException('Rule effective-from date must be the first day of a month.');
+        }
+        if (FeeDistribution::IDEAL_PARTS === $policy->getDistribution()) {
+            throw new InvalidArgumentException('Unit rules are not supported for ideal-parts policies.');
         }
 
         $normalizedQuantityOverride = null === $quantityOverride
