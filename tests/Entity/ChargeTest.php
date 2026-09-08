@@ -43,12 +43,28 @@ final class ChargeTest extends TestCase
         self::assertSame($policy, $charge->getPolicy());
         self::assertSame($unit, $charge->getUnit());
         self::assertSame('2026-09-01', $charge->getBillingMonth()->format('Y-m-d'));
-        self::assertSame('1.500', $charge->getQuantity());
+        self::assertSame('1.5000', $charge->getQuantity());
         self::assertSame(850, $charge->getPolicyAmountCents());
         self::assertSame(1275, $charge->getAmountCents());
         self::assertSame('per_unit', $charge->getCalculationDetails()['distribution']);
         self::assertSame('UTC', $charge->getPostedAt()->getTimezone()->getName());
         self::assertSame('2026-09-08 03:30:00', $charge->getPostedAt()->format('Y-m-d H:i:s'));
+    }
+
+    public function testChargePreservesFourDecimalQuantity(): void
+    {
+        $charge = Charge::post(
+            $this->policy(),
+            new Unit('12'),
+            new DateTimeImmutable('2026-09-01'),
+            '33.3333',
+            1001,
+            334,
+            ['distribution' => 'ideal_parts'],
+            new DateTimeImmutable('2026-09-08 03:30:00 UTC'),
+        );
+
+        self::assertSame('33.3333', $charge->getQuantity());
     }
 
     #[DataProvider('invalidAmounts')]
@@ -98,8 +114,8 @@ final class ChargeTest extends TestCase
     public static function invalidQuantities(): iterable
     {
         yield 'zero' => ['0'];
-        yield 'negative' => ['-1.000'];
-        yield 'too many decimals' => ['1.0001'];
+        yield 'negative' => ['-1.0000'];
+        yield 'too many decimals' => ['1.00001'];
         yield 'not numeric' => ['abc'];
     }
 
