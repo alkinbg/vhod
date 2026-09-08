@@ -14,7 +14,7 @@ final class Camt053StatementParserTest extends TestCase
     {
         $statement = (new Camt053StatementParser())->parse(self::fixture());
 
-        self::assertSame('BG80BNBG96611020345678', $statement->accountIban);
+        self::assertSame('BG35TEST00000000000000', $statement->accountIban);
         self::assertSame('STMT-2026-09-08', $statement->statementReference);
         self::assertSame('2026-09-01', $statement->periodFrom?->format('Y-m-d'));
         self::assertSame('2026-09-08', $statement->periodTo?->format('Y-m-d'));
@@ -28,13 +28,14 @@ final class Camt053StatementParserTest extends TestCase
         self::assertSame('TX-CREDIT-1', $credit->bankTransactionId);
         self::assertSame('ASR-CREDIT-1', $credit->entryReference);
         self::assertSame('E2E-CREDIT-1', $credit->endToEndId);
-        self::assertSame('Иван Иванов', $credit->counterpartyName);
-        self::assertSame('BG40BNBG96611000066123', $credit->counterpartyIban);
+        self::assertSame('Тестов Платец', $credit->counterpartyName);
+        self::assertSame('BG97FAKE00000000000001', $credit->counterpartyIban);
         self::assertSame('Такса ап. 12', $credit->remittanceInformation);
 
         $debit = $statement->transactions[1];
         self::assertSame(-3200, $debit->amountCents);
-        self::assertSame('Сервиз ООД', $debit->counterpartyName);
+        self::assertSame('Тестов Доставчик', $debit->counterpartyName);
+        self::assertSame('BG22DEMO00000000000002', $debit->counterpartyIban);
         self::assertSame('Ремонт входна врата', $debit->remittanceInformation);
     }
 
@@ -72,7 +73,7 @@ XML;
 
     public function testMissingStatementAccountIbanIsRejected(): void
     {
-        $xml = str_replace('<IBAN>BG80BNBG96611020345678</IBAN>', '', self::fixture());
+        $xml = str_replace('<IBAN>BG35TEST00000000000000</IBAN>', '', self::fixture());
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('CAMT.053 statement account IBAN is required.');
