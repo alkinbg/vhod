@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ post.title }} · Общност · Vhod{% endblock %}
+
+{% block body %}
+<div class="notice notice-info"><strong>Общност / неофициално съдържание.</strong> Тази публикация не представлява официално съобщение или решение на Общото събрание.</div>
+<article class="panel community-post-detail">
+    <div class="community-post-meta"><span class="badge">{{ post.type.labelBg() }}</span><span>{{ post.author.person.displayName }}</span><time datetime="{{ post.createdAt|date('c') }}">{{ post.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }}</time></div>
+    <h1>{{ post.title }}</h1>
+    <div class="community-body">{{ post.body|nl2br }}</div>
+    {% if post.type.value == 'event' %}<p class="community-event-time"><strong>Начало:</strong> {{ post.startsAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% if post.endsAt %}<br><strong>Край:</strong> {{ post.endsAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% endif %}</p>{% endif %}
+
+    {% if post.type.value == 'poll' %}
+        <section class="community-section">
+            <div class="notice notice-soft"><strong>Неформална анкета</strong> — няма сила на решение на Общото събрание.</div>
+            <form method="post" action="{{ path('app_community_poll_vote', {id: post.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('community_poll_vote_' ~ post.id) }}">
+                {% for option in poll_options %}
+                    <label class="poll-option"><span><input type="radio" name="option_id" value="{{ option.id }}" required{% if user_vote_option_id == option.id %} checked{% endif %}> {{ option.label }}</span><strong>{{ poll_vote_counts[option.id] ?? 0 }} гласа</strong></label>
+                {% endfor %}
+                <button type="submit" name="poll_vote_submit" value="1">Гласувай</button>
+            </form>
+        </section>
+    {% endif %}
+
+    <section class="community-section">
+        <h2>Реакции</h2>
+        <div class="reaction-row">
+            {% for type in reaction_types %}
+                <form class="inline-form" method="post" action="{{ path('app_community_reaction', {id: post.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('community_reaction_' ~ post.id) }}"><input type="hidden" name="type" value="{{ type.value }}">
+                    <button class="secondary-button{% if user_reaction and user_reaction.value == type.value %} active{% endif %}" type="submit" name="reaction_{{ type.value }}" value="1">{{ type.labelBg() }} · {{ reaction_counts[type.value] ?? 0 }}</button>
+                </form>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="community-section report-box"><details><summary>Сигнализирай публикацията</summary><form method="post" action="{{ path('app_community_report_post', {id: post.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_report_post_' ~ post.id) }}"><label for="post-report-reason">Причина</label><textarea id="post-report-reason" name="reason" maxlength="2000" rows="3" required></textarea><button type="submit" class="danger-button" name="post_report_submit" value="1">Сигнализирай</button></form></details></section>
+</article>
+
+<section class="community-section">
+    <h2>Коментари</h2>
+    <div class="community-comments">
+        {% for comment in comments %}
+            <article class="panel comment-card">
+                <div class="community-post-meta"><strong>{{ comment.author.person.displayName }}</strong><time>{{ comment.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }}</time></div>
+                <div>{{ comment.body|nl2br }}</div>
+                <details class="comment-report"><summary>Сигнализирай</summary><form method="post" action="{{ path('app_community_report_comment', {id: comment.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_report_comment_' ~ comment.id) }}"><textarea name="reason" maxlength="2000" rows="2" required></textarea><button type="submit" class="danger-button" name="comment_report_submit_{{ comment.id }}" value="1">Сигнализирай коментара</button></form></details>
+            </article>
+        {% else %}<p class="muted">Все още няма коментари.</p>{% endfor %}
+    </div>
+    <div class="panel form-panel"><form method="post" action="{{ path('app_community_comment', {id: post.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_comment_' ~ post.id) }}"><label for="community-comment">Добави коментар</label><textarea id="community-comment" name="body" maxlength="5000" rows="4" required></textarea><button type="submit" name="comment_submit" value="1">Добави коментар</button></form></div>
+</section>
+{% endblock %}
