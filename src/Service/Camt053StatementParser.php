@@ -80,11 +80,9 @@ final class Camt053StatementParser
 
         $transactions = [];
         foreach ($entryNodes as $entryNode) {
-            if (!$entryNode instanceof DOMElement) {
-                continue;
+            if ($entryNode instanceof DOMElement) {
+                $transactions[] = $this->parseEntry($xpath, $entryNode);
             }
-
-            $transactions[] = $this->parseEntry($xpath, $entryNode);
         }
 
         return new NormalizedBankStatement(
@@ -254,7 +252,9 @@ final class Camt053StatementParser
             return null;
         }
 
-        return $nodes->item(0);
+        $node = $nodes->item(0);
+
+        return $node instanceof DOMNode ? $node : null;
     }
 
     private static function firstText(DOMXPath $xpath, string $expression, ?DOMNode $context = null): ?string
@@ -278,6 +278,10 @@ final class Camt053StatementParser
 
         $parts = [];
         foreach ($nodes as $node) {
+            if (!$node instanceof DOMNode) {
+                continue;
+            }
+
             $value = trim($node->textContent);
             if ('' !== $value) {
                 $parts[] = $value;
