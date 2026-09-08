@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Модерация на общността · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Управление</p><h1>Модерация на общността</h1><p class="muted">Сигналите и скриването на съдържание са отделни действия. Приключването на сигнал не изтрива публикация.</p></div></section>
+<section class="community-section">
+    <h2>Сигнали</h2>
+    <div class="community-feed">
+        {% for report in reports %}
+            <article class="panel moderation-card">
+                <div class="panel-title"><div><span class="badge">{{ report.status.value == 'open' ? 'Отворен' : 'Приключен' }}</span> <strong>{{ report.reporter.person.displayName }}</strong></div><time>{{ report.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }}</time></div>
+                <p><strong>Причина:</strong> {{ report.reason }}</p>
+                {% if report.post %}
+                    <p><strong>Публикация:</strong> {{ report.post.title }} · {{ report.post.author.person.displayName }}</p>
+                    <form class="inline-form" method="post" action="{{ path('app_community_moderation_post_visibility', {id: report.post.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_visibility_post_' ~ report.post.id) }}"><input type="hidden" name="visibility" value="{{ report.post.status.value == 'published' ? 'hidden' : 'published' }}"><button type="submit" class="secondary-button" name="post_visibility_{{ report.post.id }}" value="1">{{ report.post.status.value == 'published' ? 'Скрий публикацията' : 'Покажи публикацията' }}</button></form>
+                {% elseif report.comment %}
+                    <p><strong>Коментар:</strong> {{ report.comment.body }}</p><p class="muted">В публикация: {{ report.comment.post.title }}</p>
+                    <form class="inline-form" method="post" action="{{ path('app_community_moderation_comment_visibility', {id: report.comment.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_visibility_comment_' ~ report.comment.id) }}"><input type="hidden" name="visibility" value="{{ report.comment.status.value == 'published' ? 'hidden' : 'published' }}"><button type="submit" class="secondary-button" name="comment_visibility_{{ report.comment.id }}" value="1">{{ report.comment.status.value == 'published' ? 'Скрий коментара' : 'Покажи коментара' }}</button></form>
+                {% endif %}
+                {% if report.status.value == 'open' %}<form class="inline-form" method="post" action="{{ path('app_community_moderation_report_resolve', {id: report.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_report_resolve_' ~ report.id) }}"><button type="submit" name="report_resolve_{{ report.id }}" value="1">Приключи сигнала</button></form>{% else %}<p class="muted">Приключен {{ report.resolvedAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% if report.resolver %} от {{ report.resolver.person.displayName }}{% endif %}.</p>{% endif %}
+            </article>
+        {% else %}<div class="panel empty-state">Няма подадени сигнали.</div>{% endfor %}
+    </div>
+</section>
+{% if hidden_posts or hidden_comments %}
+<section class="community-section"><h2>Скрито съдържание</h2>
+    {% for post in hidden_posts %}<article class="panel moderation-card"><strong>Публикация: {{ post.title }}</strong><form class="inline-form" method="post" action="{{ path('app_community_moderation_post_visibility', {id: post.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_visibility_post_' ~ post.id) }}"><input type="hidden" name="visibility" value="published"><button class="secondary-button" type="submit" name="post_visibility_{{ post.id }}" value="1">Покажи публикацията</button></form></article>{% endfor %}
+    {% for comment in hidden_comments %}<article class="panel moderation-card"><strong>Коментар в „{{ comment.post.title }}“</strong><p>{{ comment.body }}</p><form class="inline-form" method="post" action="{{ path('app_community_moderation_comment_visibility', {id: comment.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('community_visibility_comment_' ~ comment.id) }}"><input type="hidden" name="visibility" value="published"><button class="secondary-button" type="submit" name="comment_visibility_{{ comment.id }}" value="1">Покажи коментара</button></form></article>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

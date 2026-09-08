@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Нова публикация · Общност · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Общност</p><h1>Нова публикация</h1><p class="muted">Избери най-подходящия тип. Официални решения и съобщения не се публикуват тук.</p></div></section>
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+<div class="panel form-panel">
+    <form method="post" action="{{ path('app_community_new') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('community_post_create') }}">
+        <label for="community-post-type">Тип</label>
+        <select id="community-post-type" name="type" required>{% for type in types %}<option value="{{ type.value }}">{{ type.labelBg() }}</option>{% endfor %}</select>
+        <label for="community-title">Заглавие</label>
+        <input id="community-title" name="title" maxlength="160" required value="{{ app.request.request.get('title') }}">
+        <label for="community-body">Текст</label>
+        <textarea id="community-body" name="body" maxlength="10000" rows="8" required>{{ app.request.request.get('body') }}</textarea>
+        <div class="columns">
+            <div><label for="community-starts-at">Начало на събитие</label><input id="community-starts-at" type="datetime-local" name="starts_at" value="{{ app.request.request.get('starts_at') }}"></div>
+            <div><label for="community-ends-at">Край на събитие</label><input id="community-ends-at" type="datetime-local" name="ends_at" value="{{ app.request.request.get('ends_at') }}"></div>
+        </div>
+        <small class="muted">Датите се попълват само при тип „Събитие“.</small>
+        <label for="community-poll-options">Опции за неформална анкета</label>
+        <textarea id="community-poll-options" name="poll_options" rows="5" placeholder="По една опция на ред">{{ app.request.request.get('poll_options') }}</textarea>
+        <small class="muted">Само при тип „Неформална анкета“. Необходими са поне две различни опции.</small>
+        <button type="submit">Публикувай</button>
+    </form>
+</div>
+{% endblock %}

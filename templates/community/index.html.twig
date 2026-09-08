@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Общност · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero community-hero">
+    <div>
+        <p class="eyebrow">Съседи</p>
+        <h1>Общност</h1>
+        <p class="muted">Неофициално пространство за разговори, идеи, помощ, събития и вещи между съседи.</p>
+    </div>
+    <a class="button-link" href="{{ path('app_community_new') }}">Нова публикация</a>
+</section>
+
+<div class="notice notice-info"><strong>Неофициално съдържание.</strong> Публикациите и анкетите тук не са решения, съобщения или гласувания на Общото събрание.</div>
+
+<form class="filter-form" method="get" action="{{ path('app_community_index') }}">
+    <label for="community-type">Покажи</label>
+    <select id="community-type" name="type">
+        <option value="">Всички публикации</option>
+        {% for type in types %}
+            <option value="{{ type.value }}"{% if selected_type and selected_type.value == type.value %} selected{% endif %}>{{ type.labelBg() }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Филтрирай</button>
+</form>
+
+<div class="community-feed">
+    {% for post in posts %}
+        {% set post_stats = stats[post.id] ?? {comments: 0, reactions: 0, poll_options: []} %}
+        <article class="panel community-post-card">
+            <div class="community-post-meta">
+                <span class="badge">{{ post.type.labelBg() }}</span>
+                <span>{{ post.author.person.displayName }}</span>
+                <time datetime="{{ post.createdAt|date('c') }}">{{ post.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }}</time>
+            </div>
+            <h2><a href="{{ path('app_community_show', {id: post.id}) }}">{{ post.title }}</a></h2>
+            <p>{{ post.body|length > 420 ? post.body|slice(0, 420) ~ '…' : post.body }}</p>
+            {% if post.type.value == 'event' %}
+                <p class="community-event-time"><strong>Начало:</strong> {{ post.startsAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% if post.endsAt %} · <strong>Край:</strong> {{ post.endsAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% endif %}</p>
+            {% endif %}
+            {% if post.type.value == 'poll' %}
+                <div class="notice notice-soft">Неформална анкета — няма сила на решение на Общото събрание.</div>
+                <ul class="poll-results compact-list">
+                    {% for row in post_stats.poll_options %}<li><span>{{ row.option.label }}</span><strong>{{ row.votes }}</strong></li>{% endfor %}
+                </ul>
+            {% endif %}
+            <div class="community-post-footer"><span>{{ post_stats.comments }} коментара</span><span>{{ post_stats.reactions }} реакции</span><a href="{{ path('app_community_show', {id: post.id}) }}">Отвори</a></div>
+        </article>
+    {% else %}
+        <div class="panel empty-state"><h2>Все още няма публикации</h2><p class="muted">Можеш да започнеш първата тема в общността.</p></div>
+    {% endfor %}
+</div>
+{% endblock %}
