@@ -19,7 +19,7 @@ The application does not invent a legal interpretation when the General Assembly
 
 ## Currency and money
 
-All new financial records use EUR. Amounts are persisted as fixed-scale decimal strings and calculated through integer cents; floating-point money arithmetic is not allowed.
+All new financial records use EUR. Money amounts are persisted and calculated as integer cents; floating-point money arithmetic is not allowed. Non-money calculation factors such as quantities, multipliers and ideal parts use canonical fixed-scale decimal strings.
 
 A generated charge stores both its final amount and the calculation snapshot that produced it.
 
@@ -47,7 +47,7 @@ Fields:
 - `fund`;
 - `category` — `MANAGEMENT_MAINTENANCE`, `REPAIR_RENOVATION`, `OTHER`;
 - `distribution` — `PER_PERSON`, `PER_UNIT`, `IDEAL_PARTS`;
-- `monthlyAmount` in EUR;
+- `monthlyAmountCents` in EUR cents;
 - `effectiveFrom` and optional `effectiveUntil`;
 - `decisionReference` identifying the General Assembly decision;
 - `includeAnimalEquivalents` for policies covering the Article 51 animal-related cost categories;
@@ -80,7 +80,7 @@ Fields:
 
 The rule is deliberately generic enough to represent a legally documented exemption, a 50% factor, a business multiplier, or an explicitly assessed person-equivalent count without collecting unnecessary sensitive data such as dates of birth.
 
-Multiplier range is `0.000` through `5.000`. A rule must actually change the normal calculation.
+Multiplier range is `0.000` through `5.000`. A rule must actually change the normal calculation; a no-op rule with no quantity override and multiplier `1.000` is rejected.
 
 ## Charge
 
@@ -88,13 +88,12 @@ Multiplier range is `0.000` through `5.000`. A rule must actually change the nor
 
 Fields:
 
-- `feePolicy` version;
-- `fund` snapshot relation;
+- immutable `feePolicy` version, which also identifies the fund used by that policy version;
 - `unit`;
 - `billingMonth` normalized to the first day of the month;
-- `quantity` used for calculation;
-- `policyAmount` snapshot;
-- final `amount`;
+- fixed-scale `quantity` used for calculation;
+- `policyAmountCents` snapshot;
+- final `amountCents`;
 - JSON `calculationDetails` snapshot;
 - UTC `postedAt`.
 
