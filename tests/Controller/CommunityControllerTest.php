@@ -13,7 +13,6 @@ use App\Entity\CommunityReport;
 use App\Entity\Person;
 use App\Entity\User;
 use App\Enum\CommunityPostType;
-use App\Service\CommunityPostService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -81,22 +80,50 @@ final class CommunityControllerTest extends WebTestCase
 
     public function testResidentCanCommentReactReportAndChangePollVote(): void
     {
-        $post = CommunityPost::publish($this->otherResident, CommunityPostType::POST, 'Почистване в събота', 'Нека се организираме за двора.', new DateTimeImmutable('2026-09-08 15:00:00 Europe/Sofia'));
-        $this->entityManager->persist($post);
+        $post = CommunityPost::publish(
+            $this->otherResident,
+            CommunityPostType::POST,
+            'Почистване в събота',
+            'Нека се организираме за двора.',
+            new DateTimeImmutable('2026-09-08 15:00:00 Europe/Sofia'),
+        );
+        $poll = CommunityPost::publish(
+            $this->otherResident,
+            CommunityPostType::POLL,
+            'Да боядисаме ли входа?',
+            'Неформална анкета за мнение.',
+            new DateTimeImmutable('2026-09-08 16:00:00 Europe/Sofia'),
+        );
+        $firstOption = CommunityPollOption::create($poll, 'Да', 1);
+        $secondOption = CommunityPollOption::create($poll, 'Не', 2);
+        foreach ([$post, $poll, $firstOption, $secondOption] as $entity) {
+            $this->entityManager->persist($entity);
+        }
         $this->entityManager->flush();
+
         $postId = $post->getId();
+        $pollId = $poll->getId();
+        $firstOptionId = $firstOption->getId();
+        $secondOptionId = $secondOption->getId();
         self::assertNotNull($postId);
+        self::assertNotNull($pollId);
+        self::assertNotNull($firstOptionId);
+        self::assertNotNull($secondOptionId);
+
         $this->client->loginUser($this->resident);
         $crawler = $this->client->request('GET', '/community/'.$postId);
         self::assertResponseIsSuccessful();
         $this->client->submit($crawler->selectButton('comment_submit')->form(['body' => 'Ще се включа.']));
         self::assertResponseRedirects('/community/'.$postId);
+
         $crawler = $this->client->request('GET', '/community/'.$postId);
         $this->client->submit($crawler->selectButton('reaction_like')->form());
         self::assertResponseRedirects('/community/'.$postId);
+
         $crawler = $this->client->request('GET', '/community/'.$postId);
         $this->client->submit($crawler->selectButton('post_report_submit')->form(['reason' => 'Искам управителят да провери съдържанието.']));
         self::assertResponseRedirects('/community/'.$postId);
+
         /** @var list<CommunityComment> $comments */
         $comments = $this->entityManager->getRepository(CommunityComment::class)->findAll();
         self::assertCount(1, $comments);
@@ -104,32 +131,26 @@ final class CommunityControllerTest extends WebTestCase
         self::assertCount(1, $this->entityManager->getRepository(CommunityReport::class)->findAll());
         $commentId = $comments[0]->getId();
         self::assertNotNull($commentId);
+
         $crawler = $this->client->request('GET', '/community/'.$postId);
         $this->client->submit($crawler->selectButton('comment_report_submit_'.$commentId)->form(['reason' => 'Проверка на коментара.']));
         self::assertResponseRedirects('/community/'.$postId);
         self::assertCount(2, $this->entityManager->getRepository(CommunityReport::class)->findAll());
 
-        $service = self::getContainer()->get(CommunityPostService::class);
-        self::assertInstanceOf(CommunityPostService::class, $service);
-        $poll = $service->create($this->otherResident, CommunityPostType::POLL, 'Да боядисаме ли входа?', 'Неформална анкета за мнение.', new DateTimeImmutable('2026-09-08 16:00:00 Europe/Sofia'), pollOptions: ['Да', 'Не']);
-        $pollId = $poll->getId();
-        self::assertNotNull($pollId);
-        /** @var list<CommunityPollOption> $options */
-        $options = $this->entityManager->getRepository(CommunityPollOption::class)->findBy(['poll' => $poll], ['position' => 'ASC']);
-        self::assertCount(2, $options);
-        self::assertNotNull($options[0]->getId());
-        self::assertNotNull($options[1]->getId());
         $crawler = $this->client->request('GET', '/community/'.$pollId);
+        self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'няма сила на решение на Общото събрание');
-        $this->client->submit($crawler->selectButton('poll_vote_submit')->form(['option_id' => (string) $options[0]->getId()]));
+        $this->client->submit($crawler->selectButton('poll_vote_submit')->form(['option_id' => (string) $firstOptionId]));
         self::assertResponseRedirects('/community/'.$pollId);
+
         $crawler = $this->client->request('GET', '/community/'.$pollId);
-        $this->client->submit($crawler->selectButton('poll_vote_submit')->form(['option_id' => (string) $options[1]->getId()]));
+        $this->client->submit($crawler->selectButton('poll_vote_submit')->form(['option_id' => (string) $secondOptionId]));
         self::assertResponseRedirects('/community/'.$pollId);
+
         /** @var list<CommunityPollVote> $votes */
         $votes = $this->entityManager->getRepository(CommunityPollVote::class)->findBy(['poll' => $poll]);
         self::assertCount(1, $votes);
-        self::assertSame($options[1]->getId(), $votes[0]->getOption()->getId());
+        self::assertSame($secondOptionId, $votes[0]->getOption()->getId());
     }
 
     public function testInvalidCsrfBlocksEveryResidentMutationFamily(): void
@@ -142,8 +163,15 @@ final class CommunityControllerTest extends WebTestCase
             $this->entityManager->persist($entity);
         }
         $this->entityManager->flush();
-        $postId = $post->getId(); $pollId = $poll->getId(); $commentId = $comment->getId(); $optionId = $option->getId();
-        self::assertNotNull($postId); self::assertNotNull($pollId); self::assertNotNull($commentId); self::assertNotNull($optionId);
+        $postId = $post->getId();
+        $pollId = $poll->getId();
+        $commentId = $comment->getId();
+        $optionId = $option->getId();
+        self::assertNotNull($postId);
+        self::assertNotNull($pollId);
+        self::assertNotNull($commentId);
+        self::assertNotNull($optionId);
+
         $this->client->loginUser($this->resident);
         $requests = [
             ['/community/new', ['_token' => 'invalid', 'type' => 'post', 'title' => 'X', 'body' => 'Y']],
@@ -163,6 +191,7 @@ final class CommunityControllerTest extends WebTestCase
         self::assertCount(1, $this->entityManager->getRepository(CommunityComment::class)->findAll());
     }
 
+    /** @param list<string> $roles */
     private function persistUser(string $email, string $firstName, string $lastName, array $roles = []): User
     {
         $person = new Person($firstName, $lastName, email: $email);
@@ -170,6 +199,7 @@ final class CommunityControllerTest extends WebTestCase
         $user->setRoles($roles);
         $this->entityManager->persist($person);
         $this->entityManager->persist($user);
+
         return $user;
     }
 }
