@@ -68,10 +68,12 @@ final class CommunityControllerTest extends WebTestCase
         ]);
         $this->client->submit($form);
         self::assertResponseRedirects();
+
         /** @var list<CommunityPost> $posts */
         $posts = $this->entityManager->getRepository(CommunityPost::class)->findAll();
         self::assertCount(1, $posts);
         self::assertSame(CommunityPostType::IDEA, $posts[0]->getType());
+
         $this->client->request('GET', '/community');
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Нова пейка пред входа');
@@ -111,6 +113,7 @@ final class CommunityControllerTest extends WebTestCase
         self::assertNotNull($secondOptionId);
 
         $this->client->loginUser($this->resident);
+
         $crawler = $this->client->request('GET', '/community/'.$postId);
         self::assertResponseIsSuccessful();
         $this->client->submit($crawler->selectButton('comment_submit')->form(['body' => 'Ще се включа.']));
@@ -124,18 +127,9 @@ final class CommunityControllerTest extends WebTestCase
         $this->client->submit($crawler->selectButton('post_report_submit')->form(['reason' => 'Искам управителят да провери съдържанието.']));
         self::assertResponseRedirects('/community/'.$postId);
 
-        /** @var list<CommunityComment> $comments */
-        $comments = $this->entityManager->getRepository(CommunityComment::class)->findAll();
-        self::assertCount(1, $comments);
-        self::assertCount(1, $this->entityManager->getRepository(CommunityReaction::class)->findAll());
-        self::assertCount(1, $this->entityManager->getRepository(CommunityReport::class)->findAll());
-        $commentId = $comments[0]->getId();
-        self::assertNotNull($commentId);
-
         $crawler = $this->client->request('GET', '/community/'.$postId);
-        $this->client->submit($crawler->selectButton('comment_report_submit_'.$commentId)->form(['reason' => 'Проверка на коментара.']));
+        $this->client->submit($crawler->selectButton('Сигнализирай коментара')->form(['reason' => 'Проверка на коментара.']));
         self::assertResponseRedirects('/community/'.$postId);
-        self::assertCount(2, $this->entityManager->getRepository(CommunityReport::class)->findAll());
 
         $crawler = $this->client->request('GET', '/community/'.$pollId);
         self::assertResponseIsSuccessful();
@@ -147,8 +141,17 @@ final class CommunityControllerTest extends WebTestCase
         $this->client->submit($crawler->selectButton('poll_vote_submit')->form(['option_id' => (string) $secondOptionId]));
         self::assertResponseRedirects('/community/'.$pollId);
 
+        $entityManager = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+        $managedPoll = $entityManager->find(CommunityPost::class, $pollId);
+        self::assertInstanceOf(CommunityPost::class, $managedPoll);
+
+        self::assertCount(1, $entityManager->getRepository(CommunityComment::class)->findBy(['post' => $postId]));
+        self::assertCount(1, $entityManager->getRepository(CommunityReaction::class)->findBy(['post' => $postId]));
+        self::assertCount(2, $entityManager->getRepository(CommunityReport::class)->findAll());
+
         /** @var list<CommunityPollVote> $votes */
-        $votes = $this->entityManager->getRepository(CommunityPollVote::class)->findBy(['poll' => $poll]);
+        $votes = $entityManager->getRepository(CommunityPollVote::class)->findBy(['poll' => $managedPoll]);
         self::assertCount(1, $votes);
         self::assertSame($secondOptionId, $votes[0]->getOption()->getId());
     }
@@ -185,6 +188,7 @@ final class CommunityControllerTest extends WebTestCase
             $this->client->request('POST', $path, $parameters);
             self::assertResponseStatusCodeSame(403);
         }
+
         self::assertCount(0, $this->entityManager->getRepository(CommunityReaction::class)->findAll());
         self::assertCount(0, $this->entityManager->getRepository(CommunityPollVote::class)->findAll());
         self::assertCount(0, $this->entityManager->getRepository(CommunityReport::class)->findAll());
