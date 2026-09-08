@@ -92,14 +92,14 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
         self::assertCount(2, $charges);
 
         self::assertSame('12', $charges[0]->getUnit()->getDesignation());
-        self::assertSame('1.000', $charges[0]->getQuantity());
+        self::assertSame('1.0000', $charges[0]->getQuantity());
         self::assertSame(850, $charges[0]->getAmountCents());
         self::assertSame('per_unit', $charges[0]->getCalculationDetails()['distribution']);
         self::assertSame('1.000', $charges[0]->getCalculationDetails()['base_quantity']);
         self::assertSame('1.000', $charges[0]->getCalculationDetails()['multiplier']);
 
         self::assertSame('13', $charges[1]->getUnit()->getDesignation());
-        self::assertSame('2.000', $charges[1]->getQuantity());
+        self::assertSame('2.0000', $charges[1]->getQuantity());
         self::assertSame(2550, $charges[1]->getAmountCents());
         self::assertSame('2.000', $charges[1]->getCalculationDetails()['quantity_override']);
         self::assertSame('1.500', $charges[1]->getCalculationDetails()['multiplier']);
@@ -189,7 +189,7 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
         self::assertSame(1500, $result->totalAmountCents);
 
         $charges = $this->chargesByDesignation();
-        self::assertSame('3.000', $charges['12']->getQuantity());
+        self::assertSame('3.0000', $charges['12']->getQuantity());
         self::assertSame(900, $charges['12']->getAmountCents());
         self::assertSame('per_person', $charges['12']->getCalculationDetails()['distribution']);
         self::assertSame(2, $charges['12']->getCalculationDetails()['base_occupancy_count']);
@@ -197,7 +197,7 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
         self::assertFalse($charges['12']->getCalculationDetails()['unoccupied_minimum_applied']);
         self::assertSame('current_register', $charges['12']->getCalculationDetails()['animal_source']);
 
-        self::assertSame('2.000', $charges['13']->getQuantity());
+        self::assertSame('2.0000', $charges['13']->getQuantity());
         self::assertSame(600, $charges['13']->getAmountCents());
         self::assertSame(1, $charges['13']->getCalculationDetails()['base_occupancy_count']);
         self::assertSame(0, $charges['13']->getCalculationDetails()['animal_equivalents']);
@@ -234,7 +234,7 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
 
         $charge = $this->entityManager->getRepository(Charge::class)->findOneBy(['unit' => $unit]);
         self::assertInstanceOf(Charge::class, $charge);
-        self::assertSame('1.000', $charge->getQuantity());
+        self::assertSame('1.0000', $charge->getQuantity());
         self::assertSame(0, $charge->getCalculationDetails()['base_occupancy_count']);
         self::assertTrue($charge->getCalculationDetails()['unoccupied_minimum_applied']);
     }
@@ -271,6 +271,9 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
         self::assertSame(1001, $result->totalAmountCents);
 
         $charges = $this->chargesByDesignation();
+        self::assertSame('33.3333', $charges['12']->getQuantity());
+        self::assertSame('33.3333', $charges['13']->getQuantity());
+        self::assertSame('33.3334', $charges['14']->getQuantity());
         self::assertSame(334, $charges['12']->getAmountCents());
         self::assertSame(333, $charges['13']->getAmountCents());
         self::assertSame(334, $charges['14']->getAmountCents());
