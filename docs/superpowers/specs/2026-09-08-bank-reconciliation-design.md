@@ -2,29 +2,31 @@
 
 ## Scope
 
-This slice extends the existing immutable payment ledger with bank-account statement import and reconciliation for the single private condominium entrance.
+This slice extends the existing immutable payment ledger with bank-account statement import and safe reconciliation for one private condominium entrance.
 
-The goal is practical: the manager/cashier can import a statement, avoid duplicate rows, see which incoming transfers are already understood, automatically reconcile only high-confidence transactions, and leave ambiguous transactions in a manual queue.
+The practical workflow is: import a bank statement, preserve every normalized bank row, deduplicate repeated/overlapping reports, automatically reconcile only exact known payer IBANs, and leave everything else unmatched for explicit manager/cashier action.
 
-This slice does **not** implement Open Banking/API credentials, PSD2 account aggregation, card processing, payment initiation, bank login automation, expenses, or resident-facing payment UI.
+This slice does **not** implement Open Banking, bank credentials, PSD2 account aggregation, card processing, payment initiation, bank-login automation, expenses or resident-facing banking UI.
 
 ## Product boundary
 
-- Vhod remains a private system for one entrance.
-- The application never acts as a wallet and never holds funds.
-- Money continues to move directly through the condominium bank account.
-- Bank data is operational/financial data and is visible only to authorised management roles.
-- No bank credentials are stored.
+- one private entrance only;
+- the application never acts as a wallet and never holds funds;
+- money moves directly through the condominium bank account;
+- raw bank data is management/controller data, not resident-visible data;
+- no bank credentials or secrets are stored.
 
-## Input formats
+## Input model
 
-The import domain is format-neutral.
+The bank domain is parser-neutral. The first adapter is ISO 20022 `camt.053` (`BankToCustomerStatement`). Future MT940 or bank-specific CSV adapters must produce the same normalized statement/transaction value objects rather than introduce bank-specific reconciliation logic.
 
-The first concrete parser is ISO 20022 `camt.053` (`BankToCustomerStatement`) because it is a standard statement format supported by Bulgarian banking channels and can be added without coupling the domain to one bank.
+The CAMT parser:
 
-`MT940` and bank-specific CSV adapters are follow-up parsers over the same normalized transaction model. They must not introduce bank-specific logic into reconciliation services.
-
-XML parsing must disable external entity/network resolution and reject malformed or unsupported documents cleanly.
+- rejects DOCTYPE declarations before XML parsing;
+- uses `LIBXML_NONET`;
+- never enables external entity substitution (`LIBXML_NOENT`);
+- rejects malformed documents and unsupported currency cleanly;
+- uses integer-cent decimal parsing rather than float multiplication.
 
 ## BankAccount
 
@@ -32,210 +34,191 @@ XML parsing must disable external entity/network resolution and reject malformed
 
 Fields:
 
-- `name` — manager-facing label, e.g. “Основна сметка”;
-- `iban` — normalized uppercase IBAN without spaces;
-- `currency` — `EUR` in this system;
-- `active` — whether new imports are allowed.
+- manager-facing name;
+- normalized IBAN;
+- currency (`EUR`);
+- active flag.
 
 Rules:
 
-- IBAN is required and unique;
-- IBAN normalization is deterministic;
-- this slice supports EUR accounts only;
-- deactivation is preferred over deletion once financial history exists;
-- no online-banking credentials or secrets belong on this entity.
+- IBAN is normalized and MOD-97 validated;
+- IBAN is unique;
+- only EUR accounts are supported in this slice;
+- inactive accounts reject new imports;
+- deactivation is preferred over deletion after financial history exists.
 
 ## BankStatementImport
 
-`BankStatementImport` is an immutable record of one imported statement payload.
+Immutable audit record for one imported payload.
 
 Fields:
 
-- `bankAccount`;
-- `format` — initially `CAMT053`;
-- `sourceFilename` — optional original filename for audit convenience;
-- `contentHash` — SHA-256 of the exact imported bytes;
-- `statementReference` — statement id from the source format when available;
-- `periodFrom` / `periodTo` — statement period when available;
-- `importedAt` — UTC timestamp;
-- `transactionCount`.
+- bank account;
+- format (`CAMT053` initially);
+- exact-payload SHA-256 content hash;
+- optional source filename;
+- optional statement reference;
+- optional statement period;
+- UTC import timestamp;
+- source transaction count.
 
 Rules:
 
 - `(bank_account_id, content_hash)` is unique;
-- re-importing the exact same file returns the existing import result and creates no duplicate transactions;
-- the original uploaded bytes are not required to be stored in this slice;
-- filename is metadata, never an idempotency key.
+- exact same-file re-import returns the existing import and creates no duplicate transactions;
+- filename is metadata only, never identity;
+- original uploaded bytes do not need to be stored in this slice.
 
 ## BankTransaction
 
-`BankTransaction` is an immutable normalized bank-ledger row.
+Immutable normalized bank-ledger row.
 
 Fields:
 
-- `bankAccount`;
-- `statementImport`;
-- `bankTransactionId` — bank/statement transaction id when supplied;
-- `entryReference` — entry/account-servicer reference when supplied;
-- `endToEndId` — payment end-to-end id when supplied;
-- `bookingDate`;
-- `valueDate` — optional;
-- `amountCents` — signed EUR cents: positive credit/incoming, negative debit/outgoing;
-- `counterpartyName` — optional;
-- `counterpartyIban` — optional normalized IBAN;
-- `remittanceInformation` — optional payment details/reference text;
-- `fingerprint` — deterministic SHA-256 fallback identity derived from normalized source fields.
+- bank account and statement import;
+- deterministic fingerprint;
+- signed EUR cents;
+- booking date and optional value date;
+- optional bank transaction id;
+- optional `entryReference`, which for CAMT.053 contains parsed `AcctSvcrRef`;
+- optional end-to-end id;
+- optional counterparty name/IBAN;
+- optional remittance information.
 
-Rules:
-
-- zero-value transactions are rejected;
-- only EUR transactions are accepted in this slice;
-- dates and text are normalized before fingerprinting;
-- imported rows are immutable;
-- a bank transaction may be reconciled at most once;
-- outgoing transactions are imported and preserved but are not converted into `Payment` records; they will be useful when the Expense slice arrives.
+Positive amounts are incoming credits. Negative amounts are outgoing debits. Zero is invalid.
 
 ### Transaction identity
 
-A bank-provided stable transaction identifier is preferred when available, but import idempotency must not depend on every bank populating one field consistently.
+Overlapping bank reports must not create duplicate ledger rows. Identity is therefore deliberately tiered.
 
-Each normalized row therefore has a deterministic fingerprint. The fingerprint includes at minimum:
+#### Preferred identity: Account Servicer Reference
 
-- bank account IBAN;
-- signed amount;
-- currency;
+When a usable CAMT `AcctSvcrRef` is present, it is treated as the stable bank-assigned entry identity. The fingerprint is derived from:
+
+- selected condominium bank account IBAN;
+- normalized `AcctSvcrRef`.
+
+The parser exposes this value as `entryReference` in the normalized/domain transaction model.
+
+Placeholder references (`NOTPROVIDED`, `NONREF`, `N/A`, `NONE`, `UNKNOWN`, etc.) are not accepted as stable identity.
+
+#### Stable fallback
+
+When no usable account-servicer reference exists, the fallback fingerprint is derived from stable semantic fields:
+
+- condominium account IBAN;
+- signed amount cents;
 - booking date;
-- value date when present;
-- bank transaction id / entry reference / end-to-end id when present;
-- normalized counterparty IBAN;
-- normalized remittance information.
+- normalized counterparty IBAN when present;
+- normalized remittance information when present.
 
-A unique constraint on `(bank_account_id, fingerprint)` prevents duplicate ledger rows across overlapping statement imports.
+`TxId`, `EndToEndId` and `valueDate` are preserved as audit metadata but intentionally excluded from fallback identity because they may appear, disappear or change between overlapping report windows.
+
+The fallback is intentionally safety-biased: in the rare case of two truly identical same-day payments without a stable bank reference, treating them as a potential duplicate is safer than silently posting money twice. Such cases stay reviewable at the statement level.
+
+A database unique constraint on `(bank_account_id, fingerprint)` is the final race-condition guard.
+
+## Idempotent import workflow
+
+1. require a persisted, active `BankAccount`;
+2. hash the exact payload;
+3. parse to normalized values before persistence;
+4. require statement account IBAN to match the selected account;
+5. return existing import immediately for identical `(account, contentHash)`;
+6. calculate each transaction fingerprint;
+7. skip already-existing fingerprints, including overlaps from another file;
+8. persist import record plus genuinely new bank rows atomically.
+
+The overlap integration fixture deliberately changes optional TxId/EndToEndId values for the same entry while retaining its `AcctSvcrRef`, proving stable deduplication across reports.
 
 ## BankCounterpartyMapping
 
-`BankCounterpartyMapping` is an explicit manager-confirmed mapping from a payer bank account to a condominium `Unit`.
+Explicit manager-confirmed mapping from a payer IBAN to a condominium `Unit`.
 
 Fields:
 
-- `counterpartyIban`;
-- `unit`;
-- `active`;
-- `createdAt`.
+- normalized counterparty IBAN;
+- unit;
+- active marker;
+- UTC creation timestamp.
 
 Rules:
 
-- mapping is never inferred silently from a name;
-- a counterparty IBAN may have at most one active unit mapping;
-- the manager may choose not to create a mapping when one bank account pays for multiple units;
-- deactivation preserves historical reconciliation behaviour.
+- never infer a mapping silently from a person name;
+- only active/persisted units may receive new mappings;
+- assigning the already-active same IBAN/unit pair is idempotent;
+- assigning an active IBAN to another unit is rejected;
+- deactivation preserves history;
+- multiple historical mappings for the same IBAN are allowed.
 
-The first manual reconciliation may optionally create this mapping. Future incoming transactions from that exact IBAN can then be high-confidence candidates for automatic reconciliation.
+### DB-level current-mapping invariant
+
+The active marker is nullable:
+
+- `TRUE` = current mapping;
+- `NULL` = historical inactive mapping.
+
+A unique constraint on `(counterparty_iban, active)` permits multiple historical NULL rows while guaranteeing at most one `(IBAN, TRUE)` row. This remains safe when concurrent/direct writes bypass the application-level pre-check.
 
 ## PaymentReconciliation
 
-`PaymentReconciliation` is a separate immutable one-to-one link between one `BankTransaction` and one existing `Payment`.
+Separate immutable one-to-one link between one `BankTransaction` and one existing `Payment`.
 
 Fields:
 
-- `bankTransaction`;
-- `payment`;
-- `method` — `AUTOMATIC` or `MANUAL`;
-- `reconciledAt` — UTC;
+- bank transaction;
+- payment;
+- method (`AUTOMATIC` or `MANUAL`);
+- UTC reconciliation timestamp;
 - optional manager note.
 
 Rules:
 
-- one bank transaction may be reconciled once;
-- one payment may be linked to at most one bank transaction in this slice;
-- transaction amount must be positive;
+- transaction must be incoming;
 - payment source must be `BANK_TRANSFER`;
-- payment amount must equal transaction amount exactly;
-- reconciliation never mutates the original `Payment` row;
-- a reversed payment does not make the bank transaction disappear; the reconciliation remains historical evidence and the manager can see that the linked payment was reversed.
+- amounts must match exactly;
+- one bank transaction may be reconciled once;
+- one payment may be linked to at most one bank transaction;
+- reconciliation never mutates the original `Payment`;
+- reversing the linked payment does not erase reconciliation history.
 
-## Reconciliation workflow
+Database uniqueness on transaction and payment IDs provides the final race guard.
 
-### Import
+## Automatic reconciliation
 
-1. manager selects the target `BankAccount`;
-2. system parses the `camt.053` payload into normalized records without writing financial rows;
-3. parser verifies statement account IBAN matches the selected `BankAccount`;
-4. import service calculates the file hash and row fingerprints;
-5. in one transaction it creates the immutable import record and any new bank transactions;
-6. duplicate file or overlapping duplicate rows create no duplicate transactions;
-7. imported incoming unmatched rows enter the reconciliation queue.
+Automatic reconciliation is deliberately conservative. It is permitted only when:
 
-### Automatic reconciliation
+- the bank transaction is persisted, incoming and unreconciled;
+- it has a counterparty IBAN;
+- exactly one active mapping exists for that exact normalized IBAN;
+- the mapped Unit remains persisted and active.
 
-Automatic reconciliation is deliberately conservative.
+Then the service:
 
-An incoming transaction may be auto-reconciled only when:
+1. delegates payment creation/allocation to `PaymentPostingService`;
+2. creates a `BANK_TRANSFER` payment for exactly the bank amount;
+3. uses deterministic external reference `bank:<fingerprint>`;
+4. records one immutable `PaymentReconciliation(AUTOMATIC)`.
 
-- it is not already reconciled;
-- amount is positive;
-- an active `BankCounterpartyMapping` exists for the exact normalized counterparty IBAN;
-- the mapped unit still exists/active;
-- no conflicting reconciliation/payment already exists for the transaction;
-- posting the payment satisfies existing `PaymentPostingService` invariants.
+There is no fuzzy name matching, nearest amount matching or fallback to another resident/payment.
 
-When these conditions are met, the service:
+## Manual reconciliation
 
-1. posts a `BANK_TRANSFER` Payment to the mapped Unit;
-2. uses a deterministic external reference derived from the bank account and bank transaction fingerprint;
-3. lets the existing `PaymentPostingService` allocate the payment oldest-debt-first;
-4. records one immutable `PaymentReconciliation(method=AUTOMATIC)`.
+For an unmatched incoming row, manager/cashier may select a Unit explicitly. The same existing `PaymentPostingService` creates the bank payment and the service records `PaymentReconciliation(MANUAL)`.
 
-No fuzzy name matching, approximate amount matching or “most likely apartment” logic is allowed to post money automatically.
-
-### Manual reconciliation
-
-For an unmatched incoming transaction the manager/cashier may select a Unit.
-
-The service then:
-
-1. validates that the transaction is incoming and unreconciled;
-2. posts the bank-transfer payment through `PaymentPostingService`;
-3. records `PaymentReconciliation(method=MANUAL)`;
-4. optionally creates/activates a `BankCounterpartyMapping` only when explicitly requested and a counterparty IBAN is present.
-
-If the transaction is ambiguous, it remains in the queue without financial effect.
-
-## Existing payment compatibility
-
-The reconciliation model must also support linking an imported transaction to an already-posted `BANK_TRANSFER` Payment when all of these match:
-
-- same amount;
-- same effective Unit chosen/known;
-- payment is not already reconciled to another bank transaction;
-- transaction is not already reconciled.
-
-This supports the real workflow where the cashier records a transfer before importing the statement.
-
-The service must never silently link by amount alone.
+If a bank transfer was entered manually before statement import, an explicitly supplied existing `BANK_TRANSFER` Payment may be linked when the reconciliation invariants match. The service never finds an existing payment by amount alone.
 
 ## Transaction boundaries
 
-- Import batch persistence is atomic.
-- Manual/automatic payment creation plus reconciliation link is atomic from the caller’s perspective.
-- Existing `PaymentPostingService` remains the only service that creates `Payment` + allocations.
-- Reconciliation services do not duplicate payment allocation rules.
-- Database unique constraints are the final guard against races.
-
-## Access boundary
-
-Backend services are the primary scope of this slice. A minimal management-facing queue may be added only if needed to prove the workflow; resident UI is not part of this PR.
-
-Later UI permissions:
-
-- `ROLE_MANAGER` and `ROLE_CASHIER`: import statements and reconcile incoming transfers;
-- `ROLE_MANAGER`: manage bank accounts and payer mappings;
-- `ROLE_CONTROLLER`: read bank/reconciliation history;
-- residents: no raw bank-statement or other residents’ payer details.
+- statement import is atomic;
+- new Payment + allocations + reconciliation link are atomic from the caller's perspective;
+- `BankReconciliationService` wraps the existing `PaymentPostingService` in an outer Doctrine transaction;
+- integration tests force reconciliation persistence failure after the nested payment flush and prove the Payment is rolled back too;
+- database unique constraints remain the final concurrent-write backstop.
 
 ## Schema
 
-Add:
+Tables added:
 
 - `bank_account`;
 - `bank_statement_import`;
@@ -243,47 +226,57 @@ Add:
 - `bank_counterparty_mapping`;
 - `payment_reconciliation`.
 
-Use `RESTRICT`/`NO ACTION` financial foreign keys; never cascade-delete bank/payment history.
-
 Key uniqueness:
 
 - `bank_account.iban`;
 - `(bank_statement_import.bank_account_id, content_hash)`;
 - `(bank_transaction.bank_account_id, fingerprint)`;
-- active counterparty mapping per IBAN enforced by service/domain invariant where partial unique indexes are not portable to MariaDB;
+- `(bank_counterparty_mapping.counterparty_iban, active)` with TRUE/current and NULL/history semantics;
 - `payment_reconciliation.bank_transaction_id`;
 - `payment_reconciliation.payment_id`.
 
-## Testing
+All financial/history foreign keys use `RESTRICT`/`NO ACTION`; no financial history is cascade-deleted.
 
-Tests must prove:
+## Access boundary
 
-- IBAN normalization and validation boundary;
-- immutable statement/import records;
-- signed integer-cent transaction semantics;
-- duplicate file import is idempotent;
-- overlapping statements do not duplicate bank transactions;
-- transaction fingerprint is deterministic;
-- CAMT.053 account mismatch is rejected;
-- malformed/unsupported XML is rejected without partial writes;
-- CAMT.053 credit and debit entries parse correctly;
-- outgoing transactions are imported but never posted as Payments;
-- exact counterparty mapping can produce an automatic match;
-- unknown/ambiguous payer remains unmatched;
-- manual reconciliation posts exactly one bank Payment;
-- repeated reconciliation is idempotent/rejected as appropriate and never duplicates money;
-- existing bank Payment may be linked explicitly without creating another Payment;
-- reconciliation never links by amount alone;
-- reversed linked payment remains auditable;
+This PR implements backend/domain services. Later management UI permissions should be:
+
+- `ROLE_MANAGER`, `ROLE_CASHIER`: statement import and reconciliation;
+- `ROLE_MANAGER`: bank account and payer-mapping management;
+- `ROLE_CONTROLLER`: read bank/reconciliation history;
+- residents: no raw statement data and no other residents' payer information.
+
+## Verification requirements
+
+Tests and CI must prove:
+
+- IBAN normalization/MOD-97 validation;
+- synthetic bank data only in repository fixtures/tests;
+- immutable statement/transaction records;
+- signed integer-cent semantics;
+- exact file idempotency;
+- stable overlap idempotency even if optional TxId/E2E data changes;
+- account mismatch and inactive account create no rows;
+- secure XML behavior including explicit DOCTYPE rejection;
+- debit rows never produce Payments;
+- exact payer mapping enables automatic reconciliation;
+- unknown/ambiguous payer stays unmatched;
+- manual reconciliation creates exactly one bank Payment;
+- repeated reconciliation never duplicates money;
+- explicitly supplied existing Payment can be linked without creating a second Payment;
+- amount-only matching never occurs;
+- forced reconciliation failure rolls back nested Payment posting;
+- payment reversal preserves historical reconciliation;
+- database prevents two active mappings for the same payer IBAN;
+- multiple inactive mapping rows remain valid history;
 - MariaDB migrate → validate → rollback → migrate → validate remains green;
 - PHPStan remains clean.
 
 ## Follow-up
 
-After this slice:
+After this slice, useful follow-ups are:
 
-1. MT940 parser;
-2. bank-specific CSV adapters only where needed by the actual condominium bank;
-3. management reconciliation UI and statement history polish;
-4. stable payment-reference/QR workflow for residents;
-5. expenses and outgoing-bank-transaction reconciliation.
+1. management reconciliation queue/history UI;
+2. resident payment reference/QR workflow;
+3. MT940 or actual-bank CSV adapter only if the entrance's bank requires it;
+4. expenses and outgoing-bank-transaction reconciliation.
