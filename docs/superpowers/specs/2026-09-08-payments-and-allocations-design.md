@@ -15,7 +15,7 @@ This slice does **not** implement bank-statement import, QR payment initiation, 
 - A payment may cover one or many charges and may partially settle a charge.
 - Allocation is oldest-debt-first by default, but a manager may override the proposed allocation **before posting**.
 - Allocation order is deterministic.
-- A payment may remain partially unallocated when there is no matching debt; the unapplied balance remains visible as credit/unallocated money.
+- A payment may remain partially unallocated when there is no matching debt; the unapplied balance remains visible as credit.
 - Re-running the same imported/external payment reference must never create a duplicate payment.
 
 ## Payment
@@ -31,17 +31,16 @@ Fields:
 - `postedAt` — UTC timestamp when the operation was recorded in the system;
 - `reference` — optional human-facing payment reference;
 - `externalReference` — optional provider/bank/import identifier used for idempotency;
-- `note` — optional internal note;
-- `status` — `POSTED` or `REVERSED`;
-- optional link to the payment that reverses or is reversed by another payment.
+- `note` — optional internal note.
 
 Rules:
 
-- `amountCents` must be positive for a normal payment;
-- `receivedAt` cannot be after `postedAt` by more than normal timezone representation; both are normalized for persistence consistently;
+- `amountCents` must be positive;
+- `receivedAt` and `postedAt` are normalized to UTC for persistence;
+- the actual instant represented by `receivedAt` must not be later than `postedAt`;
 - `externalReference`, when present, is trimmed and unique;
-- a posted payment is immutable;
-- reversal creates a new compensating payment record with the opposite ledger effect; it does not mutate the original amount or allocations.
+- after posting, a payment is immutable;
+- reversal never mutates the original payment.
 
 ## PaymentAllocation
 
@@ -60,27 +59,56 @@ Rules:
 - payment and charge must belong to the same `Unit`;
 - allocated amount must be positive;
 - total allocations for a payment may never exceed the payment amount;
-- total allocations against a charge may never exceed its outstanding amount;
+- total effective allocations against a charge may never exceed its charge amount;
 - one payment may allocate partially to a charge;
 - one charge may be settled by multiple payments;
 - allocations are immutable after posting;
-- a unique constraint prevents duplicate `(payment_id, charge_id)` rows for the same posted allocation set.
+- a unique constraint prevents duplicate `(payment_id, charge_id)` rows.
 
-## Outstanding balance
+## PaymentReversal
+
+`PaymentReversal` is a separate immutable compensating ledger record linked one-to-one to a `Payment`.
+
+Fields:
+
+- `payment` — original payment being neutralized;
+- `reason` — required explanation;
+- `reversedAt` — UTC timestamp;
+- optional `reference` for receipt/audit purposes.
+
+Rules:
+
+- only an existing posted payment may be reversed;
+- a payment may be reversed only once;
+- reversal neutralizes the full payment amount and all allocation effects;
+- original `Payment` and `PaymentAllocation` rows remain unchanged;
+- reversal is immutable after posting.
+
+Because reversals are full in this slice, no negative `Payment` row and no mutable payment `status` column are needed. Whether a payment is effective is derived from the existence of a `PaymentReversal`.
+
+## Outstanding amount and unit balance
 
 The outstanding amount of a charge is derived, not stored as mutable state:
 
-`charge.amountCents - sum(non-reversed allocations applied to that charge)`
+`charge.amountCents - effective allocations applied to that charge`
 
-A unit balance is likewise derived from immutable ledger entries:
+An allocation is effective only when its parent payment has not been reversed.
 
-`sum(charges) - sum(effective payment allocations)`
-
-Any unapplied amount from a posted payment is tracked as unallocated credit:
+Unallocated credit for an effective payment is:
 
 `payment.amountCents - sum(payment allocations)`
 
-The system does not write a mutable `balance` column on `Unit`, `Charge`, or `Payment`.
+The unit's net balance is derived as:
+
+`sum(charges) - sum(effective payment amounts)`
+
+Therefore:
+
+- a positive result is debt;
+- zero is settled;
+- a negative result is resident credit/overpayment.
+
+This intentionally includes unallocated money in the unit balance. The system does not write a mutable `balance` column on `Unit`, `Charge`, or `Payment`.
 
 ## Allocation proposal
 
@@ -92,9 +120,9 @@ Default algorithm:
 2. sort by `billingMonth` ascending;
 3. for the same month, sort by charge id ascending;
 4. allocate until the payment amount is exhausted or there are no outstanding charges;
-5. leave any remainder unallocated.
+5. leave any remainder unallocated as unit credit.
 
-The proposal is a transient value object and has no financial effect until it is posted.
+The proposal is a transient value object and has no financial effect until posted.
 
 A manager may replace the proposed amounts/order before posting, but the posting service validates the final proposal against all invariants.
 
@@ -119,7 +147,7 @@ Behavior:
 3. use explicit allocations if supplied, otherwise generate oldest-first proposal;
 4. validate unit consistency and current outstanding amounts;
 5. persist payment and allocations in one Doctrine transaction;
-6. return the posted payment plus applied/unallocated totals.
+6. return the posted payment plus applied and unallocated totals.
 
 If any validation fails, nothing is posted.
 
@@ -127,28 +155,32 @@ If any validation fails, nothing is posted.
 
 - `externalReference` has a database unique constraint when non-null.
 - `(payment_id, charge_id)` has a unique constraint.
-- posting uses one transaction.
-- outstanding validation is repeated inside the transaction before persist/flush.
+- `payment_reversal.payment_id` has a unique constraint.
+- posting and reversal each use one transaction.
+- outstanding validation is repeated inside the posting transaction before persist/flush.
 - database constraints remain the final protection against duplicate posting races.
 
 No normal control flow depends on catching a uniqueness violation for routine repeat submissions; the service performs an application-level idempotency check first.
 
-## Reversal
+## Reversal service
 
-A reversal never edits the original payment or allocations.
+`PaymentReversalService` posts a `PaymentReversal` transactionally.
 
-`PaymentReversalService` creates a compensating financial record that neutralizes the original payment's effect and marks the relationship between original and reversal.
+Inputs:
 
-Rules:
+- original payment;
+- required reason;
+- reversal timestamp;
+- optional reference.
 
-- only a posted, non-reversed payment may be reversed;
-- a payment may be reversed only once;
-- reversal amount must exactly match the original payment amount;
-- reversal effective allocation impact mirrors the original allocations;
-- reversal reason is required;
-- reversal is posted transactionally.
+Behavior:
 
-The exact UI for initiating reversal belongs to a later management workflow slice; this slice implements the domain/service behavior and tests.
+1. verify the payment has not already been reversed;
+2. create one immutable reversal record;
+3. persist it transactionally;
+4. from that point, the original payment contributes zero effective payment amount and its allocations contribute zero effective settlement.
+
+The exact UI for initiating reversal belongs to a later management workflow slice.
 
 ## Access boundary
 
@@ -166,14 +198,16 @@ Later UI rules will be:
 Add tables:
 
 - `payment`;
-- `payment_allocation`.
+- `payment_allocation`;
+- `payment_reversal`.
 
 Add indexes for:
 
 - unit + received date;
 - external reference;
 - payment allocation by payment;
-- payment allocation by charge.
+- payment allocation by charge;
+- one reversal per payment.
 
 Schema must remain synchronized with Doctrine metadata and pass the existing MariaDB 10.11 migrate → validate → rollback → migrate → validate CI gate.
 
@@ -182,6 +216,7 @@ Schema must remain synchronized with Doctrine metadata and pass the existing Mar
 Tests must prove:
 
 - payment invariants and UTC normalization;
+- rejection of `receivedAt > postedAt`;
 - unique/idempotent external references;
 - default oldest-first allocation;
 - partial payment;
@@ -190,10 +225,11 @@ Tests must prove:
 - explicit manager allocation override before posting;
 - rejection of cross-unit allocations;
 - rejection of over-allocation against payment or charge;
-- unapplied remainder preservation;
+- unapplied remainder preserved as unit credit;
+- unit net balance includes unapplied credit;
 - posting transaction rollback on invalid allocation;
 - duplicate external reference returns the existing posted operation rather than posting twice;
-- reversal creates compensating ledger effect and original records remain unchanged;
+- reversal neutralizes full payment and allocation effects while original rows remain unchanged;
 - reversal may occur only once;
 - Doctrine mapping and MariaDB migration round-trip;
 - PHPStan remains clean.
