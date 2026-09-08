@@ -53,13 +53,13 @@ final readonly class MonthlyChargeGenerator
 
                 foreach ($units as $unit) {
                     $rule = $this->effectiveRule($policy, $unit, $billingMonth);
-                    [$baseQuantity, $details] = match ($policy->getDistribution()) {
-                        FeeDistribution::PER_UNIT => ['1.000', [
-                            'base_quantity' => '1.000',
-                        ]],
-                        FeeDistribution::PER_PERSON => $this->perPersonQuantity($policy, $unit, $billingMonth),
-                        FeeDistribution::IDEAL_PARTS => throw new DomainException('Unexpected ideal-parts distribution branch.'),
-                    };
+
+                    if (FeeDistribution::PER_UNIT === $policy->getDistribution()) {
+                        $baseQuantity = '1.000';
+                        $details = ['base_quantity' => '1.000'];
+                    } else {
+                        [$baseQuantity, $details] = $this->perPersonQuantity($policy, $unit, $billingMonth);
+                    }
 
                     $quantity = $rule?->getQuantityOverride() ?? $baseQuantity;
                     $multiplier = $rule?->getMultiplier() ?? '1.000';
@@ -172,8 +172,14 @@ final readonly class MonthlyChargeGenerator
             throw new DomainException('Ideal-parts remainder allocation is inconsistent.');
         }
 
-        for ($index = 0; $index < $remainingCents; ++$index) {
-            ++$allocations[$index]['amount'];
+        foreach ($allocations as $index => $allocation) {
+            if (0 === $remainingCents) {
+                break;
+            }
+
+            ++$allocation['amount'];
+            $allocations[$index] = $allocation;
+            --$remainingCents;
         }
 
         $created = 0;
