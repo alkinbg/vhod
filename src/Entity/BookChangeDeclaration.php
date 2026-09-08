@@ -22,11 +22,11 @@ class BookChangeDeclaration
     private ?int $id = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     private Unit $unit;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     private User $submittedBy;
 
     #[ORM\Column(enumType: BookChangeType::class)]
@@ -43,7 +43,7 @@ class BookChangeDeclaration
     private DateTimeImmutable $submittedAt;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
     private ?User $reviewedBy = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
