@@ -80,6 +80,8 @@ Fields:
 
 The rule is deliberately generic enough to represent a legally documented exemption, a 50% factor, a business multiplier, or an explicitly assessed person-equivalent count without collecting unnecessary sensitive data such as dates of birth.
 
+Unit rules are supported only for `PER_UNIT` and `PER_PERSON` policies. `IDEAL_PARTS` policies use exact proportional allocation across all active units and reject individual unit rules so that a stored rule can never silently have no effect or distort the 100% allocation.
+
 Multiplier range is `0.000` through `5.000`. A rule must actually change the normal calculation; a no-op rule with no quantity override and multiplier `1.000` is rejected.
 
 ## Charge
