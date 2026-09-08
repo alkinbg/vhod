@@ -23,7 +23,7 @@ class Charge
     private ?int $id = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(name: 'fee_policy_id', nullable: false, onDelete: 'RESTRICT')]
     private FeePolicy $policy;
 
     #[ORM\ManyToOne]
