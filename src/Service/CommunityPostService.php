@@ -11,7 +11,6 @@ use App\Enum\CommunityPostType;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
-use LogicException;
 
 final readonly class CommunityPostService
 {
@@ -29,22 +28,22 @@ final readonly class CommunityPostService
             throw new InvalidArgumentException('Poll options may be supplied only for poll posts.');
         }
 
-        $result = $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($author, $type, $title, $body, $createdAt, $startsAt, $endsAt, $options): CommunityPost {
+        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($author, $type, $title, $body, $createdAt, $startsAt, $endsAt, $options): CommunityPost {
             $post = CommunityPost::publish($author, $type, $title, $body, $createdAt, $startsAt, $endsAt);
             $entityManager->persist($post);
             foreach ($options as $index => $label) {
                 $entityManager->persist(CommunityPollOption::create($post, $label, $index + 1));
             }
+
             return $post;
         });
-
-        if (!$result instanceof CommunityPost) {
-            throw new LogicException('Community post transaction returned an unexpected result.');
-        }
-        return $result;
     }
 
-    /** @param list<string> $options @return list<string> */
+    /**
+     * @param list<string> $options
+     *
+     * @return list<string>
+     */
     private static function normalizePollOptions(array $options): array
     {
         $normalized = [];
@@ -61,6 +60,7 @@ final readonly class CommunityPostService
             $seen[$key] = true;
             $normalized[] = $option;
         }
+
         return $normalized;
     }
 }
