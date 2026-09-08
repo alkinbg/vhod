@@ -17,6 +17,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class BankStatementImportServiceTest extends KernelTestCase
 {
+    private const ACCOUNT_IBAN = 'BG35TEST00000000000000';
+    private const OTHER_ACCOUNT_IBAN = 'BG22DEMO00000000000002';
+
     private EntityManagerInterface $entityManager;
 
     protected function setUp(): void
@@ -40,7 +43,7 @@ final class BankStatementImportServiceTest extends KernelTestCase
 
     public function testSameFileIsIdempotentByContentHash(): void
     {
-        $account = $this->persistAccount('BG80BNBG96611020345678');
+        $account = $this->persistAccount(self::ACCOUNT_IBAN);
         $xml = $this->fixture('camt053-basic.xml');
         $service = $this->service();
         $now = new DateTimeImmutable('2026-09-08 08:00:00 Europe/Sofia');
@@ -62,7 +65,7 @@ final class BankStatementImportServiceTest extends KernelTestCase
 
     public function testAccountIbanMismatchWritesNothing(): void
     {
-        $account = $this->persistAccount('BG50UBBS80021012345678');
+        $account = $this->persistAccount(self::OTHER_ACCOUNT_IBAN);
 
         try {
             $this->service()->importCamt053(
@@ -81,7 +84,7 @@ final class BankStatementImportServiceTest extends KernelTestCase
 
     public function testInactiveAccountWritesNothing(): void
     {
-        $account = $this->persistAccount('BG80BNBG96611020345678');
+        $account = $this->persistAccount(self::ACCOUNT_IBAN);
         $account->deactivate();
         $this->entityManager->flush();
 
@@ -100,9 +103,9 @@ final class BankStatementImportServiceTest extends KernelTestCase
         self::assertCount(0, $this->entityManager->getRepository(BankTransaction::class)->findAll());
     }
 
-    public function testOverlappingStatementsSkipExistingFingerprintsAndKeepNewTransactions(): void
+    public function testOverlappingStatementsIgnoreChangedOptionalReferencesAndKeepOnlyNewTransactions(): void
     {
-        $account = $this->persistAccount('BG80BNBG96611020345678');
+        $account = $this->persistAccount(self::ACCOUNT_IBAN);
         $service = $this->service();
 
         $first = $service->importCamt053(
@@ -130,7 +133,7 @@ final class BankStatementImportServiceTest extends KernelTestCase
 
     public function testTransientBankAccountIsRejected(): void
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+        $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
 
         $this->expectException(DomainException::class);
         $this->expectExceptionMessage('Bank account must be persisted before statement import.');
