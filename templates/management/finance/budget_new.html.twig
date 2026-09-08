@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+{% block title %}Нов бюджет{% endblock %}
+{% block body %}
+<main class="container py-4">
+    <h1 class="h2">Нов бюджетен ред</h1>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('finance_budget_new') }}">
+        <div class="mb-3"><label class="form-label">Година</label><input class="form-control" type="number" name="year" min="2020" max="2100" value="{{ 'now'|date('Y') }}" required></div>
+        <div class="mb-3"><label class="form-label">Фонд</label><select class="form-select" name="fund_id" required>{% for fund in funds %}<option value="{{ fund.id }}">{{ fund.name }}</option>{% endfor %}</select></div>
+        <div class="mb-3"><label class="form-label">Категория</label><select class="form-select" name="category" required>{% for category in categories %}<option value="{{ category.value }}">{{ category.labelBg }}</option>{% endfor %}</select></div>
+        <div class="mb-3"><label class="form-label">Сума (EUR)</label><input class="form-control" name="amount" inputmode="decimal" required></div>
+        <div class="mb-3"><label class="form-label">Решение на ОС</label><input class="form-control" name="decision_reference" required></div>
+        <button class="btn btn-primary" type="submit">Запиши бюджет</button>
+        <a class="btn btn-link" href="{{ path('app_management_finance') }}">Отказ</a>
+    </form>
+</main>
+{% endblock %}
