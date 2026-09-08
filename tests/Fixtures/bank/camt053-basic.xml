@@ -12,7 +12,7 @@
         <ToDtTm>2026-09-08T23:59:59Z</ToDtTm>
       </FrToDt>
       <Acct>
-        <Id><IBAN>BG80BNBG96611020345678</IBAN></Id>
+        <Id><IBAN>BG35TEST00000000000000</IBAN></Id>
         <Ccy>EUR</Ccy>
       </Acct>
       <Ntry>
@@ -28,8 +28,8 @@
               <EndToEndId>E2E-CREDIT-1</EndToEndId>
             </Refs>
             <RltdPties>
-              <Dbtr><Pty><Nm>Иван Иванов</Nm></Pty></Dbtr>
-              <DbtrAcct><Id><IBAN>BG40BNBG96611000066123</IBAN></Id></DbtrAcct>
+              <Dbtr><Pty><Nm>Тестов Платец</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>BG97FAKE00000000000001</IBAN></Id></DbtrAcct>
             </RltdPties>
             <RmtInf><Ustrd>Такса ап. 12</Ustrd></RmtInf>
           </TxDtls>
@@ -48,8 +48,8 @@
               <EndToEndId>E2E-DEBIT-1</EndToEndId>
             </Refs>
             <RltdPties>
-              <Cdtr><Pty><Nm>Сервиз ООД</Nm></Pty></Cdtr>
-              <CdtrAcct><Id><IBAN>BG40BNBG96611000066123</IBAN></Id></CdtrAcct>
+              <Cdtr><Pty><Nm>Тестов Доставчик</Nm></Pty></Cdtr>
+              <CdtrAcct><Id><IBAN>BG22DEMO00000000000002</IBAN></Id></CdtrAcct>
             </RltdPties>
             <RmtInf><Ustrd>Ремонт входна врата</Ustrd></RmtInf>
           </TxDtls>
