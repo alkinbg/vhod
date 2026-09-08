@@ -10,12 +10,14 @@ use PHPUnit\Framework\TestCase;
 
 final class BankAccountTest extends TestCase
 {
+    private const ACCOUNT_IBAN = 'BG35TEST00000000000000';
+
     public function testAccountNormalizesItsLedgerIdentity(): void
     {
-        $account = BankAccount::create('  Основна сметка  ', ' bg80 bnbg 9661 1020 3456 78 ');
+        $account = BankAccount::create('  Основна сметка  ', ' bg35 test 0000 0000 0000 00 ');
 
         self::assertSame('Основна сметка', $account->getName());
-        self::assertSame('BG80BNBG96611020345678', $account->getIban());
+        self::assertSame(self::ACCOUNT_IBAN, $account->getIban());
         self::assertSame('EUR', $account->getCurrency());
         self::assertTrue($account->isActive());
 
@@ -27,13 +29,13 @@ final class BankAccountTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        BankAccount::create(' ', 'BG80BNBG96611020345678');
+        BankAccount::create(' ', self::ACCOUNT_IBAN);
     }
 
     public function testInvalidIbanIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        BankAccount::create('Основна сметка', 'BG81BNBG96611020345678');
+        BankAccount::create('Основна сметка', 'BG36TEST00000000000000');
     }
 }
