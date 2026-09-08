@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>MSG-2026-09-08</MsgId>
+      <CreDtTm>2026-09-08T07:00:00Z</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>STMT-2026-09-08</Id>
+      <FrToDt>
+        <FrDtTm>2026-09-01T00:00:00Z</FrDtTm>
+        <ToDtTm>2026-09-08T23:59:59Z</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id><IBAN>BG35TEST00000000000000</IBAN></Id>
+        <Ccy>EUR</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="EUR">125.50</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-08</Dt></BookgDt>
+        <ValDt><Dt>2026-09-08</Dt></ValDt>
+        <AcctSvcrRef>ASR-CREDIT-1</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <TxId>TX-CREDIT-1</TxId>
+              <EndToEndId>E2E-CREDIT-1</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr><Pty><Nm>Тестов Платец</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>BG97FAKE00000000000001</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Такса ап. 12</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">32.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-07</Dt></BookgDt>
+        <ValDt><Dt>2026-09-07</Dt></ValDt>
+        <AcctSvcrRef>ASR-DEBIT-1</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <TxId>TX-DEBIT-1</TxId>
+              <EndToEndId>E2E-DEBIT-1</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Тестов Доставчик</Nm></Pty></Cdtr>
+              <CdtrAcct><Id><IBAN>BG22DEMO00000000000002</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Ремонт входна врата</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>
