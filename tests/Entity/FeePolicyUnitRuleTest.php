@@ -71,6 +71,33 @@ final class FeePolicyUnitRuleTest extends TestCase
         );
     }
 
+    public function testRuleRejectsIdealPartsPolicies(): void
+    {
+        $fund = new Fund('repairs', 'Ремонт и обновяване', FundType::REPAIR_RENOVATION);
+        $policy = FeePolicy::create(
+            'repair',
+            'Фонд ремонт',
+            $fund,
+            FeeCategory::REPAIR_RENOVATION,
+            FeeDistribution::IDEAL_PARTS,
+            1000,
+            new DateTimeImmutable('2026-09-01'),
+            'ОС 01/2026, т. 9',
+            statutoryMinimumConfirmed: true,
+        );
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unit rules are not supported for ideal-parts policies.');
+
+        new FeePolicyUnitRule(
+            $policy,
+            new Unit('12', idealParts: '10.0000'),
+            new DateTimeImmutable('2026-09-01'),
+            'Недопустима индивидуална корекция.',
+            multiplier: '0.500',
+        );
+    }
+
     public function testRuleRejectsNonMonthBoundaryDates(): void
     {
         try {
