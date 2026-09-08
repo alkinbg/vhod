@@ -21,21 +21,52 @@ final class BankTransactionFingerprint
         ?string $counterpartyIban,
         ?string $remittanceInformation,
     ): string {
+        $accountIban = Iban::normalize($accountIban);
+        $accountServicerReference = self::stableAccountServicerReference($entryReference);
+
+        if (null !== $accountServicerReference) {
+            return self::hash([
+                'strategy' => 'account-servicer-reference',
+                'accountIban' => $accountIban,
+                'accountServicerReference' => $accountServicerReference,
+            ]);
+        }
+
         $counterpartyIban = self::nullableTrim($counterpartyIban);
 
-        $canonical = [
-            'accountIban' => Iban::normalize($accountIban),
+        return self::hash([
+            'strategy' => 'stable-fallback',
+            'accountIban' => $accountIban,
             'amountCents' => $amountCents,
             'bookingDate' => $bookingDate->format('Y-m-d'),
-            'valueDate' => $valueDate?->format('Y-m-d'),
-            'bankTransactionId' => self::nullableTrim($bankTransactionId),
-            'entryReference' => self::nullableTrim($entryReference),
-            'endToEndId' => self::nullableTrim($endToEndId),
             'counterpartyIban' => null === $counterpartyIban ? null : Iban::normalize($counterpartyIban),
             'remittanceInformation' => self::normalizeText($remittanceInformation),
-        ];
+        ]);
+    }
 
+    /**
+     * @param array<string, int|string|null> $canonical
+     *
+     * @throws JsonException
+     */
+    private static function hash(array $canonical): string
+    {
         return hash('sha256', json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    private static function stableAccountServicerReference(?string $value): ?string
+    {
+        $value = self::nullableTrim($value);
+        if (null === $value) {
+            return null;
+        }
+
+        $normalized = strtoupper($value);
+        if (in_array($normalized, ['NOTPROVIDED', 'NOT PROVIDED', 'NONREF', 'N/A', 'NA', 'NONE', 'UNKNOWN'], true)) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     private static function normalizeText(?string $value): ?string
