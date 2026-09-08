@@ -16,7 +16,7 @@ final class MaintenanceReminderServiceTest extends TestCase
     public function testClassifiesWarrantyAndInspectionBoundaries(): void
     {
         $today = new DateTimeImmutable('2026-09-08');
-        $expiredWarranty = BuildingAsset::register('Домофон', BuildingAssetCategory::ACCESS_SYSTEM, 'Вход', warrantyUntil: $today->modify('-1 day'));
+        $expiredWarranty = BuildingAsset::register('Домофон', BuildingAssetCategory::ACCESS_SYSTEM, 'Вход', warrantyUntil: $today->modify('-2 days'));
         $dueWarranty = BuildingAsset::register('Контролер', BuildingAssetCategory::ACCESS_SYSTEM, 'Вход', warrantyUntil: $today->modify('+60 days'));
         $overdueInspection = BuildingAsset::register('Асансьор', BuildingAssetCategory::ELEVATOR, 'Вход', nextInspectionAt: $today->modify('-1 day'));
         $dueInspection = BuildingAsset::register('Пожарогасители', BuildingAssetCategory::FIRE_SAFETY, 'Стълбище', nextInspectionAt: $today->modify('+30 days'));
@@ -35,7 +35,7 @@ final class MaintenanceReminderServiceTest extends TestCase
 
         self::assertCount(4, $reminders);
         self::assertSame(MaintenanceReminderType::WARRANTY_EXPIRED, $reminders[0]->type);
-        self::assertSame(-1, $reminders[0]->daysDelta);
+        self::assertSame(-2, $reminders[0]->daysDelta);
         self::assertSame(MaintenanceReminderType::INSPECTION_OVERDUE, $reminders[1]->type);
         self::assertSame(-1, $reminders[1]->daysDelta);
         self::assertSame(MaintenanceReminderType::INSPECTION_DUE, $reminders[2]->type);
