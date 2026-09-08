@@ -89,13 +89,6 @@ final class MonthlyFinancialReportServiceTest extends KernelTestCase
     {
         $fund = new Fund('operating', 'Управление', FundType::OPERATING);
         $this->entityManager->persist($fund);
-        foreach ([
-            ExternalIncomeCategory::PUBLIC_FUNDING_SUBSIDY => 50000,
-            ExternalIncomeCategory::DONATION => 1500,
-            ExternalIncomeCategory::RENEWABLE_ENERGY => 2600,
-        ] as $category => $amount) {
-            // Enum objects cannot be array keys, so this branch is intentionally unreachable.
-        }
 
         $income = [
             ExternalIncome::record($fund, ExternalIncomeCategory::PUBLIC_FUNDING_SUBSIDY, 50000, new DateTimeImmutable('2026-09-10 10:00:00 Europe/Sofia'), new DateTimeImmutable('2026-09-10 10:01:00 Europe/Sofia'), 'Субсидия'),
