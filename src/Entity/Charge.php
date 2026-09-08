@@ -33,7 +33,7 @@ class Charge
     #[ORM\Column(type: 'date_immutable')]
     private DateTimeImmutable $billingMonth;
 
-    #[ORM\Column(type: 'decimal', precision: 12, scale: 3)]
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 4)]
     private string $quantity;
 
     #[ORM\Column]
@@ -75,7 +75,7 @@ class Charge
         $this->policy = $policy;
         $this->unit = $unit;
         $this->billingMonth = $billingMonth->modify('first day of this month')->setTime(0, 0);
-        $this->quantity = self::normalizePositiveDecimal3($quantity);
+        $this->quantity = self::normalizePositiveDecimal4($quantity);
         $this->policyAmountCents = $policyAmountCents;
         $this->amountCents = $amountCents;
         $this->calculationDetails = $calculationDetails;
@@ -120,20 +120,20 @@ class Charge
 
     public function getPostedAt(): DateTimeImmutable { return $this->postedAt; }
 
-    private static function normalizePositiveDecimal3(string $value): string
+    private static function normalizePositiveDecimal4(string $value): string
     {
         $value = trim($value);
-        if (1 !== preg_match('/^\d+(?:\.\d{1,3})?$/', $value)) {
-            throw new InvalidArgumentException('Charge quantity must be a positive decimal with at most three decimal places.');
+        if (1 !== preg_match('/^\d+(?:\.\d{1,4})?$/', $value)) {
+            throw new InvalidArgumentException('Charge quantity must be a positive decimal with at most four decimal places.');
         }
 
         [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
         $whole = ltrim($whole, '0');
         $whole = '' === $whole ? '0' : $whole;
-        $fraction = str_pad($fraction, 3, '0');
+        $fraction = str_pad($fraction, 4, '0');
         $normalized = $whole.'.'.$fraction;
 
-        if ((((int) $whole) * 1000) + (int) $fraction <= 0) {
+        if ((((int) $whole) * 10_000) + (int) $fraction <= 0) {
             throw new InvalidArgumentException('Charge quantity must be positive.');
         }
 
