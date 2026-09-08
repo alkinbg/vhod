@@ -26,12 +26,6 @@ final readonly class NormalizedBankStatement
         ?DateTimeImmutable $periodFrom = null,
         ?DateTimeImmutable $periodTo = null,
     ) {
-        foreach ($transactions as $transaction) {
-            if (!$transaction instanceof NormalizedBankTransaction) {
-                throw new InvalidArgumentException('Statement transactions must be normalized bank transactions.');
-            }
-        }
-
         $periodFrom = self::normalizeDate($periodFrom);
         $periodTo = self::normalizeDate($periodTo);
         if (null !== $periodFrom && null !== $periodTo && $periodFrom > $periodTo) {
@@ -39,7 +33,7 @@ final readonly class NormalizedBankStatement
         }
 
         $this->accountIban = Iban::normalize($accountIban);
-        $this->transactions = array_values($transactions);
+        $this->transactions = $transactions;
         $this->statementReference = self::nullableTrim($statementReference);
         $this->periodFrom = $periodFrom;
         $this->periodTo = $periodTo;
