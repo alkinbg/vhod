@@ -12,16 +12,18 @@ use PHPUnit\Framework\TestCase;
 
 final class BankCounterpartyMappingTest extends TestCase
 {
+    private const PAYER_IBAN = 'BG97FAKE00000000000001';
+
     public function testMappingNormalizesIbanAndAuditTimestamp(): void
     {
         $unit = new Unit('12');
         $mapping = BankCounterpartyMapping::create(
-            ' bg40 bnbg 9661 1000 0661 23 ',
+            ' bg97 fake 0000 0000 0000 01 ',
             $unit,
             new DateTimeImmutable('2026-09-08 08:15:00 Europe/Sofia'),
         );
 
-        self::assertSame('BG40BNBG96611000066123', $mapping->getCounterpartyIban());
+        self::assertSame(self::PAYER_IBAN, $mapping->getCounterpartyIban());
         self::assertSame($unit, $mapping->getUnit());
         self::assertTrue($mapping->isActive());
         self::assertSame('2026-09-08 05:15:00', $mapping->getCreatedAt()->format('Y-m-d H:i:s'));
@@ -31,7 +33,7 @@ final class BankCounterpartyMappingTest extends TestCase
     public function testMappingCanBeDeactivatedWithoutDestroyingHistory(): void
     {
         $mapping = BankCounterpartyMapping::create(
-            'BG40BNBG96611000066123',
+            self::PAYER_IBAN,
             new Unit('12'),
             new DateTimeImmutable('2026-09-08 05:15:00 UTC'),
         );
@@ -39,7 +41,7 @@ final class BankCounterpartyMappingTest extends TestCase
         $mapping->deactivate();
 
         self::assertFalse($mapping->isActive());
-        self::assertSame('BG40BNBG96611000066123', $mapping->getCounterpartyIban());
+        self::assertSame(self::PAYER_IBAN, $mapping->getCounterpartyIban());
     }
 
     public function testInvalidIbanIsRejected(): void
@@ -47,7 +49,7 @@ final class BankCounterpartyMappingTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         BankCounterpartyMapping::create(
-            'BG81BNBG96611020345678',
+            'BG98FAKE00000000000001',
             new Unit('12'),
             new DateTimeImmutable('2026-09-08 05:15:00 UTC'),
         );
