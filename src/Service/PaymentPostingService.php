@@ -7,6 +7,7 @@ namespace App\Service;
 use App\Entity\Charge;
 use App\Entity\Payment;
 use App\Entity\PaymentAllocation;
+use App\Entity\PaymentReversal;
 use App\Entity\Unit;
 use App\Enum\PaymentSource;
 use App\Value\PaymentAllocationProposal;
@@ -39,6 +40,8 @@ final readonly class PaymentPostingService
         if (null !== $externalReference) {
             $existing = $this->findByExternalReference($externalReference);
             if (null !== $existing) {
+                $this->assertIdempotentMatch($existing, $unit, $amountCents, $source);
+
                 return $this->resultForExistingPayment($existing);
             }
         }
@@ -57,6 +60,8 @@ final readonly class PaymentPostingService
             if (null !== $externalReference) {
                 $existing = $this->findByExternalReference($externalReference);
                 if (null !== $existing) {
+                    $this->assertIdempotentMatch($existing, $unit, $amountCents, $source);
+
                     return $this->resultForExistingPayment($existing);
                 }
             }
@@ -135,10 +140,21 @@ final readonly class PaymentPostingService
         $total = 0;
         $allocations = $this->entityManager->getRepository(PaymentAllocation::class)->findBy(['charge' => $charge]);
         foreach ($allocations as $allocation) {
+            if ($this->isReversed($allocation)) {
+                continue;
+            }
+
             $total += $allocation->getAmountCents();
         }
 
         return $total;
+    }
+
+    private function isReversed(PaymentAllocation $allocation): bool
+    {
+        return null !== $this->entityManager->getRepository(PaymentReversal::class)->findOneBy([
+            'payment' => $allocation->getPayment(),
+        ]);
     }
 
     private function findByExternalReference(string $externalReference): ?Payment
@@ -148,6 +164,15 @@ final readonly class PaymentPostingService
         ]);
 
         return $payment instanceof Payment ? $payment : null;
+    }
+
+    private function assertIdempotentMatch(Payment $existing, Unit $unit, int $amountCents, PaymentSource $source): void
+    {
+        if (!self::sameUnit($existing->getUnit(), $unit)
+            || $existing->getAmountCents() !== $amountCents
+            || $existing->getSource() !== $source) {
+            throw new DomainException('External payment reference is already used by a different payment.');
+        }
     }
 
     private static function sameUnit(Unit $left, Unit $right): bool
