@@ -13,7 +13,7 @@ final class IbanTest extends TestCase
 {
     public function testNormalizeRemovesWhitespaceAndUppercasesValidIban(): void
     {
-        self::assertSame('BG80BNBG96611020345678', Iban::normalize(' bg80 bnbg 9661 1020 3456 78 '));
+        self::assertSame('BG35TEST00000000000000', Iban::normalize(' bg35 test 0000 0000 0000 00 '));
     }
 
     #[DataProvider('invalidIbans')]
@@ -28,8 +28,8 @@ final class IbanTest extends TestCase
     public static function invalidIbans(): iterable
     {
         yield 'blank' => ['   '];
-        yield 'bad characters' => ['BG80-BNBG-96611020345678'];
-        yield 'bad checksum' => ['BG81BNBG96611020345678'];
-        yield 'too short' => ['BG80BNBG'];
+        yield 'bad characters' => ['BG35-TEST-00000000000000'];
+        yield 'bad checksum' => ['BG36TEST00000000000000'];
+        yield 'too short' => ['BG35TEST'];
     }
 }
