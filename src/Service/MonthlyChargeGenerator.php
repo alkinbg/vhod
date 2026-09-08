@@ -31,7 +31,7 @@ final readonly class MonthlyChargeGenerator
         $billingMonth = $billingMonth->modify('first day of this month')->setTime(0, 0);
 
         return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($billingMonth, $postedAt): ChargeGenerationResult {
-            $policies = $entityManager->getRepository(FeePolicy::class)->findAll();
+            $policies = $this->effectivePolicies($billingMonth);
             $units = $entityManager->getRepository(Unit::class)->findBy(['active' => true], ['designation' => 'ASC']);
 
             $created = 0;
@@ -39,10 +39,6 @@ final readonly class MonthlyChargeGenerator
             $totalAmountCents = 0;
 
             foreach ($policies as $policy) {
-                if (!$policy->isEffectiveFor($billingMonth)) {
-                    continue;
-                }
-
                 if (FeeDistribution::IDEAL_PARTS === $policy->getDistribution()) {
                     $result = $this->generateIdealPartsPolicy($entityManager, $policy, $units, $billingMonth, $postedAt);
                     $created += $result->created;
@@ -52,6 +48,11 @@ final readonly class MonthlyChargeGenerator
                 }
 
                 foreach ($units as $unit) {
+                    if ($this->chargeExists($policy, $unit, $billingMonth)) {
+                        ++$skipped;
+                        continue;
+                    }
+
                     $rule = $this->effectiveRule($policy, $unit, $billingMonth);
 
                     if (FeeDistribution::PER_UNIT === $policy->getDistribution()) {
@@ -102,6 +103,33 @@ final readonly class MonthlyChargeGenerator
 
             return new ChargeGenerationResult($created, $skipped, $totalAmountCents);
         });
+    }
+
+    /** @return list<FeePolicy> */
+    private function effectivePolicies(DateTimeImmutable $billingMonth): array
+    {
+        $effective = [];
+        $codes = [];
+
+        foreach ($this->entityManager->getRepository(FeePolicy::class)->findAll() as $policy) {
+            if (!$policy->isEffectiveFor($billingMonth)) {
+                continue;
+            }
+
+            $code = $policy->getCode();
+            if (isset($codes[$code])) {
+                throw new DomainException(sprintf(
+                    'Multiple fee policy versions with code "%s" are effective for %s.',
+                    $code,
+                    $billingMonth->format('Y-m'),
+                ));
+            }
+
+            $codes[$code] = true;
+            $effective[] = $policy;
+        }
+
+        return $effective;
     }
 
     /**
@@ -187,6 +215,11 @@ final readonly class MonthlyChargeGenerator
         $totalAmountCents = 0;
 
         foreach ($allocations as $allocation) {
+            if ($this->chargeExists($policy, $allocation['unit'], $billingMonth)) {
+                ++$skipped;
+                continue;
+            }
+
             if (0 === $allocation['amount']) {
                 ++$skipped;
                 continue;
@@ -315,6 +348,15 @@ final readonly class MonthlyChargeGenerator
         }
 
         return $effective[0] ?? null;
+    }
+
+    private function chargeExists(FeePolicy $policy, Unit $unit, DateTimeImmutable $billingMonth): bool
+    {
+        return null !== $this->entityManager->getRepository(Charge::class)->findOneBy([
+            'policy' => $policy,
+            'unit' => $unit,
+            'billingMonth' => $billingMonth,
+        ]);
     }
 
     private static function calculateAmountCents(int $policyAmountCents, string $quantity, string $multiplier): int
