@@ -14,9 +14,11 @@ use PHPUnit\Framework\TestCase;
 
 final class BankStatementImportTest extends TestCase
 {
+    private const ACCOUNT_IBAN = 'BG35TEST00000000000000';
+
     public function testImportKeepsImmutableAuditSnapshotInUtc(): void
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+        $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
         $import = BankStatementImport::record(
             $account,
             BankStatementFormat::CAMT053,
@@ -46,7 +48,7 @@ final class BankStatementImportTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         BankStatementImport::record(
-            BankAccount::create('Основна сметка', 'BG80BNBG96611020345678'),
+            BankAccount::create('Основна сметка', self::ACCOUNT_IBAN),
             BankStatementFormat::CAMT053,
             'not-a-sha256',
             new DateTimeImmutable('2026-09-08 07:15:00 UTC'),
@@ -59,7 +61,7 @@ final class BankStatementImportTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         BankStatementImport::record(
-            BankAccount::create('Основна сметка', 'BG80BNBG96611020345678'),
+            BankAccount::create('Основна сметка', self::ACCOUNT_IBAN),
             BankStatementFormat::CAMT053,
             str_repeat('b', 64),
             new DateTimeImmutable('2026-09-08 07:15:00 UTC'),
@@ -72,7 +74,7 @@ final class BankStatementImportTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         BankStatementImport::record(
-            BankAccount::create('Основна сметка', 'BG80BNBG96611020345678'),
+            BankAccount::create('Основна сметка', self::ACCOUNT_IBAN),
             BankStatementFormat::CAMT053,
             str_repeat('c', 64),
             new DateTimeImmutable('2026-09-08 07:15:00 UTC'),
