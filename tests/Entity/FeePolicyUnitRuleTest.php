@@ -58,6 +58,19 @@ final class FeePolicyUnitRuleTest extends TestCase
         );
     }
 
+    public function testRuleMustActuallyChangeCalculation(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('A fee rule must change quantity or multiplier.');
+
+        new FeePolicyUnitRule(
+            $this->policy(),
+            new Unit('12'),
+            new DateTimeImmutable('2026-09-01'),
+            'Документирана корекция.',
+        );
+    }
+
     public function testRuleRejectsNonMonthBoundaryDates(): void
     {
         try {
@@ -66,6 +79,7 @@ final class FeePolicyUnitRuleTest extends TestCase
                 new Unit('12'),
                 new DateTimeImmutable('2026-09-02'),
                 'Корекция.',
+                multiplier: '0.500',
             );
             self::fail('Expected invalid rule start date.');
         } catch (InvalidArgumentException) {
@@ -76,6 +90,7 @@ final class FeePolicyUnitRuleTest extends TestCase
             new Unit('12'),
             new DateTimeImmutable('2026-09-01'),
             'Корекция.',
+            multiplier: '0.500',
         );
 
         $this->expectException(InvalidArgumentException::class);
