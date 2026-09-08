@@ -20,6 +20,8 @@ use DomainException;
 
 final readonly class MonthlyChargeGenerator
 {
+    private const IDEAL_PARTS_TOTAL = 1_000_000;
+
     public function __construct(private EntityManagerInterface $entityManager)
     {
     }
@@ -42,7 +44,11 @@ final readonly class MonthlyChargeGenerator
                 }
 
                 if (FeeDistribution::IDEAL_PARTS === $policy->getDistribution()) {
-                    throw new DomainException('Distribution "ideal_parts" is not implemented yet.');
+                    $result = $this->generateIdealPartsPolicy($entityManager, $policy, $units, $billingMonth, $postedAt);
+                    $created += $result->created;
+                    $skipped += $result->skipped;
+                    $totalAmountCents += $result->totalAmountCents;
+                    continue;
                 }
 
                 foreach ($units as $unit) {
@@ -52,6 +58,7 @@ final readonly class MonthlyChargeGenerator
                             'base_quantity' => '1.000',
                         ]],
                         FeeDistribution::PER_PERSON => $this->perPersonQuantity($policy, $unit, $billingMonth),
+                        FeeDistribution::IDEAL_PARTS => throw new DomainException('Unexpected ideal-parts distribution branch.'),
                     };
 
                     $quantity = $rule?->getQuantityOverride() ?? $baseQuantity;
@@ -95,6 +102,115 @@ final readonly class MonthlyChargeGenerator
 
             return new ChargeGenerationResult($created, $skipped, $totalAmountCents);
         });
+    }
+
+    /**
+     * @param list<Unit> $units
+     */
+    private function generateIdealPartsPolicy(
+        EntityManagerInterface $entityManager,
+        FeePolicy $policy,
+        array $units,
+        DateTimeImmutable $billingMonth,
+        DateTimeImmutable $postedAt,
+    ): ChargeGenerationResult {
+        /** @var list<array{unit: Unit, idealParts: string, share: int, amount: int, remainder: int}> $allocations */
+        $allocations = [];
+        $shareTotal = 0;
+        $floorTotal = 0;
+
+        foreach ($units as $unit) {
+            $idealParts = $unit->getIdealParts();
+            if (null === $idealParts) {
+                throw new DomainException(sprintf('Unit "%s" is missing ideal parts.', $unit->getDesignation()));
+            }
+
+            [$canonical, $share] = self::normalizeIdealParts($idealParts, $unit->getDesignation());
+            $numerator = $policy->getMonthlyAmountCents() * $share;
+            $amount = intdiv($numerator, self::IDEAL_PARTS_TOTAL);
+            $remainder = $numerator % self::IDEAL_PARTS_TOTAL;
+
+            $allocations[] = [
+                'unit' => $unit,
+                'idealParts' => $canonical,
+                'share' => $share,
+                'amount' => $amount,
+                'remainder' => $remainder,
+            ];
+            $shareTotal += $share;
+            $floorTotal += $amount;
+        }
+
+        if (self::IDEAL_PARTS_TOTAL !== $shareTotal) {
+            throw new DomainException(sprintf(
+                'Ideal parts for active units must total 100.0000%%; got %s%%.',
+                self::formatIdealParts($shareTotal),
+            ));
+        }
+
+        usort($allocations, static function (array $left, array $right): int {
+            $remainderOrder = $right['remainder'] <=> $left['remainder'];
+            if (0 !== $remainderOrder) {
+                return $remainderOrder;
+            }
+
+            $leftId = $left['unit']->getId();
+            $rightId = $right['unit']->getId();
+            if (null === $leftId || null === $rightId) {
+                throw new DomainException('Cannot allocate ideal parts for non-persisted units.');
+            }
+
+            $idOrder = $leftId <=> $rightId;
+
+            return 0 !== $idOrder
+                ? $idOrder
+                : strnatcmp($left['unit']->getDesignation(), $right['unit']->getDesignation());
+        });
+
+        $remainingCents = $policy->getMonthlyAmountCents() - $floorTotal;
+        if ($remainingCents < 0 || $remainingCents > count($allocations)) {
+            throw new DomainException('Ideal-parts remainder allocation is inconsistent.');
+        }
+
+        for ($index = 0; $index < $remainingCents; ++$index) {
+            ++$allocations[$index]['amount'];
+        }
+
+        $created = 0;
+        $skipped = 0;
+        $totalAmountCents = 0;
+
+        foreach ($allocations as $allocation) {
+            if (0 === $allocation['amount']) {
+                ++$skipped;
+                continue;
+            }
+
+            $charge = Charge::post(
+                $policy,
+                $allocation['unit'],
+                $billingMonth,
+                $allocation['idealParts'],
+                $policy->getMonthlyAmountCents(),
+                $allocation['amount'],
+                [
+                    'distribution' => FeeDistribution::IDEAL_PARTS->value,
+                    'ideal_parts' => $allocation['idealParts'],
+                    'ideal_parts_total' => '100.0000',
+                    'allocation_method' => 'largest_remainder',
+                    'allocation_remainder' => $allocation['remainder'],
+                    'quantity_override' => null,
+                    'multiplier' => '1.000',
+                    'decision_reference' => $policy->getDecisionReference(),
+                ],
+                $postedAt,
+            );
+            $entityManager->persist($charge);
+            ++$created;
+            $totalAmountCents += $allocation['amount'];
+        }
+
+        return new ChargeGenerationResult($created, $skipped, $totalAmountCents);
     }
 
     /**
@@ -211,5 +327,34 @@ final readonly class MonthlyChargeGenerator
         }
 
         return ((int) $matches[1] * 1000) + (int) $matches[2];
+    }
+
+    /** @return array{string, int} */
+    private static function normalizeIdealParts(string $value, string $designation): array
+    {
+        $value = trim($value);
+        if (1 !== preg_match('/^\d+(?:\.\d{1,4})?$/', $value)) {
+            throw new DomainException(sprintf('Unit "%s" has invalid ideal parts.', $designation));
+        }
+
+        [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
+        $whole = ltrim($whole, '0');
+        $whole = '' === $whole ? '0' : $whole;
+        $fraction = str_pad($fraction, 4, '0');
+        $scaled = ((int) $whole * 10_000) + (int) $fraction;
+
+        if ($scaled <= 0 || $scaled > self::IDEAL_PARTS_TOTAL) {
+            throw new DomainException(sprintf('Unit "%s" has invalid ideal parts.', $designation));
+        }
+
+        return [$whole.'.'.$fraction, $scaled];
+    }
+
+    private static function formatIdealParts(int $scaled): string
+    {
+        $whole = intdiv($scaled, 10_000);
+        $fraction = $scaled % 10_000;
+
+        return $whole.'.'.str_pad((string) $fraction, 4, '0', STR_PAD_LEFT);
     }
 }
