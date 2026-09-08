@@ -12,7 +12,7 @@
         <ToDtTm>2026-09-09T23:59:59Z</ToDtTm>
       </FrToDt>
       <Acct>
-        <Id><IBAN>BG79TEST00000100000000</IBAN></Id>
+        <Id><IBAN>BG35TEST00000000000000</IBAN></Id>
         <Ccy>EUR</Ccy>
       </Acct>
       <Ntry>
@@ -28,8 +28,8 @@
               <EndToEndId>E2E-CREDIT-CHANGED</EndToEndId>
             </Refs>
             <RltdPties>
-              <Dbtr><Pty><Nm>Иван Иванов</Nm></Pty></Dbtr>
-              <DbtrAcct><Id><IBAN>BG88FAKE00000200000001</IBAN></Id></DbtrAcct>
+              <Dbtr><Pty><Nm>Тестов Платец</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>BG97FAKE00000000000001</IBAN></Id></DbtrAcct>
             </RltdPties>
             <RmtInf><Ustrd>Такса ап. 12</Ustrd></RmtInf>
           </TxDtls>
@@ -48,7 +48,7 @@
               <EndToEndId>E2E-CREDIT-2</EndToEndId>
             </Refs>
             <RltdPties>
-              <Dbtr><Pty><Nm>Мария Петрова</Nm></Pty></Dbtr>
+              <Dbtr><Pty><Nm>Втори Тестов Платец</Nm></Pty></Dbtr>
               <DbtrAcct><Id><IBAN>BG72MOCK00000400000003</IBAN></Id></DbtrAcct>
             </RltdPties>
             <RmtInf><Ustrd>Такса ап. 8</Ustrd></RmtInf>
