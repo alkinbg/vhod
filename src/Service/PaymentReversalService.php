@@ -23,6 +23,10 @@ final readonly class PaymentReversalService
         string $reason,
         DateTimeImmutable $reversedAt,
     ): PaymentReversalResult {
+        if (null === $payment->getId()) {
+            throw new DomainException('Only a persisted payment can be reversed.');
+        }
+
         return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($payment, $reason, $reversedAt): PaymentReversalResult {
             $existing = $entityManager->getRepository(PaymentReversal::class)->findOneBy(['payment' => $payment]);
             if ($existing instanceof PaymentReversal) {
