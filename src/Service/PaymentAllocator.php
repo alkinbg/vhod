@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Entity\Charge;
 use App\Entity\PaymentAllocation;
+use App\Entity\PaymentReversal;
 use App\Entity\Unit;
 use App\Value\PaymentAllocationProposal;
 use App\Value\ProposedAllocation;
@@ -54,9 +55,20 @@ final readonly class PaymentAllocator
         $total = 0;
         $allocations = $this->entityManager->getRepository(PaymentAllocation::class)->findBy(['charge' => $charge]);
         foreach ($allocations as $allocation) {
+            if ($this->isReversed($allocation)) {
+                continue;
+            }
+
             $total += $allocation->getAmountCents();
         }
 
         return $total;
+    }
+
+    private function isReversed(PaymentAllocation $allocation): bool
+    {
+        return null !== $this->entityManager->getRepository(PaymentReversal::class)->findOneBy([
+            'payment' => $allocation->getPayment(),
+        ]);
     }
 }
