@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>MSG-2026-09-09</MsgId>
+      <CreDtTm>2026-09-09T07:00:00Z</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>STMT-2026-09-09</Id>
+      <FrToDt>
+        <FrDtTm>2026-09-08T00:00:00Z</FrDtTm>
+        <ToDtTm>2026-09-09T23:59:59Z</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id><IBAN>BG80BNBG96611020345678</IBAN></Id>
+        <Ccy>EUR</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="EUR">125.50</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-08</Dt></BookgDt>
+        <ValDt><Dt>2026-09-08</Dt></ValDt>
+        <AcctSvcrRef>ASR-CREDIT-1</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <TxId>TX-CREDIT-1</TxId>
+              <EndToEndId>E2E-CREDIT-1</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr><Pty><Nm>Иван Иванов</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>BG40BNBG96611000066123</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Такса ап. 12</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">48.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-09</Dt></BookgDt>
+        <ValDt><Dt>2026-09-09</Dt></ValDt>
+        <AcctSvcrRef>ASR-CREDIT-2</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <TxId>TX-CREDIT-2</TxId>
+              <EndToEndId>E2E-CREDIT-2</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr><Pty><Nm>Мария Петрова</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>BG18RZBB91550123456789</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Такса ап. 8</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>
