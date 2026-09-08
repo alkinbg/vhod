@@ -14,6 +14,7 @@ use App\Enum\FundType;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ChargeTest extends TestCase
@@ -50,7 +51,7 @@ final class ChargeTest extends TestCase
         self::assertSame('2026-09-08 03:30:00', $charge->getPostedAt()->format('Y-m-d H:i:s'));
     }
 
-    /** @dataProvider invalidAmounts */
+    #[DataProvider('invalidAmounts')]
     public function testChargeRejectsNonPositiveMoney(int $policyAmountCents, int $amountCents): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -76,7 +77,7 @@ final class ChargeTest extends TestCase
         yield 'negative charge amount' => [850, -1];
     }
 
-    /** @dataProvider invalidQuantities */
+    #[DataProvider('invalidQuantities')]
     public function testChargeRejectsInvalidQuantity(string $quantity): void
     {
         $this->expectException(InvalidArgumentException::class);
