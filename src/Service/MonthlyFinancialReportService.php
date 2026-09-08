@@ -36,6 +36,7 @@ final readonly class MonthlyFinancialReportService
         [$localMonth, $startUtc, $endUtc] = self::period($month);
         $incomeLabels = self::incomeLabels();
         $income = array_fill_keys(array_keys($incomeLabels), 0);
+        /** @var array<string, int> $expenses */
         $expenses = [];
         foreach (ExpenseCategory::cases() as $category) {
             $expenses[$category->value] = 0;
@@ -57,11 +58,13 @@ final readonly class MonthlyFinancialReportService
         }
 
         foreach ($this->expensesBetween($startUtc, $endUtc) as $expense) {
-            $expenses[$expense->getCategory()->value] += $expense->getAmountCents();
+            $code = $expense->getCategory()->value;
+            $expenses[$code] = ($expenses[$code] ?? 0) + $expense->getAmountCents();
         }
         foreach ($this->expenseReversalsBetween($startUtc, $endUtc) as $reversal) {
             $expense = $reversal->getExpense();
-            $expenses[$expense->getCategory()->value] -= $reversal->getAmountCents();
+            $code = $expense->getCategory()->value;
+            $expenses[$code] = ($expenses[$code] ?? 0) - $reversal->getAmountCents();
         }
 
         $incomeLines = [];
@@ -74,7 +77,7 @@ final readonly class MonthlyFinancialReportService
 
         $expenseLines = [];
         foreach (ExpenseCategory::cases() as $category) {
-            $amount = $expenses[$category->value];
+            $amount = $expenses[$category->value] ?? 0;
             if (0 === $amount) {
                 continue;
             }
