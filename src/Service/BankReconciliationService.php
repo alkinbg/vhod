@@ -73,7 +73,7 @@ final readonly class BankReconciliationService
             ['id' => 'ASC'],
             2,
         );
-        if (1 !== count($mappings) || !$mappings[0] instanceof BankCounterpartyMapping) {
+        if (1 !== count($mappings)) {
             return null;
         }
 
