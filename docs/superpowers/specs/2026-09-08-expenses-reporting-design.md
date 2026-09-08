@@ -19,7 +19,8 @@ The official list is non-exhaustive, so the application keeps an explicit `OTHER
 - `Expense` and `ExternalIncome` are immutable once posted.
 - Corrections use full reversal records and, when needed, a replacement posting.
 - Historical foreign keys use `RESTRICT`.
-- Dates that determine a report period are explicit cash dates (`paidAt` / `receivedAt`). Audit timestamps are stored in UTC.
+- Dates that determine a report period are explicit cash timestamps (`paidAt` / `receivedAt`). Financial timestamps are persisted in UTC.
+- The legal/reporting calendar is `Europe/Sofia`. A monthly report builds `[monthStart, nextMonthStart)` in `Europe/Sofia` and converts those boundaries to UTC before querying persisted timestamps. This prevents cash received just after Bulgarian midnight from falling into the previous UTC month.
 - No hard delete workflow is provided for posted financial records.
 
 ## Expense
@@ -30,7 +31,7 @@ Fields:
 - `Fund fund` — the fund/accounting bucket from which the expense is paid;
 - `ExpenseCategory category` — exact report classification;
 - positive `amountCents`;
-- `paidAt` — cash date used by monthly reporting;
+- `paidAt` — cash timestamp used by monthly reporting;
 - `postedAt` — UTC audit timestamp;
 - required `description`;
 - optional `payee`;
@@ -108,29 +109,29 @@ Categories:
 
 `MonthlyFinancialReportService::build(DateTimeImmutable $month)` returns an immutable value object, not a persisted snapshot in this slice.
 
-The month is normalized to its first day. The report is cash-based:
+The requested month is interpreted in `Europe/Sofia` and normalized to the first local day. The service builds local start/end boundaries and converts them to UTC for database filtering. The report is cash-based:
 
 ### Resident income
-For each `Payment` whose `receivedAt` is in the month and which is not already fully offset in that same reporting calculation:
+For each `Payment` whose `receivedAt` falls inside the Bulgarian-local report month:
 - allocation portions whose charge policy category is `MANAGEMENT_MAINTENANCE` go to report income I;
 - allocation portions whose policy category is `REPAIR_RENOVATION` go to report income II;
 - allocations from policy category `OTHER` go to report income IX;
 - any unallocated part of a payment goes to report income IX so cash is never silently omitted.
 
-A `PaymentReversal` contributes the exact negative counterpart in the month of `reversedAt`, using the original payment allocations. Therefore a payment and reversal in the same month net to zero, while a later correction is visible in the later month's report.
+A `PaymentReversal` contributes the exact negative counterpart in the Bulgarian-local month containing `reversedAt`, using the original payment allocations. Therefore a payment and reversal in the same month net to zero, while a later correction is visible in the later month's report.
 
 ### External income
-`ExternalIncome` contributes positively in its `receivedAt` month. Its reversal contributes negatively in the `reversedAt` month using the same category.
+`ExternalIncome` contributes positively in the Bulgarian-local month containing `receivedAt`. Its reversal contributes negatively in the Bulgarian-local month containing `reversedAt` using the same category.
 
 ### Expenses
-`Expense` contributes positively to its expense category in its `paidAt` month. `ExpenseReversal` contributes the exact negative counterpart in its `reversedAt` month.
+`Expense` contributes positively to its expense category in the Bulgarian-local month containing `paidAt`. `ExpenseReversal` contributes the exact negative counterpart in the Bulgarian-local month containing `reversedAt`.
 
 This makes report totals reconcile with cash events/corrections without mutating old ledger rows.
 
 ## Report value objects
 
 `MonthlyFinancialReport` exposes:
-- normalized month;
+- normalized month in `Europe/Sofia`;
 - ordered income lines with code, Bulgarian label and signed cents;
 - ordered expense lines with code, Bulgarian label and signed cents;
 - total income cents;
@@ -151,7 +152,7 @@ Create four tables:
 - `external_income`
 - `external_income_reversal`
 
-All financial parent FKs use `ON DELETE RESTRICT`. Reversal tables have unique parent FKs. Add indexes for report-period dates and fund/date lookups.
+All financial parent FKs use `ON DELETE RESTRICT`. Reversal tables have unique parent FKs. Add indexes for report-period timestamps and fund/date lookups.
 
 ## Testing
 
@@ -163,6 +164,7 @@ TDD coverage must prove:
 - unallocated payment cash is not lost;
 - payment reversals offset income in the reversal month;
 - external-income and expense reversals offset their original category;
+- Bulgarian month boundaries are correct even when a local 1st-of-month timestamp is still the previous UTC date;
 - report totals and net are deterministic;
 - MariaDB migration up/down/up remains schema-synchronized;
 - PHPStan remains clean.
