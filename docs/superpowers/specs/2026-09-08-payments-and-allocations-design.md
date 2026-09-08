@@ -39,6 +39,7 @@ Rules:
 - `receivedAt` and `postedAt` are normalized to UTC for persistence;
 - the actual instant represented by `receivedAt` must not be later than `postedAt`;
 - `externalReference`, when present, is trimmed and unique;
+- a repeated `externalReference` is idempotent only when unit, amount and source match the original payment; otherwise it is a conflict;
 - after posting, a payment is immutable;
 - reversal never mutates the original payment.
 
@@ -72,13 +73,13 @@ Rules:
 Fields:
 
 - `payment` — original payment being neutralized;
+- `amountCents` — exact original payment amount;
 - `reason` — required explanation;
-- `reversedAt` — UTC timestamp;
-- optional `reference` for receipt/audit purposes.
+- `reversedAt` — UTC timestamp.
 
 Rules:
 
-- only an existing posted payment may be reversed;
+- only an existing persisted payment may be reversed;
 - a payment may be reversed only once;
 - reversal neutralizes the full payment amount and all allocation effects;
 - original `Payment` and `PaymentAllocation` rows remain unchanged;
@@ -143,9 +144,9 @@ Inputs:
 Behavior:
 
 1. validate idempotency by `externalReference` when present;
-2. create the immutable payment;
-3. use explicit allocations if supplied, otherwise generate oldest-first proposal;
-4. validate unit consistency and current outstanding amounts;
+2. use explicit allocations if supplied, otherwise generate oldest-first proposal;
+3. validate proposal amount, unit consistency and current outstanding amounts;
+4. create the immutable payment;
 5. persist payment and allocations in one Doctrine transaction;
 6. return the posted payment plus applied and unallocated totals.
 
@@ -157,10 +158,11 @@ If any validation fails, nothing is posted.
 - `(payment_id, charge_id)` has a unique constraint.
 - `payment_reversal.payment_id` has a unique constraint.
 - posting and reversal each use one transaction.
-- outstanding validation is repeated inside the posting transaction before persist/flush.
+- application-level idempotency is checked before and again inside the posting transaction.
+- outstanding validation occurs inside the posting transaction before persist/flush.
 - database constraints remain the final protection against duplicate posting races.
 
-No normal control flow depends on catching a uniqueness violation for routine repeat submissions; the service performs an application-level idempotency check first.
+No normal control flow depends on catching a uniqueness violation for routine repeat submissions.
 
 ## Reversal service
 
@@ -168,19 +170,29 @@ No normal control flow depends on catching a uniqueness violation for routine re
 
 Inputs:
 
-- original payment;
+- original persisted payment;
 - required reason;
-- reversal timestamp;
-- optional reference.
+- reversal timestamp.
 
 Behavior:
 
-1. verify the payment has not already been reversed;
-2. create one immutable reversal record;
-3. persist it transactionally;
-4. from that point, the original payment contributes zero effective payment amount and its allocations contribute zero effective settlement.
+1. reject a transient/unpersisted payment;
+2. verify the payment has not already been reversed;
+3. create one immutable reversal record for the exact original payment amount;
+4. persist it transactionally;
+5. from that point, the original payment contributes zero effective payment amount and its allocations contribute zero effective settlement.
 
 The exact UI for initiating reversal belongs to a later management workflow slice.
+
+## Unit balance calculator
+
+`UnitBalanceCalculator` is a read-only derived view over the immutable ledger.
+
+It calculates:
+
+`sum(unit charges) - sum(non-reversed unit payments)`
+
+It deliberately subtracts the full effective payment amount, not only allocated amounts, so unapplied credit reduces the unit balance. Reversed payments contribute zero. It persists no balance state.
 
 ## Access boundary
 
@@ -218,6 +230,7 @@ Tests must prove:
 - payment invariants and UTC normalization;
 - rejection of `receivedAt > postedAt`;
 - unique/idempotent external references;
+- rejection when the same external reference is reused for a different payment payload;
 - default oldest-first allocation;
 - partial payment;
 - one payment covering multiple charges;
@@ -230,6 +243,7 @@ Tests must prove:
 - posting transaction rollback on invalid allocation;
 - duplicate external reference returns the existing posted operation rather than posting twice;
 - reversal neutralizes full payment and allocation effects while original rows remain unchanged;
+- transient payments cannot be reversed;
 - reversal may occur only once;
 - Doctrine mapping and MariaDB migration round-trip;
 - PHPStan remains clean.
