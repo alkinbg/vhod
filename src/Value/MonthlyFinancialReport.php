@@ -25,8 +25,8 @@ final readonly class MonthlyFinancialReport
     {
         $sofia = new DateTimeZone('Europe/Sofia');
         $this->month = $month->setTimezone($sofia)->modify('first day of this month')->setTime(0, 0);
-        $this->incomeLines = array_values($incomeLines);
-        $this->expenseLines = array_values($expenseLines);
+        $this->incomeLines = $incomeLines;
+        $this->expenseLines = $expenseLines;
     }
 
     public function getMonth(): DateTimeImmutable { return $this->month; }
