@@ -22,7 +22,7 @@ class FeePolicyUnitRule
     private ?int $id = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'fee_policy_id', nullable: false, onDelete: 'CASCADE')]
     private FeePolicy $policy;
 
     #[ORM\ManyToOne]
@@ -130,10 +130,10 @@ class FeePolicyUnitRule
         }
 
         [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
+        $whole = ltrim($whole, '0');
+        $whole = '' === $whole ? '0' : $whole;
 
-        return ltrim($whole, '0') === ''
-            ? '0.'.str_pad($fraction, 3, '0')
-            : ltrim($whole, '0').'.'.str_pad($fraction, 3, '0');
+        return $whole.'.'.str_pad($fraction, 3, '0');
     }
 
     private static function decimal3ToMilli(string $value): int
