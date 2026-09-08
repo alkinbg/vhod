@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'bank_counterparty_mapping')]
+#[ORM\UniqueConstraint(name: 'uniq_bank_counterparty_mapping_active_iban', columns: ['counterparty_iban', 'active'])]
 #[ORM\Index(name: 'idx_bank_counterparty_mapping_lookup', columns: ['counterparty_iban', 'active'])]
 #[ORM\Index(name: 'idx_bank_counterparty_mapping_unit', columns: ['unit_id'])]
 class BankCounterpartyMapping
@@ -27,8 +28,8 @@ class BankCounterpartyMapping
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     private Unit $unit;
 
-    #[ORM\Column]
-    private bool $active = true;
+    #[ORM\Column(nullable: true)]
+    private ?bool $active = true;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private DateTimeImmutable $createdAt;
@@ -62,7 +63,7 @@ class BankCounterpartyMapping
 
     public function isActive(): bool
     {
-        return $this->active;
+        return true === $this->active;
     }
 
     public function getCreatedAt(): DateTimeImmutable
@@ -72,6 +73,6 @@ class BankCounterpartyMapping
 
     public function deactivate(): void
     {
-        $this->active = false;
+        $this->active = null;
     }
 }
