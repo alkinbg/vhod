@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Entity\AnimalRegistration;
 use App\Entity\Charge;
 use App\Entity\FeePolicy;
 use App\Entity\FeePolicyUnitRule;
+use App\Entity\HouseholdMember;
 use App\Entity\Unit;
+use App\Entity\UnitRelation;
 use App\Enum\FeeDistribution;
+use App\Enum\UnitRelationType;
 use App\Value\ChargeGenerationResult;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,13 +41,21 @@ final readonly class MonthlyChargeGenerator
                     continue;
                 }
 
-                if (FeeDistribution::PER_UNIT !== $policy->getDistribution()) {
-                    throw new DomainException(sprintf('Distribution "%s" is not implemented yet.', $policy->getDistribution()->value));
+                if (FeeDistribution::IDEAL_PARTS === $policy->getDistribution()) {
+                    throw new DomainException('Distribution "ideal_parts" is not implemented yet.');
                 }
 
                 foreach ($units as $unit) {
                     $rule = $this->effectiveRule($policy, $unit, $billingMonth);
-                    $quantity = $rule?->getQuantityOverride() ?? '1.000';
+                    [$baseQuantity, $details] = match ($policy->getDistribution()) {
+                        FeeDistribution::PER_UNIT => ['1.000', [
+                            'base_quantity' => '1.000',
+                        ]],
+                        FeeDistribution::PER_PERSON => $this->perPersonQuantity($policy, $unit, $billingMonth),
+                        FeeDistribution::IDEAL_PARTS => throw new DomainException('Distribution "ideal_parts" is not implemented yet.'),
+                    };
+
+                    $quantity = $rule?->getQuantityOverride() ?? $baseQuantity;
                     $multiplier = $rule?->getMultiplier() ?? '1.000';
                     $amountCents = self::calculateAmountCents(
                         $policy->getMonthlyAmountCents(),
@@ -65,7 +77,7 @@ final readonly class MonthlyChargeGenerator
                         $amountCents,
                         [
                             'distribution' => $policy->getDistribution()->value,
-                            'base_quantity' => '1.000',
+                            ...$details,
                             'quantity_override' => $rule?->getQuantityOverride(),
                             'multiplier' => $multiplier,
                             'decision_reference' => $policy->getDecisionReference(),
@@ -84,6 +96,79 @@ final readonly class MonthlyChargeGenerator
 
             return new ChargeGenerationResult($created, $skipped, $totalAmountCents);
         });
+    }
+
+    /**
+     * @return array{0: string, 1: array<string, bool|int|string|null>}
+     */
+    private function perPersonQuantity(FeePolicy $policy, Unit $unit, DateTimeImmutable $billingMonth): array
+    {
+        $relations = $this->entityManager->getRepository(UnitRelation::class)->findBy(['unit' => $unit]);
+        $identities = [];
+        $householdRelations = [];
+
+        foreach ($relations as $relation) {
+            if (!$relation->isActiveAt($billingMonth)) {
+                continue;
+            }
+
+            $person = $relation->getPerson();
+            if (null !== $person) {
+                $personId = $person->getId();
+                if (null === $personId) {
+                    throw new DomainException('Cannot generate charges from a non-persisted person.');
+                }
+                $identities['person:'.$personId] = true;
+            } else {
+                $identifier = $relation->getLegalEntityIdentifier();
+                if (null === $identifier) {
+                    throw new DomainException('Legal-entity relation is missing its identifier.');
+                }
+                $identities['legal:'.mb_strtolower($identifier)] = true;
+            }
+
+            if (in_array($relation->getType(), [UnitRelationType::OWNER, UnitRelationType::USER], true)) {
+                $householdRelations[] = $relation;
+            }
+        }
+
+        foreach ($householdRelations as $relation) {
+            $members = $this->entityManager->getRepository(HouseholdMember::class)->findBy(['relation' => $relation]);
+            foreach ($members as $member) {
+                if (!$member->isActiveAt($billingMonth)) {
+                    continue;
+                }
+
+                $personId = $member->getPerson()->getId();
+                if (null === $personId) {
+                    throw new DomainException('Cannot generate charges from a non-persisted household member.');
+                }
+                $identities['person:'.$personId] = true;
+            }
+        }
+
+        $baseOccupancyCount = count($identities);
+        $unoccupiedMinimumApplied = 0 === $baseOccupancyCount;
+        $chargeablePeople = max(1, $baseOccupancyCount);
+        $animalEquivalents = 0;
+        $animalSource = null;
+
+        if ($policy->includesAnimalEquivalents()) {
+            $animals = $this->entityManager->getRepository(AnimalRegistration::class)->findBy(['unit' => $unit]);
+            foreach ($animals as $animal) {
+                $animalEquivalents += $animal->getCount();
+            }
+            $animalSource = 'current_register';
+        }
+
+        $quantity = ($chargeablePeople + $animalEquivalents).'.000';
+
+        return [$quantity, [
+            'base_occupancy_count' => $baseOccupancyCount,
+            'unoccupied_minimum_applied' => $unoccupiedMinimumApplied,
+            'animal_equivalents' => $animalEquivalents,
+            'animal_source' => $animalSource,
+        ]];
     }
 
     private function effectiveRule(FeePolicy $policy, Unit $unit, DateTimeImmutable $billingMonth): ?FeePolicyUnitRule
