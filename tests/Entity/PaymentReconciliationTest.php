@@ -88,7 +88,7 @@ final class PaymentReconciliationTest extends TestCase
 
     private function transaction(int $amountCents): BankTransaction
     {
-        $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+        $account = BankAccount::create('Основна сметка', 'BG35TEST00000000000000');
         $import = BankStatementImport::record(
             $account,
             BankStatementFormat::CAMT053,
@@ -103,7 +103,7 @@ final class PaymentReconciliationTest extends TestCase
             str_repeat($amountCents > 0 ? 'b' : 'c', 64),
             $amountCents,
             new DateTimeImmutable('2026-09-08'),
-            counterpartyIban: 'BG40BNBG96611000066123',
+            counterpartyIban: 'BG97FAKE00000000000001',
         );
     }
 
