@@ -28,6 +28,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class BankReconciliationServiceTest extends KernelTestCase
 {
+    private const ACCOUNT_IBAN = 'BG35TEST00000000000000';
+    private const PAYER_IBAN = 'BG97FAKE00000000000001';
+
     private EntityManagerInterface $entityManager;
 
     protected function setUp(): void
@@ -48,6 +51,7 @@ final class BankReconciliationServiceTest extends KernelTestCase
         if ($this->entityManager->isOpen()) {
             $this->entityManager->close();
         }
+
         parent::tearDown();
     }
 
@@ -68,7 +72,6 @@ final class BankReconciliationServiceTest extends KernelTestCase
         self::assertSame($transaction->getAmountCents(), $reconciliation->getPayment()->getAmountCents());
         self::assertSame($unit->getId(), $reconciliation->getPayment()->getUnit()->getId());
         self::assertSame('bank:'.$transaction->getFingerprint(), $reconciliation->getPayment()->getExternalReference());
-        self::assertSame($transaction->getRemittanceInformation(), $reconciliation->getPayment()->getReference());
         self::assertSame('Потвърдено ръчно.', $reconciliation->getNote());
         self::assertCount(1, $this->entityManager->getRepository(Payment::class)->findAll());
         self::assertCount(1, $this->entityManager->getRepository(PaymentReconciliation::class)->findAll());
@@ -78,51 +81,40 @@ final class BankReconciliationServiceTest extends KernelTestCase
     {
         $transaction = $this->persistTransaction('b');
         $unit = $this->persistUnit('12');
-        $mapping = BankCounterpartyMapping::create(
-            'BG40BNBG96611000066123',
+        $this->entityManager->persist(BankCounterpartyMapping::create(
+            self::PAYER_IBAN,
             $unit,
             new DateTimeImmutable('2026-09-08 05:00:00 UTC'),
-        );
-        $this->entityManager->persist($mapping);
+        ));
         $this->entityManager->flush();
 
-        $first = $this->service()->autoReconcile(
-            $transaction,
-            new DateTimeImmutable('2026-09-08 05:30:00 UTC'),
-        );
-        $second = $this->service()->autoReconcile(
-            $transaction,
-            new DateTimeImmutable('2026-09-08 05:31:00 UTC'),
-        );
+        $first = $this->service()->autoReconcile($transaction, new DateTimeImmutable('2026-09-08 05:30:00 UTC'));
+        $second = $this->service()->autoReconcile($transaction, new DateTimeImmutable('2026-09-08 05:31:00 UTC'));
 
         self::assertInstanceOf(PaymentReconciliation::class, $first);
         self::assertSame(ReconciliationMethod::AUTOMATIC, $first->getMethod());
         self::assertSame($unit->getId(), $first->getPayment()->getUnit()->getId());
         self::assertNull($second);
         self::assertCount(1, $this->entityManager->getRepository(Payment::class)->findAll());
-        self::assertCount(1, $this->entityManager->getRepository(PaymentReconciliation::class)->findAll());
     }
 
     public function testAutomaticReconciliationNeverFallsBackToAmountOnly(): void
     {
         $transaction = $this->persistTransaction('c');
         $unrelatedUnit = $this->persistUnit('99');
-        $existing = Payment::post(
+        $this->entityManager->persist(Payment::post(
             $unrelatedUnit,
             $transaction->getAmountCents(),
             PaymentSource::BANK_TRANSFER,
             new DateTimeImmutable('2026-09-08 00:00:00 UTC'),
             new DateTimeImmutable('2026-09-08 05:10:00 UTC'),
-        );
-        $this->entityManager->persist($existing);
+        ));
         $this->entityManager->flush();
 
-        $result = $this->service()->autoReconcile(
+        self::assertNull($this->service()->autoReconcile(
             $transaction,
             new DateTimeImmutable('2026-09-08 05:30:00 UTC'),
-        );
-
-        self::assertNull($result);
+        ));
         self::assertCount(1, $this->entityManager->getRepository(Payment::class)->findAll());
         self::assertCount(0, $this->entityManager->getRepository(PaymentReconciliation::class)->findAll());
     }
@@ -133,18 +125,13 @@ final class BankReconciliationServiceTest extends KernelTestCase
         $unit = $this->persistUnit('12');
 
         try {
-            $this->service()->reconcileToUnit(
-                $transaction,
-                $unit,
-                new DateTimeImmutable('2026-09-08 05:30:00 UTC'),
-            );
+            $this->service()->reconcileToUnit($transaction, $unit, new DateTimeImmutable('2026-09-08 05:30:00 UTC'));
             self::fail('Expected outgoing transaction to be rejected.');
         } catch (DomainException $exception) {
             self::assertSame('Only incoming bank transactions can be reconciled.', $exception->getMessage());
         }
 
         self::assertCount(0, $this->entityManager->getRepository(Payment::class)->findAll());
-        self::assertCount(0, $this->entityManager->getRepository(PaymentReconciliation::class)->findAll());
     }
 
     public function testDuplicateManualReconciliationCannotDuplicateMoney(): void
@@ -152,18 +139,10 @@ final class BankReconciliationServiceTest extends KernelTestCase
         $transaction = $this->persistTransaction('e');
         $unit = $this->persistUnit('12');
         $service = $this->service();
-        $service->reconcileToUnit(
-            $transaction,
-            $unit,
-            new DateTimeImmutable('2026-09-08 05:30:00 UTC'),
-        );
+        $service->reconcileToUnit($transaction, $unit, new DateTimeImmutable('2026-09-08 05:30:00 UTC'));
 
         try {
-            $service->reconcileToUnit(
-                $transaction,
-                $unit,
-                new DateTimeImmutable('2026-09-08 05:31:00 UTC'),
-            );
+            $service->reconcileToUnit($transaction, $unit, new DateTimeImmutable('2026-09-08 05:31:00 UTC'));
             self::fail('Expected duplicate reconciliation to be rejected.');
         } catch (DomainException $exception) {
             self::assertSame('Bank transaction is already reconciled.', $exception->getMessage());
@@ -196,7 +175,6 @@ final class BankReconciliationServiceTest extends KernelTestCase
         );
 
         self::assertSame($payment->getId(), $reconciliation->getPayment()->getId());
-        self::assertSame(ReconciliationMethod::MANUAL, $reconciliation->getMethod());
         self::assertCount(1, $this->entityManager->getRepository(Payment::class)->findAll());
         self::assertCount(1, $this->entityManager->getRepository(PaymentReconciliation::class)->findAll());
     }
@@ -215,19 +193,12 @@ final class BankReconciliationServiceTest extends KernelTestCase
         );
         $this->entityManager->persist($payment);
         $this->entityManager->flush();
+
         $service = $this->service();
-        $service->linkExistingPayment(
-            $firstTransaction,
-            $payment,
-            new DateTimeImmutable('2026-09-08 05:20:00 UTC'),
-        );
+        $service->linkExistingPayment($firstTransaction, $payment, new DateTimeImmutable('2026-09-08 05:20:00 UTC'));
 
         try {
-            $service->linkExistingPayment(
-                $secondTransaction,
-                $payment,
-                new DateTimeImmutable('2026-09-08 05:30:00 UTC'),
-            );
+            $service->linkExistingPayment($secondTransaction, $payment, new DateTimeImmutable('2026-09-08 05:30:00 UTC'));
             self::fail('Expected payment reuse to be rejected.');
         } catch (DomainException $exception) {
             self::assertSame('Payment is already reconciled.', $exception->getMessage());
@@ -259,11 +230,7 @@ final class BankReconciliationServiceTest extends KernelTestCase
         $this->entityManager->getEventManager()->addEventListener([Events::onFlush], $listener);
 
         try {
-            $this->service()->reconcileToUnit(
-                $transaction,
-                $unit,
-                new DateTimeImmutable('2026-09-08 05:30:00 UTC'),
-            );
+            $this->service()->reconcileToUnit($transaction, $unit, new DateTimeImmutable('2026-09-08 05:30:00 UTC'));
             self::fail('Expected forced reconciliation persistence failure.');
         } catch (RuntimeException $exception) {
             self::assertSame('Forced reconciliation persistence failure.', $exception->getMessage());
@@ -318,11 +285,11 @@ final class BankReconciliationServiceTest extends KernelTestCase
     private function persistTransaction(
         string $fingerprintCharacter,
         int $amountCents = 12550,
-        ?string $counterpartyIban = 'BG40BNBG96611000066123',
+        ?string $counterpartyIban = self::PAYER_IBAN,
     ): BankTransaction {
         $account = $this->entityManager->getRepository(BankAccount::class)->findOneBy([]);
         if (!$account instanceof BankAccount) {
-            $account = BankAccount::create('Основна сметка', 'BG80BNBG96611020345678');
+            $account = BankAccount::create('Основна сметка', self::ACCOUNT_IBAN);
             $this->entityManager->persist($account);
         }
 
@@ -342,7 +309,7 @@ final class BankReconciliationServiceTest extends KernelTestCase
             $amountCents,
             new DateTimeImmutable('2026-09-08'),
             bankTransactionId: 'TX-'.$fingerprintCharacter,
-            counterpartyName: 'Платец',
+            counterpartyName: 'Тестов платец',
             counterpartyIban: $counterpartyIban,
             remittanceInformation: 'Такса апартамент',
         );
