@@ -10,6 +10,7 @@ use InvalidArgumentException;
 
 final readonly class NormalizedBankTransaction
 {
+    public string $currency;
     public DateTimeImmutable $bookingDate;
     public ?DateTimeImmutable $valueDate;
     public ?string $bankTransactionId;
@@ -21,7 +22,7 @@ final readonly class NormalizedBankTransaction
 
     public function __construct(
         public int $amountCents,
-        public string $currency,
+        string $currency,
         DateTimeImmutable $bookingDate,
         ?DateTimeImmutable $valueDate = null,
         ?string $bankTransactionId = null,
