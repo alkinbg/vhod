@@ -134,11 +134,7 @@ final readonly class DocumentService
         }
 
         if (DocumentAccessLevel::GOVERNANCE === $accessLevel) {
-            return in_array(
-                $category,
-                [DocumentCategory::OTHER, DocumentCategory::MEETING_PROXY, DocumentCategory::MEETING_INVITATION, DocumentCategory::MEETING_MINUTES],
-                true,
-            );
+            return in_array($category, [DocumentCategory::OTHER, DocumentCategory::MEETING_PROXY], true);
         }
 
         return false;
