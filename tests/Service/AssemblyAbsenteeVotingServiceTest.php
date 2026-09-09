@@ -179,7 +179,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
             $window,
             $this->entry,
             $this->evidence,
-            AssemblyAbsenteeSignatureMode::ELECTRONIC_EVIDENCE,
+            AssemblyAbsenteeSignatureMode::ELECTRONIC_DECLARATION_RECORDED,
             [$item->getId() => AssemblyVoteChoice::FOR],
             new DateTimeImmutable('2026-09-09T16:00:00Z'),
             'Електронният режим описва само вида на представеното доказателство.',
@@ -199,7 +199,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
             $window,
             $this->entry,
             $this->evidence,
-            AssemblyAbsenteeSignatureMode::HANDWRITTEN_SCAN,
+            AssemblyAbsenteeSignatureMode::HAND_SIGNED,
             [$item->getId() => AssemblyVoteChoice::AGAINST],
             new DateTimeImmutable('2026-09-09T17:00:00Z'),
         );
@@ -231,7 +231,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
                 $window,
                 $this->entry,
                 $residentEvidence,
-                AssemblyAbsenteeSignatureMode::HANDWRITTEN_SCAN,
+                AssemblyAbsenteeSignatureMode::HAND_SIGNED,
                 [$item->getId() => AssemblyVoteChoice::FOR],
                 new DateTimeImmutable('2026-09-09T16:00:00Z'),
             );
@@ -246,7 +246,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
                 $window,
                 $this->entry,
                 $this->evidence,
-                AssemblyAbsenteeSignatureMode::HANDWRITTEN_SCAN,
+                AssemblyAbsenteeSignatureMode::HAND_SIGNED,
                 [$item->getId() => AssemblyVoteChoice::FOR],
                 new DateTimeImmutable('2026-09-09T16:31:00Z'),
             );
@@ -260,7 +260,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
             $window,
             $this->entry,
             $this->evidence,
-            AssemblyAbsenteeSignatureMode::HANDWRITTEN_SCAN,
+            AssemblyAbsenteeSignatureMode::HAND_SIGNED,
             [$item->getId() => AssemblyVoteChoice::FOR],
             new DateTimeImmutable('2026-09-09T16:15:00Z'),
         );
@@ -278,7 +278,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
             $window,
             $this->entry,
             $this->evidence,
-            AssemblyAbsenteeSignatureMode::HANDWRITTEN_SCAN,
+            AssemblyAbsenteeSignatureMode::HAND_SIGNED,
             [$item->getId() => AssemblyVoteChoice::AGAINST],
             new DateTimeImmutable('2026-09-09T16:20:00Z'),
         );
