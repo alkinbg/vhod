@@ -52,7 +52,7 @@ final class GeneralAssemblyLifecycleControllerTest extends WebTestCase
         $invalid = AssemblyQuorumCheck::record(
             $assembly,
             AssemblyQuorumCheckKind::FIRST_CALL,
-            new DateTimeImmutable('2026-09-20T15:00:00Z'),
+            new DateTimeImmutable('2026-09-09T14:00:00Z'),
             new AssemblyQuorumCalculation(
                 '40.00000000',
                 '51.00000000',
@@ -112,7 +112,7 @@ final class GeneralAssemblyLifecycleControllerTest extends WebTestCase
     {
         $assembly = GeneralAssembly::draft(
             'Общо събрание',
-            new DateTimeImmutable('2026-09-20T15:00:00Z'),
+            new DateTimeImmutable('2026-09-09T14:00:00Z'),
             'Europe/Sofia',
             new DateTimeImmutable('2026-09-09'),
             'Вход А',
@@ -134,7 +134,7 @@ final class GeneralAssemblyLifecycleControllerTest extends WebTestCase
         ));
         $this->entityManager()->persist($assembly);
         $this->entityManager()->flush();
-        $assembly->convene($manager, new DateTimeImmutable('2026-09-19T12:00:00Z'));
+        $assembly->convene($manager, new DateTimeImmutable('2026-09-09T12:00:00Z'));
         $this->entityManager()->flush();
 
         return $assembly;
