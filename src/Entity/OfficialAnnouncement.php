@@ -6,6 +6,7 @@ namespace App\Entity;
 
 use App\Enum\DocumentAccessLevel;
 use App\Enum\OfficialAnnouncementStatus;
+use App\Repository\OfficialAnnouncementRepository;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -15,7 +16,7 @@ use DomainException;
 use InvalidArgumentException;
 use LogicException;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: OfficialAnnouncementRepository::class)]
 #[ORM\Table(name: 'official_announcement')]
 class OfficialAnnouncement
 {
