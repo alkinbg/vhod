@@ -13,6 +13,9 @@ use InvalidArgumentException;
 
 #[ORM\Entity(repositoryClass: AnnouncementReceiptRepository::class)]
 #[ORM\Table(name: 'announcement_receipt')]
+#[ORM\Index(name: 'idx_announcement_receipt_user_read', columns: ['user_id', 'read_at'])]
+#[ORM\Index(name: 'idx_announcement_receipt_announcement', columns: ['announcement_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_announcement_receipt_announcement_user', columns: ['announcement_id', 'user_id'])]
 class AnnouncementReceipt
 {
     #[ORM\Id]
@@ -21,11 +24,11 @@ class AnnouncementReceipt
     private ?int $id = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(name: 'announcement_id', nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(name: 'announcement_id', nullable: false, onDelete: 'RESTRICT', foreignKeyName: 'fk_announcement_receipt_announcement')]
     private OfficialAnnouncement $announcement;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(name: 'user_id', nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(name: 'user_id', nullable: false, onDelete: 'RESTRICT', foreignKeyName: 'fk_announcement_receipt_user')]
     private User $user;
 
     #[ORM\Column(type: 'datetime_immutable')]
