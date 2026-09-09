@@ -18,12 +18,9 @@ final class AssemblyAttendanceRepository extends ServiceEntityRepository
         parent::__construct($registry, AssemblyAttendance::class);
     }
 
-    public function findOneForEntry(GeneralAssembly $assembly, AssemblyElectorateEntry $entry): ?AssemblyAttendance
+    public function findForPrincipal(GeneralAssembly $assembly, AssemblyElectorateEntry $entry): ?AssemblyAttendance
     {
-        return $this->findOneBy([
-            'assembly' => $assembly,
-            'electorateEntry' => $entry,
-        ]);
+        return $this->findOneBy(['assembly' => $assembly, 'electorateEntry' => $entry]);
     }
 
     /** @return list<AssemblyAttendance> */

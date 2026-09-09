@@ -53,7 +53,7 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
         }
 
         $kind = AssemblyQuorumCheckKind::tryFrom((string) $request->request->get('kind'));
-        if (null === $kind || AssemblyQuorumCheckKind::MANUAL_REVIEW === $kind) {
+        if (null === $kind) {
             throw new BadRequestHttpException('Invalid quorum check kind.');
         }
 

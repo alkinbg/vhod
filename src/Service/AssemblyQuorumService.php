@@ -91,7 +91,7 @@ final readonly class AssemblyQuorumService
 
         foreach ($represented as $entry) {
             $representedKeys[$this->entryKey($entry)] = true;
-            $weight = $entry->getRepresentedIdealPartsPercent();
+            $weight = $entry->getRepresentedIdealPartsPercentSnapshot();
             if (null !== $weight) {
                 $representedIdealPartsPercent = ExactDecimal::add($representedIdealPartsPercent, $weight);
             }
