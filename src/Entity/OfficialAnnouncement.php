@@ -18,6 +18,9 @@ use LogicException;
 
 #[ORM\Entity(repositoryClass: OfficialAnnouncementRepository::class)]
 #[ORM\Table(name: 'official_announcement')]
+#[ORM\Index(name: 'idx_official_announcement_status_published', columns: ['status', 'published_at'])]
+#[ORM\Index(name: 'idx_official_announcement_created_by', columns: ['created_by_id'])]
+#[ORM\Index(name: 'idx_official_announcement_published_by', columns: ['published_by_id'])]
 class OfficialAnnouncement
 {
     #[ORM\Id]
@@ -35,14 +38,14 @@ class OfficialAnnouncement
     private string $body;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(name: 'created_by_id', nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(name: 'created_by_id', nullable: false, onDelete: 'RESTRICT', foreignKeyName: 'fk_official_announcement_created_by')]
     private User $createdBy;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private DateTimeImmutable $createdAt;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(name: 'published_by_id', nullable: true, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(name: 'published_by_id', nullable: true, onDelete: 'RESTRICT', foreignKeyName: 'fk_official_announcement_published_by')]
     private ?User $publishedBy = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
@@ -50,7 +53,11 @@ class OfficialAnnouncement
 
     /** @var Collection<int, Document> */
     #[ORM\ManyToMany(targetEntity: Document::class)]
-    #[ORM\JoinTable(name: 'official_announcement_document')]
+    #[ORM\JoinTable(
+        name: 'official_announcement_document',
+        foreignKeyName: 'fk_official_announcement_document_announcement',
+        inverseForeignKeyName: 'fk_official_announcement_document_document',
+    )]
     #[ORM\JoinColumn(name: 'announcement_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     #[ORM\InverseJoinColumn(name: 'document_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Collection $documents;
