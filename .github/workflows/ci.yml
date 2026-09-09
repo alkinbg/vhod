@@ -7,7 +7,7 @@ on:
             - main
 
 permissions:
-    contents: read
+    contents: write
 
 jobs:
     test:
@@ -30,6 +30,11 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            - name: Checkout PR head
+              run: |
+                  git fetch origin "$GITHUB_HEAD_REF"
+                  git checkout -B "$GITHUB_HEAD_REF" FETCH_HEAD
+
             - uses: shivammathur/setup-php@v2
               with:
                   php-version: '8.4'
@@ -40,10 +45,15 @@ jobs:
             - name: Generate Dompdf lock
               run: composer update dompdf/dompdf --with-all-dependencies --no-interaction --no-progress --no-install --no-scripts --no-plugins
 
-            - uses: actions/upload-artifact@v4
-              with:
-                  name: composer-lock
-                  path: composer.lock
+            - name: Commit Dompdf lock
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git add composer.lock
+                  if ! git diff --cached --quiet; then
+                      git commit -m "build: lock dompdf dependency"
+                      git push origin "HEAD:$GITHUB_HEAD_REF"
+                  fi
 
             - name: Validate Composer metadata
               run: composer validate --strict
