@@ -10,6 +10,7 @@ use App\Entity\GeneralAssembly;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
+/** @extends ServiceEntityRepository<AssemblyAttendance> */
 final class AssemblyAttendanceRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
