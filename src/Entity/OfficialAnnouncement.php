@@ -154,6 +154,7 @@ class OfficialAnnouncement
      */
     private static function validatedDocuments(iterable $documents): Collection
     {
+        /** @var ArrayCollection<int, Document> $collection */
         $collection = new ArrayCollection();
         foreach ($documents as $document) {
             if (DocumentAccessLevel::RESIDENTS !== $document->getAccessLevel()) {
