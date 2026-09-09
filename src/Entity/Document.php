@@ -30,10 +30,10 @@ class Document
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(enumType: DocumentCategory::class)]
+    #[ORM\Column(length: 32, enumType: DocumentCategory::class)]
     private DocumentCategory $category;
 
-    #[ORM\Column(enumType: DocumentAccessLevel::class)]
+    #[ORM\Column(length: 24, enumType: DocumentAccessLevel::class)]
     private DocumentAccessLevel $accessLevel;
 
     #[ORM\Column(length: 180)]
