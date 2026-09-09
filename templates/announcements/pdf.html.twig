@@ -16,7 +16,7 @@
 <body>
     <h1>{{ announcement.title }}</h1>
     {% if announcement.publishedAt %}
-        <div class="meta">Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% if announcement.publishedBy %} от {{ announcement.publishedBy.email }}{% endif %}</div>
+        <div class="meta">Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% if announcement.publishedBy %} от {{ announcement.publishedBy.userIdentifier }}{% endif %}</div>
     {% endif %}
     <div class="body">{{ announcement.body }}</div>
     {% if announcement.documents|length > 0 %}
