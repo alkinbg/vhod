@@ -148,7 +148,6 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $button = $crawler->selectButton('assembly_absentee_open_'.$this->assemblyId);
         self::assertCount(1, $button);
-        $token = (string) $button->ancestors()->filter('form')->filter('input[name="_token"]')->attr('value');
 
         $this->client->request('POST', $this->openUrl(), [
             '_token' => 'invalid',
@@ -162,6 +161,12 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
         self::ensureKernelShutdown();
         $this->client = self::createClient();
         $this->client->loginUser($this->user($this->managerId));
+        $crawler = $this->client->request('GET', $this->workbenchUrl());
+        self::assertResponseIsSuccessful();
+        $button = $crawler->selectButton('assembly_absentee_open_'.$this->assemblyId);
+        self::assertCount(1, $button);
+        $token = (string) $button->ancestors()->filter('form')->filter('input[name="_token"]')->attr('value');
+
         $this->client->request('POST', $this->openUrl(), [
             '_token' => $token,
             'agenda_item_ids' => [(string) $this->itemId],
