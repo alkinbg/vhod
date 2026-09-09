@@ -31,7 +31,7 @@
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_community_moderation') }}">Модерация</a>
                     <a class="nav-management-link" href="{{ path('app_management_announcements') }}">Официални обяви</a>
-                    <a class="nav-management-link" href="{{ path('app_management_documents') }}">Управление документи</a>
+                    <a class="nav-management-link" href="{{ path('app_management_documents') }}">Документи · управление</a>
                 {% endif %}
                 <a href="{{ path('app_logout') }}">Изход</a>
             </nav>
