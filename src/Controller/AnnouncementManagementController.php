@@ -182,7 +182,10 @@ final class AnnouncementManagementController extends AbstractController
         ], new Response(status: $status));
     }
 
-    /** @param list<int> $ids @return list<Document> */
+    /**
+     * @param list<int> $ids
+     * @return list<Document>
+     */
     private function residentDocumentsByIds(array $ids): array
     {
         $documents = [];
