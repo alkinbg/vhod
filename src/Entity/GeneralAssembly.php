@@ -6,7 +6,10 @@ namespace App\Entity;
 
 use App\Enum\AssemblyConveningBasis;
 use App\Enum\AssemblyDecisionKind;
+use App\Enum\DocumentAccessLevel;
+use App\Enum\DocumentCategory;
 use App\Enum\GeneralAssemblyStatus;
+use App\Repository\GeneralAssemblyRepository;
 use App\Value\AssemblyMajorityRuleSnapshot;
 use App\Value\AssemblyQuorumRuleSnapshot;
 use DateTimeImmutable;
@@ -17,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 use DomainException;
 use InvalidArgumentException;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: GeneralAssemblyRepository::class)]
 #[ORM\Table(name: 'general_assembly')]
 #[ORM\Index(name: 'idx_general_assembly_initiator_user', columns: ['initiator_user_id'])]
 #[ORM\Index(name: 'idx_general_assembly_created_by', columns: ['created_by_id'])]
@@ -25,6 +28,7 @@ use InvalidArgumentException;
 #[ORM\Index(name: 'idx_general_assembly_started_by', columns: ['started_by_id'])]
 #[ORM\Index(name: 'idx_general_assembly_closed_by', columns: ['closed_by_id'])]
 #[ORM\Index(name: 'idx_general_assembly_status_scheduled', columns: ['status', 'scheduled_at'])]
+#[ORM\Index(name: 'idx_general_assembly_invitation_document', columns: ['invitation_document_id'])]
 class GeneralAssembly
 {
     #[ORM\Id]
@@ -93,6 +97,10 @@ class GeneralAssembly
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?DateTimeImmutable $closedAt = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'invitation_document_id', nullable: true, onDelete: 'RESTRICT', foreignKeyName: 'fk_general_assembly_invitation_document')]
+    private ?Document $invitationDocument = null;
 
     #[ORM\Column(name: 'quorum_rule_code', length: 80, nullable: true)]
     private ?string $quorumRuleCode = null;
@@ -364,6 +372,21 @@ class GeneralAssembly
     public function getStartedAt(): ?DateTimeImmutable { return $this->startedAt; }
     public function getClosedBy(): ?User { return $this->closedBy; }
     public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
+
+    public function linkInvitation(Document $document): void
+    {
+        $this->assertStatus(GeneralAssemblyStatus::DRAFT, 'Invitation may be linked only while the General Assembly is a draft.');
+        if (null !== $this->invitationDocument) {
+            throw new DomainException('General Assembly invitation is immutable once linked.');
+        }
+        if (DocumentCategory::MEETING_INVITATION !== $document->getCategory() || DocumentAccessLevel::RESIDENTS !== $document->getAccessLevel()) {
+            throw new InvalidArgumentException('General Assembly invitation must be a resident-visible MEETING_INVITATION document.');
+        }
+
+        $this->invitationDocument = $document;
+    }
+
+    public function getInvitationDocument(): ?Document { return $this->invitationDocument; }
 
     /** @return Collection<int, AssemblyAgendaItem> */
     public function getAgendaItems(): Collection { return $this->agendaItems; }
