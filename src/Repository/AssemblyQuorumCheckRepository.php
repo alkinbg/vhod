@@ -17,15 +17,14 @@ final class AssemblyQuorumCheckRepository extends ServiceEntityRepository
         parent::__construct($registry, AssemblyQuorumCheck::class);
     }
 
+    public function findLatestForAssembly(GeneralAssembly $assembly): ?AssemblyQuorumCheck
+    {
+        return $this->findOneBy(['assembly' => $assembly], ['checkedAt' => 'DESC', 'id' => 'DESC']);
+    }
+
     /** @return list<AssemblyQuorumCheck> */
     public function findForAssembly(GeneralAssembly $assembly): array
     {
-        return $this->createQueryBuilder('check')
-            ->andWhere('check.assembly = :assembly')
-            ->setParameter('assembly', $assembly)
-            ->orderBy('check.checkedAt', 'ASC')
-            ->addOrderBy('check.id', 'ASC')
-            ->getQuery()
-            ->getResult();
+        return $this->findBy(['assembly' => $assembly], ['checkedAt' => 'DESC', 'id' => 'DESC']);
     }
 }
