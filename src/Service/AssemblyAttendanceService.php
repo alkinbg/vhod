@@ -19,6 +19,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
+use Throwable;
 
 final readonly class AssemblyAttendanceService
 {
@@ -41,8 +42,10 @@ final readonly class AssemblyAttendanceService
     ): AssemblyAttendance {
         $this->assertManager($actor);
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $assembly, $entry, $mode, $registeredAt, $representativePerson, $representativeName, $authorityNote): AssemblyAttendance {
-            $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+        try {
+            $this->entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $this->assertMutable($assembly);
 
             if ($entry->getAssembly() !== $assembly) {
@@ -73,10 +76,17 @@ final readonly class AssemblyAttendanceService
                 $representativeName,
                 $authorityNote,
             );
-            $entityManager->persist($attendance);
+            $this->entityManager->persist($attendance);
+            $this->entityManager->flush();
+            $connection->commit();
 
             return $attendance;
-        });
+        } catch (Throwable $exception) {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function correct(
@@ -88,9 +98,11 @@ final readonly class AssemblyAttendanceService
     ): AssemblyAttendanceChange {
         $this->assertManager($actor);
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $attendance, $newMode, $reason, $changedAt): AssemblyAttendanceChange {
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+        try {
             $assembly = $attendance->getAssembly();
-            $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
+            $this->entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $this->assertMutable($assembly);
 
             $representativePerson = null;
@@ -115,10 +127,17 @@ final readonly class AssemblyAttendanceService
             $oldMode = $attendance->getMode();
             $change = AssemblyAttendanceChange::record($attendance, $oldMode, $newMode, $reason, $actor, $changedAt);
             $attendance->changeMode($newMode, $representativePerson, $representativeName, $authorityNote);
-            $entityManager->persist($change);
+            $this->entityManager->persist($change);
+            $this->entityManager->flush();
+            $connection->commit();
 
             return $change;
-        });
+        } catch (Throwable $exception) {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     private function assertManager(User $actor): void
