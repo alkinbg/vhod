@@ -9,7 +9,7 @@
             <div class="text-secondary small text-uppercase fw-bold mb-1">Официално общо събрание</div>
             <h1 class="h2 mb-1">{{ assembly.title }}</h1>
             <p class="text-secondary mb-0">
-                {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }}
+                {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }} · {{ assembly.status.value }}
             </p>
         </div>
         <a class="btn btn-outline-secondary" href="{{ path('app_management_assemblies') }}">Към събранията</a>
@@ -17,44 +17,36 @@
 
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small mb-1">Представени идеални части</div>
-                    <div class="h2 mb-0">{{ representation.representedIdealPartsPercent }}%</div>
-                </div>
-            </div>
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small mb-1">Представени идеални части</div>
+                <div class="h2 mb-0">{{ representation.representedIdealPartsPercent }}%</div>
+            </div></div>
         </div>
         <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small mb-1">Представителство</div>
-                    <div class="h3 mb-0">{{ representation.representedCount }} от {{ representation.electorateCount }}</div>
-                    <div class="text-secondary small mt-1">
-                        {{ representation.unrepresentedCount }} {{ representation.unrepresentedCount == 1 ? 'непредставен' : 'непредставени' }}
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small mb-1">Представителство</div>
+                <div class="h3 mb-0">{{ representation.representedCount }} от {{ representation.electorateCount }}</div>
+                <div class="text-secondary small mt-1">
+                    {{ representation.unrepresentedCount }} {{ representation.unrepresentedCount == 1 ? 'непредставен' : 'непредставени' }}
+                </div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small mb-1">Данни за проверка</div>
+                {% if representation.unresolvedCount > 0 %}
+                    <div class="assembly-quorum-warning">
+                        {{ representation.unresolvedCount }} {{ representation.unresolvedCount == 1 ? 'запис изисква преглед' : 'записа изискват преглед' }}
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small mb-1">Данни за проверка</div>
-                    {% if representation.unresolvedCount > 0 %}
-                        <div class="assembly-quorum-warning">
-                            {{ representation.unresolvedCount }} {{ representation.unresolvedCount == 1 ? 'запис изисква преглед' : 'записа изискват преглед' }}
-                        </div>
-                    {% else %}
-                        <div class="text-success fw-semibold">Няма нерешени предупреждения</div>
-                    {% endif %}
-                </div>
-            </div>
+                {% else %}
+                    <div class="text-success fw-semibold">Няма нерешени предупреждения</div>
+                {% endif %}
+            </div></div>
         </div>
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">
-            <h2 class="card-title">Проверка на кворума</h2>
-        </div>
+        <div class="card-header"><h2 class="card-title">Проверка на кворума</h2></div>
         <div class="card-body">
             <div class="d-flex flex-wrap gap-2">
                 <form method="post" action="{{ path('app_management_assembly_quorum_check', {id: assembly.id}) }}">
@@ -72,38 +64,108 @@
             {% if latest_check %}
                 <div class="mt-4">
                     {% if latest_check.result.value == 'valid' %}
-                        <div class="assembly-quorum-success">
-                            Кворумът е валиден: {{ latest_check.representedIdealPartsPercent }}% представени при изисквани {{ latest_check.requiredIdealPartsPercent }}%.
-                        </div>
+                        <div class="assembly-quorum-success">Кворумът е валиден: {{ latest_check.representedIdealPartsPercent }}% представени при изисквани {{ latest_check.requiredIdealPartsPercent }}%.</div>
                     {% elseif latest_check.result.value == 'review_required' %}
-                        <div class="assembly-quorum-warning">
-                            Последната проверка изисква преглед. {{ latest_check.explanation }}
-                        </div>
+                        <div class="assembly-quorum-warning">Последната проверка изисква преглед. {{ latest_check.explanation }}</div>
                     {% else %}
-                        <div class="assembly-quorum-warning">
-                            Кворумът не е достигнат: {{ latest_check.representedIdealPartsPercent }}% представени при изисквани {{ latest_check.requiredIdealPartsPercent }}%.
-                        </div>
+                        <div class="assembly-quorum-warning">Кворумът не е достигнат: {{ latest_check.representedIdealPartsPercent }}% представени при изисквани {{ latest_check.requiredIdealPartsPercent }}%.</div>
                     {% endif %}
                 </div>
             {% endif %}
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">История на проверките</h2>
+    <div class="card mb-4 assembly-formal-voting">
+        <div class="card-header"><h2 class="card-title">Официално гласуване</h2></div>
+        <div class="card-body">
+            <div class="notice notice-info">Това е формалният вот на Общото събрание. Той е отделен от неформалните анкети в Общността и се записва с идеалните части от замразения електорат.</div>
+
+            {% for item in assembly.agendaItems %}
+                {% set item_votes = votes_by_item[item.id]|default([]) %}
+                {% set resolution = resolutions_by_item[item.id]|default(null) %}
+                <section class="assembly-agenda-vote mb-4">
+                    <div class="d-flex justify-content-between gap-3 align-items-start">
+                        <div>
+                            <div class="text-secondary small">Точка {{ item.position }} · {{ item.status.value }}</div>
+                            <h3 class="h4">{{ item.title }}</h3>
+                            <p>{{ item.finalResolutionText ?: item.draftResolutionText }}</p>
+                        </div>
+                        {% if resolution %}
+                            <span class="badge">{{ resolution.result.value }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if item.status.value == 'planned' and assembly.status.value == 'in_progress' %}
+                        <form method="post" action="{{ path('app_management_assembly_item_open', {id: assembly.id, itemId: item.id}) }}" class="mb-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('assembly_item_open_' ~ item.id) }}">
+                            <label for="final_resolution_{{ item.id }}">Финален текст на решението</label>
+                            <textarea id="final_resolution_{{ item.id }}" name="final_resolution_text" rows="3" required>{{ item.draftResolutionText }}</textarea>
+                            <button type="submit" class="btn btn-primary">Отвори официалното гласуване</button>
+                        </form>
+                    {% endif %}
+
+                    {% if item.status.value == 'open' %}
+                        <div class="table-responsive mb-3">
+                            <table class="table table-vcenter">
+                                <thead><tr><th>Правоимащ</th><th>Тегло</th><th>Нов вот</th></tr></thead>
+                                <tbody>
+                                {% for entry in electorate %}
+                                    <tr>
+                                        <td>{{ entry.principalNameSnapshot }} · {{ entry.unitDesignationSnapshot }}</td>
+                                        <td>{{ entry.representedIdealPartsPercentSnapshot ?: 'изисква преглед' }}{% if entry.representedIdealPartsPercentSnapshot %}%{% endif %}</td>
+                                        <td>
+                                            <form method="post" action="{{ path('app_management_assembly_vote', {id: assembly.id, itemId: item.id, entryId: entry.id}) }}" class="d-flex gap-2 align-items-center">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('assembly_vote_' ~ item.id ~ '_' ~ entry.id) }}">
+                                                <select name="choice" aria-label="Избор на официален вот">
+                                                    {% for choice in vote_choices %}<option value="{{ choice.value }}">{{ choice.value }}</option>{% endfor %}
+                                                </select>
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">Запиши</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% if item_votes %}
+                            <h4 class="h5">Записани гласове</h4>
+                            {% for vote in item_votes %}
+                                <div class="panel mb-2">
+                                    <strong>{{ vote.electorateEntry.principalNameSnapshot }}</strong> — {{ vote.choice.value }} · {{ vote.weightIdealPartsPercent }}%
+                                    <form method="post" action="{{ path('app_management_assembly_vote_correct', {id: assembly.id, voteId: vote.id}) }}" class="mt-2">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_vote_correct_' ~ vote.id) }}">
+                                        <select name="choice">{% for choice in vote_choices %}<option value="{{ choice.value }}" {{ choice == vote.choice ? 'selected' : '' }}>{{ choice.value }}</option>{% endfor %}</select>
+                                        <input type="text" name="reason" required placeholder="Причина за корекцията">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Коригирай с одитен запис</button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <form method="post" action="{{ path('app_management_assembly_item_resolve', {id: assembly.id, itemId: item.id}) }}" class="mt-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('assembly_item_resolve_' ~ item.id) }}">
+                            <button type="submit" class="btn btn-primary">Изчисли и замрази резултата</button>
+                        </form>
+                    {% endif %}
+
+                    {% if resolution %}
+                        <div class="notice {{ resolution.result.value == 'review_required' ? 'assembly-quorum-warning' : 'notice-soft' }} mt-3">
+                            За {{ resolution.forIdealPartsPercent }}% · Против {{ resolution.againstIdealPartsPercent }}% · Въздържали се {{ resolution.abstainIdealPartsPercent }}% · Резултат: {{ resolution.result.value }}
+                        </div>
+                    {% endif %}
+                </section>
+            {% else %}
+                <p class="text-secondary">Няма точки в дневния ред.</p>
+            {% endfor %}
         </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2 class="card-title">История на проверките</h2></div>
         <div class="table-responsive">
             <table class="table table-vcenter card-table">
-                <thead>
-                <tr>
-                    <th>Време</th>
-                    <th>Вид</th>
-                    <th>Представени</th>
-                    <th>Изисквани</th>
-                    <th>Резултат</th>
-                </tr>
-                </thead>
+                <thead><tr><th>Време</th><th>Вид</th><th>Представени</th><th>Изисквани</th><th>Резултат</th></tr></thead>
                 <tbody>
                 {% for check in quorum_checks %}
                     <tr>
