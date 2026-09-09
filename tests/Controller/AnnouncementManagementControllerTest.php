@@ -75,12 +75,15 @@ final class AnnouncementManagementControllerTest extends WebTestCase
         self::assertNotNull($announcement->getId());
 
         $crawler = $this->client->request('GET', '/management/announcement/'.$announcement->getId().'/edit');
-        $form = $crawler->selectButton('announcement_submit')->form([
+        self::assertResponseIsSuccessful();
+        $token = $crawler->filter('input[name="_token"]')->attr('value');
+        self::assertIsString($token);
+        $this->client->request('POST', '/management/announcement/'.$announcement->getId().'/edit', [
+            '_token' => $token,
             'title' => 'Проверка на асансьора — промяна',
             'body' => 'Проверката ще бъде извършена в петък.',
             'document_ids' => [],
         ]);
-        $this->client->submit($form);
         self::assertResponseRedirects('/management/announcements');
 
         $em = $this->entityManager();
