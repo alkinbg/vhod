@@ -76,12 +76,8 @@ final readonly class AssemblyVotingService
         try {
             $this->lockItem($item);
             $this->assertVotingOpen($item);
-            if ($entry->getAssembly() !== $item->getAssembly()) {
-                throw new DomainException('Formal vote principal does not belong to this General Assembly.');
-            }
-            if (null !== $this->voteRepository->findForItemAndEntry($item, $entry)) {
-                throw new DomainException('An effective formal vote for this principal and agenda item already exists.');
-            }
+            $this->assertEntryBelongsToItem($entry, $item);
+            $this->assertNoEffectiveVote($item, $entry);
 
             $attendance = $this->attendanceRepository->findForPrincipal($item->getAssembly(), $entry);
             if (null === $attendance || null !== $attendance->getLeftAt()) {
@@ -97,12 +93,15 @@ final readonly class AssemblyVotingService
                 throw new DomainException('Proxy formal vote requires an effective proxy authority.');
             }
 
-            $weight = $entry->getRepresentedIdealPartsPercentSnapshot();
-            if (!$entry->isQuorumEligible() || null !== $entry->getReviewReason() || null === $weight) {
-                throw new DomainException('Formal vote weight is unresolved and requires review.');
-            }
-
-            $vote = AssemblyVote::record($item, $entry, $choice, $weight, $actor, $recordedAt, $castMode);
+            $vote = AssemblyVote::record(
+                $item,
+                $entry,
+                $choice,
+                $this->resolvedWeight($entry),
+                $actor,
+                $recordedAt,
+                $castMode,
+            );
             $this->entityManager->persist($vote);
             $this->entityManager->flush();
             $this->entityManager->commit();
@@ -112,6 +111,39 @@ final readonly class AssemblyVotingService
             $this->rollback();
             throw $exception;
         }
+    }
+
+    /**
+     * Records an absentee vote inside a transaction owned by AssemblyAbsenteeVotingService.
+     * The caller is responsible for flush/commit/rollback so declaration evidence and all
+     * effective formal votes remain atomic.
+     */
+    public function recordAbsenteeVoteInCurrentTransaction(
+        User $actor,
+        AssemblyAgendaItem $item,
+        AssemblyElectorateEntry $entry,
+        AssemblyVoteChoice $choice,
+        DateTimeImmutable $recordedAt,
+    ): AssemblyVote {
+        $this->assertCanManage($actor);
+        $this->assertTransactionActive();
+        $this->lockItem($item);
+        $this->assertAbsenteeVotingOpen($item);
+        $this->assertEntryBelongsToItem($entry, $item);
+        $this->assertNoEffectiveVote($item, $entry);
+
+        $vote = AssemblyVote::record(
+            $item,
+            $entry,
+            $choice,
+            $this->resolvedWeight($entry),
+            $actor,
+            $recordedAt,
+            AssemblyVoteCastMode::ABSENTEE,
+        );
+        $this->entityManager->persist($vote);
+
+        return $vote;
     }
 
     public function correctVote(
@@ -153,7 +185,7 @@ final readonly class AssemblyVotingService
 
         try {
             $this->lockItem($item);
-            $existing = $this->entityManager->getRepository(AssemblyResolution::class)->findOneBy(['agendaItem' => $item]);
+            $existing = $this->findResolution($item);
             if ($existing instanceof AssemblyResolution) {
                 $this->entityManager->commit();
 
@@ -161,40 +193,7 @@ final readonly class AssemblyVotingService
             }
             $this->assertVotingOpen($item);
 
-            $electorate = $this->electorateRepository->findForAssembly($item->getAssembly());
-            $allCommonIdealParts = '0.00000000';
-            $requiresReview = false;
-            foreach ($electorate as $entry) {
-                $weight = $entry->getRepresentedIdealPartsPercentSnapshot();
-                if (!$entry->isQuorumEligible() || null !== $entry->getReviewReason() || null === $weight) {
-                    $requiresReview = true;
-                    continue;
-                }
-                $allCommonIdealParts = ExactDecimal::add($allCommonIdealParts, $weight);
-            }
-
-            $representation = $this->quorumService->currentRepresentation($item->getAssembly());
-            $calculation = $this->resolutionCalculator->calculate(
-                $item,
-                $this->voteRepository->findForItem($item),
-                $allCommonIdealParts,
-                $representation['representedIdealPartsPercent'],
-            );
-            if ($requiresReview && AssemblyResolutionResult::REVIEW_REQUIRED !== $calculation->result) {
-                $calculation = new AssemblyResolutionCalculation(
-                    $calculation->forIdealPartsPercent,
-                    $calculation->againstIdealPartsPercent,
-                    $calculation->abstainIdealPartsPercent,
-                    $calculation->denominatorIdealPartsPercent,
-                    $calculation->requiredIdealPartsPercent,
-                    AssemblyResolutionResult::REVIEW_REQUIRED,
-                    'Решението изисква преглед поради непълни или противоречиви данни в замразения електорат.',
-                );
-            }
-
-            $resolution = AssemblyResolution::record($item, $calculation, $actor, $resolvedAt);
-            $this->entityManager->persist($resolution);
-            $item->resolve($resolvedAt);
+            $resolution = $this->createResolution($actor, $item, $resolvedAt);
             $this->entityManager->flush();
             $this->entityManager->commit();
 
@@ -202,6 +201,102 @@ final readonly class AssemblyVotingService
         } catch (Throwable $exception) {
             $this->rollback();
             throw $exception;
+        }
+    }
+
+    /**
+     * Resolves an absentee item inside a transaction owned by AssemblyAbsenteeVotingService.
+     */
+    public function resolveAbsenteeItemInCurrentTransaction(
+        User $actor,
+        AssemblyAgendaItem $item,
+        DateTimeImmutable $resolvedAt,
+    ): AssemblyResolution {
+        $this->assertCanManage($actor);
+        $this->assertTransactionActive();
+        $this->lockItem($item);
+
+        $existing = $this->findResolution($item);
+        if ($existing instanceof AssemblyResolution) {
+            return $existing;
+        }
+
+        $this->assertAbsenteeVotingOpen($item);
+
+        return $this->createResolution($actor, $item, $resolvedAt);
+    }
+
+    private function createResolution(
+        User $actor,
+        AssemblyAgendaItem $item,
+        DateTimeImmutable $resolvedAt,
+    ): AssemblyResolution {
+        $electorate = $this->electorateRepository->findForAssembly($item->getAssembly());
+        $allCommonIdealParts = '0.00000000';
+        $requiresReview = false;
+        foreach ($electorate as $entry) {
+            $weight = $entry->getRepresentedIdealPartsPercentSnapshot();
+            if (!$entry->isQuorumEligible() || null !== $entry->getReviewReason() || null === $weight) {
+                $requiresReview = true;
+                continue;
+            }
+            $allCommonIdealParts = ExactDecimal::add($allCommonIdealParts, $weight);
+        }
+
+        $representation = $this->quorumService->currentRepresentation($item->getAssembly());
+        $calculation = $this->resolutionCalculator->calculate(
+            $item,
+            $this->voteRepository->findForItem($item),
+            $allCommonIdealParts,
+            $representation['representedIdealPartsPercent'],
+        );
+        if ($requiresReview && AssemblyResolutionResult::REVIEW_REQUIRED !== $calculation->result) {
+            $calculation = new AssemblyResolutionCalculation(
+                $calculation->forIdealPartsPercent,
+                $calculation->againstIdealPartsPercent,
+                $calculation->abstainIdealPartsPercent,
+                $calculation->denominatorIdealPartsPercent,
+                $calculation->requiredIdealPartsPercent,
+                AssemblyResolutionResult::REVIEW_REQUIRED,
+                'Решението изисква преглед поради непълни или противоречиви данни в замразения електорат.',
+            );
+        }
+
+        $resolution = AssemblyResolution::record($item, $calculation, $actor, $resolvedAt);
+        $this->entityManager->persist($resolution);
+        $item->resolve($resolvedAt);
+
+        return $resolution;
+    }
+
+    private function findResolution(AssemblyAgendaItem $item): ?AssemblyResolution
+    {
+        $resolution = $this->entityManager->getRepository(AssemblyResolution::class)->findOneBy(['agendaItem' => $item]);
+
+        return $resolution instanceof AssemblyResolution ? $resolution : null;
+    }
+
+    private function resolvedWeight(AssemblyElectorateEntry $entry): string
+    {
+        $weight = $entry->getRepresentedIdealPartsPercentSnapshot();
+        if (!$entry->isQuorumEligible() || null !== $entry->getReviewReason() || null === $weight) {
+            throw new DomainException('Formal vote weight is unresolved and requires review.');
+        }
+
+        return $weight;
+    }
+
+    private function assertEntryBelongsToItem(AssemblyElectorateEntry $entry, AssemblyAgendaItem $item): void
+    {
+        if ($entry->getAssembly() !== $item->getAssembly()) {
+            throw new DomainException('Formal vote principal does not belong to this General Assembly.');
+        }
+    }
+
+    private function assertNoEffectiveVote(AssemblyAgendaItem $item, AssemblyElectorateEntry $entry): void
+    {
+        if (null !== $this->voteRepository->findForItemAndEntry($item, $entry)) {
+            throw new DomainException('An effective formal vote for this principal and agenda item already exists.');
         }
     }
 
@@ -216,6 +311,20 @@ final readonly class AssemblyVotingService
     {
         if (GeneralAssemblyStatus::IN_PROGRESS !== $item->getAssembly()->getStatus() || AgendaItemStatus::OPEN !== $item->getStatus()) {
             throw new DomainException('Formal vote mutations require an open agenda item in an in-progress General Assembly.');
+        }
+    }
+
+    private function assertAbsenteeVotingOpen(AssemblyAgendaItem $item): void
+    {
+        if (GeneralAssemblyStatus::CLOSED !== $item->getAssembly()->getStatus() || AgendaItemStatus::ABSENTEE_WINDOW !== $item->getStatus()) {
+            throw new DomainException('Absentee vote mutations require a deferred agenda item in a closed General Assembly.');
+        }
+    }
+
+    private function assertTransactionActive(): void
+    {
+        if (!$this->entityManager->getConnection()->isTransactionActive()) {
+            throw new DomainException('Absentee formal vote operation requires an active outer transaction.');
         }
     }
 
