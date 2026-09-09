@@ -8,6 +8,7 @@ use App\Enum\AssemblyConveningBasis;
 use App\Enum\AssemblyDecisionKind;
 use App\Enum\GeneralAssemblyStatus;
 use App\Value\AssemblyMajorityRuleSnapshot;
+use App\Value\AssemblyQuorumRuleSnapshot;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -91,6 +92,30 @@ class GeneralAssembly
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?DateTimeImmutable $closedAt = null;
+
+    #[ORM\Column(name: 'quorum_rule_code', length: 80, nullable: true)]
+    private ?string $quorumRuleCode = null;
+
+    #[ORM\Column(name: 'quorum_first_call_required_percent', type: 'decimal', precision: 14, scale: 8, nullable: true)]
+    private ?string $quorumFirstCallRequiredPercent = null;
+
+    #[ORM\Column(name: 'quorum_delayed_call_required_percent', type: 'decimal', precision: 14, scale: 8, nullable: true)]
+    private ?string $quorumDelayedCallRequiredPercent = null;
+
+    #[ORM\Column(name: 'quorum_dominant_owner_trigger_percent', type: 'decimal', precision: 14, scale: 8, nullable: true)]
+    private ?string $quorumDominantOwnerTriggerPercent = null;
+
+    #[ORM\Column(name: 'quorum_dominant_owner_required_percent', type: 'decimal', precision: 14, scale: 8, nullable: true)]
+    private ?string $quorumDominantOwnerRequiredPercent = null;
+
+    #[ORM\Column(name: 'quorum_legal_basis', type: 'text', nullable: true)]
+    private ?string $quorumLegalBasis = null;
+
+    #[ORM\Column(name: 'quorum_source_version', length: 120, nullable: true)]
+    private ?string $quorumSourceVersion = null;
+
+    #[ORM\Column(name: 'quorum_requires_legal_review', nullable: true)]
+    private ?bool $quorumRequiresLegalReview = null;
 
     /** @var Collection<int, AssemblyAgendaItem> */
     #[ORM\OneToMany(mappedBy: 'assembly', targetEntity: AssemblyAgendaItem::class)]
@@ -230,6 +255,53 @@ class GeneralAssembly
         $this->agendaItems->add($item);
 
         return $item;
+    }
+
+    public function snapshotQuorumRule(AssemblyQuorumRuleSnapshot $rule): void
+    {
+        $this->assertStatus(GeneralAssemblyStatus::DRAFT, 'Quorum rule may be snapshotted only while the meeting is a draft.');
+        if (null !== $this->quorumRuleCode) {
+            throw new DomainException('General Assembly quorum rule snapshot is immutable.');
+        }
+
+        $this->quorumRuleCode = $rule->code;
+        $this->quorumFirstCallRequiredPercent = $rule->firstCallRequiredPercent;
+        $this->quorumDelayedCallRequiredPercent = $rule->delayedCallRequiredPercent;
+        $this->quorumDominantOwnerTriggerPercent = $rule->dominantOwnerTriggerPercent;
+        $this->quorumDominantOwnerRequiredPercent = $rule->dominantOwnerRequiredPercent;
+        $this->quorumLegalBasis = $rule->legalBasis;
+        $this->quorumSourceVersion = $rule->sourceVersion;
+        $this->quorumRequiresLegalReview = $rule->requiresLegalReview;
+    }
+
+    public function getQuorumRuleSnapshot(): ?AssemblyQuorumRuleSnapshot
+    {
+        if (null === $this->quorumRuleCode) {
+            return null;
+        }
+
+        if (
+            null === $this->quorumFirstCallRequiredPercent
+            || null === $this->quorumDelayedCallRequiredPercent
+            || null === $this->quorumDominantOwnerTriggerPercent
+            || null === $this->quorumDominantOwnerRequiredPercent
+            || null === $this->quorumLegalBasis
+            || null === $this->quorumSourceVersion
+            || null === $this->quorumRequiresLegalReview
+        ) {
+            throw new DomainException('Stored General Assembly quorum rule snapshot is incomplete.');
+        }
+
+        return new AssemblyQuorumRuleSnapshot(
+            $this->quorumRuleCode,
+            $this->quorumFirstCallRequiredPercent,
+            $this->quorumDelayedCallRequiredPercent,
+            $this->quorumDominantOwnerTriggerPercent,
+            $this->quorumDominantOwnerRequiredPercent,
+            $this->quorumLegalBasis,
+            $this->quorumSourceVersion,
+            $this->quorumRequiresLegalReview,
+        );
     }
 
     public function convene(User $actor, DateTimeImmutable $convenedAt): void
