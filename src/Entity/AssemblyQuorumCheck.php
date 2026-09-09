@@ -16,6 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'assembly_quorum_check')]
 #[ORM\Index(name: 'idx_quorum_assembly', columns: ['assembly_id'])]
 #[ORM\Index(name: 'idx_quorum_checked_by', columns: ['checked_by_id'])]
+#[ORM\Index(name: 'idx_quorum_assembly_checked', columns: ['assembly_id', 'checked_at'])]
 class AssemblyQuorumCheck
 {
     #[ORM\Id]

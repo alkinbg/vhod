@@ -18,6 +18,7 @@ use InvalidArgumentException;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'assembly_agenda_item')]
+#[ORM\UniqueConstraint(name: 'uniq_assembly_agenda_position', columns: ['assembly_id', 'position'])]
 #[ORM\Index(name: 'idx_assembly_agenda_item_assembly', columns: ['assembly_id'])]
 class AssemblyAgendaItem
 {

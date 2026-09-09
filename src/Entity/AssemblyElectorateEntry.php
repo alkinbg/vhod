@@ -18,6 +18,8 @@ use InvalidArgumentException;
 #[ORM\Index(name: 'idx_electorate_unit', columns: ['unit_id'])]
 #[ORM\Index(name: 'idx_electorate_source_relation', columns: ['source_relation_id'])]
 #[ORM\Index(name: 'idx_electorate_person', columns: ['person_id'])]
+#[ORM\Index(name: 'idx_electorate_assembly_unit', columns: ['assembly_id', 'unit_id'])]
+#[ORM\Index(name: 'idx_electorate_assembly_person', columns: ['assembly_id', 'person_id'])]
 class AssemblyElectorateEntry
 {
     #[ORM\Id]

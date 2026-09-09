@@ -24,6 +24,7 @@ use InvalidArgumentException;
 #[ORM\Index(name: 'idx_general_assembly_convened_by', columns: ['convened_by_id'])]
 #[ORM\Index(name: 'idx_general_assembly_started_by', columns: ['started_by_id'])]
 #[ORM\Index(name: 'idx_general_assembly_closed_by', columns: ['closed_by_id'])]
+#[ORM\Index(name: 'idx_general_assembly_status_scheduled', columns: ['status', 'scheduled_at'])]
 class GeneralAssembly
 {
     #[ORM\Id]
