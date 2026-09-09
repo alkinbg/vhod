@@ -22,7 +22,15 @@ use App\Enum\DocumentAccessLevel;
 use App\Enum\DocumentCategory;
 use App\Enum\GeneralAssemblyStatus;
 use App\Enum\MajorityComparison;
+use App\Repository\AssemblyAttendanceRepository;
+use App\Repository\AssemblyElectorateEntryRepository;
+use App\Repository\AssemblyProxyRepository;
+use App\Repository\AssemblyQuorumCheckRepository;
+use App\Repository\AssemblyVoteRepository;
+use App\Security\GeneralAssemblyAccessPolicy;
 use App\Service\AssemblyMinutesService;
+use App\Service\DocumentService;
+use App\Service\DocumentStorage;
 use App\Value\AssemblyMajorityRuleSnapshot;
 use App\Value\AssemblyQuorumCalculation;
 use App\Value\AssemblyResolutionCalculation;
@@ -31,6 +39,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use DomainException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Twig\Environment;
 
 final class AssemblyMinutesServiceTest extends KernelTestCase
 {
@@ -52,9 +61,37 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
         $tool->dropSchema($metadata);
         $tool->createSchema($metadata);
 
-        $service = self::getContainer()->get(AssemblyMinutesService::class);
-        self::assertInstanceOf(AssemblyMinutesService::class, $service);
-        $this->service = $service;
+        $twig = self::getContainer()->get('twig');
+        $accessPolicy = self::getContainer()->get(GeneralAssemblyAccessPolicy::class);
+        $quorumChecks = self::getContainer()->get(AssemblyQuorumCheckRepository::class);
+        $attendance = self::getContainer()->get(AssemblyAttendanceRepository::class);
+        $proxies = self::getContainer()->get(AssemblyProxyRepository::class);
+        $electorate = self::getContainer()->get(AssemblyElectorateEntryRepository::class);
+        $votes = self::getContainer()->get(AssemblyVoteRepository::class);
+        $documentService = self::getContainer()->get(DocumentService::class);
+        $documentStorage = self::getContainer()->get(DocumentStorage::class);
+        self::assertInstanceOf(Environment::class, $twig);
+        self::assertInstanceOf(GeneralAssemblyAccessPolicy::class, $accessPolicy);
+        self::assertInstanceOf(AssemblyQuorumCheckRepository::class, $quorumChecks);
+        self::assertInstanceOf(AssemblyAttendanceRepository::class, $attendance);
+        self::assertInstanceOf(AssemblyProxyRepository::class, $proxies);
+        self::assertInstanceOf(AssemblyElectorateEntryRepository::class, $electorate);
+        self::assertInstanceOf(AssemblyVoteRepository::class, $votes);
+        self::assertInstanceOf(DocumentService::class, $documentService);
+        self::assertInstanceOf(DocumentStorage::class, $documentStorage);
+
+        $this->service = new AssemblyMinutesService(
+            $twig,
+            $em,
+            $accessPolicy,
+            $quorumChecks,
+            $attendance,
+            $proxies,
+            $electorate,
+            $votes,
+            $documentService,
+            $documentStorage,
+        );
 
         $person = new Person('Мария', 'Управител', email: 'manager-minutes@example.com');
         $this->manager = new User($person, 'manager-minutes@example.com', 'hash');
