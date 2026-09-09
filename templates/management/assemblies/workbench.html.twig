@@ -12,7 +12,20 @@
                 {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }} · {{ assembly.status.value }}
             </p>
         </div>
-        <a class="btn btn-outline-secondary" href="{{ path('app_management_assemblies') }}">Към събранията</a>
+        <div class="d-flex flex-wrap gap-2">
+            {% if assembly.status.value == 'convened' %}
+                <form method="post" action="{{ path('app_management_assembly_start', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_start_' ~ assembly.id) }}">
+                    <button type="submit" id="assembly_start_{{ assembly.id }}" name="assembly_start_{{ assembly.id }}" class="btn btn-primary">Започни събранието</button>
+                </form>
+            {% elseif assembly.status.value == 'in_progress' %}
+                <form method="post" action="{{ path('app_management_assembly_close', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_close_' ~ assembly.id) }}">
+                    <button type="submit" id="assembly_close_{{ assembly.id }}" name="assembly_close_{{ assembly.id }}" class="btn btn-primary">Приключи събранието</button>
+                </form>
+            {% endif %}
+            <a class="btn btn-outline-secondary" href="{{ path('app_management_assemblies') }}">Към събранията</a>
+        </div>
     </div>
 
     <div class="row g-3 mb-4">
