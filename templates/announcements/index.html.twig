@@ -25,7 +25,7 @@
                         {% endif %}
                     </div>
                     <h2><a href="{{ path('app_announcement_show', {id: announcement.id}) }}">{{ announcement.title }}</a></h2>
-                    <p>{{ announcement.body|u.truncate(220, '…') }}</p>
+                    <p>{{ announcement.body|slice(0, 220) }}{% if announcement.body|length > 220 %}…{% endif %}</p>
                 </article>
             {% else %}
                 <div class="card empty-state">
