@@ -21,6 +21,6 @@ jobs:
           coverage: none
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - run: vendor/bin/phpunit tests/Service/DocumentStorageTest.php tests/Service/DocumentServiceTest.php tests/Service/AssemblyInvitationServiceTest.php tests/Controller/GeneralAssemblyManagementControllerTest.php tests/Service/AssemblyAttendanceProxyServiceTest.php tests/Controller/GeneralAssemblyWorkbenchControllerTest.php tests/Service/AssemblyResolutionCalculatorTest.php tests/Service/AssemblyVotingServiceTest.php
+      - run: vendor/bin/phpunit tests/Service/DocumentStorageTest.php tests/Service/DocumentServiceTest.php tests/Service/AssemblyInvitationServiceTest.php tests/Controller/GeneralAssemblyManagementControllerTest.php tests/Service/AssemblyAttendanceProxyServiceTest.php tests/Controller/GeneralAssemblyWorkbenchControllerTest.php tests/Controller/GeneralAssemblyLifecycleControllerTest.php tests/Service/AssemblyResolutionCalculatorTest.php tests/Service/AssemblyVotingServiceTest.php
       - run: php bin/console doctrine:schema:validate --skip-sync --env=test
       - run: vendor/bin/phpstan analyse --no-progress
