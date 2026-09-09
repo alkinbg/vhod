@@ -226,6 +226,41 @@ final class AnnouncementControllerTest extends WebTestCase
         self::assertStringStartsWith('%PDF-', (string) $this->client->getResponse()->getContent());
     }
 
+    public function testResidentNavigationShowsOfficialLinksUnreadBadgeAndNoManagementActions(): void
+    {
+        $this->client->loginUser($this->resident());
+        $this->client->request('GET', '/announcements');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('nav a[href="/announcements"]', 'Обяви');
+        self::assertSelectorExists('nav a[href="/documents"]');
+        self::assertSelectorTextSame('nav .nav-unread-badge', '2');
+        self::assertSelectorNotExists('nav a[href="/management/announcements"]');
+        self::assertSelectorNotExists('nav a[href="/management/documents"]');
+    }
+
+    public function testManagerNavigationShowsOfficialManagementLinks(): void
+    {
+        $this->client->loginUser($this->manager());
+        $this->client->request('GET', '/announcements');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('nav a[href="/announcements"]');
+        self::assertSelectorExists('nav a[href="/documents"]');
+        self::assertSelectorTextContains('nav a[href="/management/announcements"]', 'Официални обяви');
+        self::assertSelectorTextContains('nav a[href="/management/documents"]', 'Документи');
+    }
+
+    public function testDashboardOfficialPanelLinksToAnnouncementsAndShowsUnreadCount(): void
+    {
+        $this->client->loginUser($this->resident());
+        $this->client->request('GET', '/');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.official-dashboard-card a[href="/announcements"]');
+        self::assertSelectorTextContains('.official-dashboard-card', '2 непрочетени');
+    }
+
     private function entityManager(): EntityManagerInterface
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
@@ -252,5 +287,13 @@ final class AnnouncementControllerTest extends WebTestCase
         self::assertInstanceOf(User::class, $resident);
 
         return $resident;
+    }
+
+    private function manager(): User
+    {
+        $manager = $this->entityManager()->find(User::class, $this->managerId);
+        self::assertInstanceOf(User::class, $manager);
+
+        return $manager;
     }
 }
