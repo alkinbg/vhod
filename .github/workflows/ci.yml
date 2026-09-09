@@ -33,9 +33,17 @@ jobs:
             - uses: shivammathur/setup-php@v2
               with:
                   php-version: '8.4'
-                  extensions: ctype, iconv, mbstring, pdo_mysql, pdo_sqlite
+                  extensions: ctype, dom, iconv, mbstring, pdo_mysql, pdo_sqlite
                   coverage: none
                   tools: composer:v2
+
+            - name: Generate Dompdf lock
+              run: composer update dompdf/dompdf --with-all-dependencies --no-interaction --prefer-dist --no-progress
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: composer-lock
+                  path: composer.lock
 
             - name: Validate Composer metadata
               run: composer validate --strict

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ announcement.title }}</title>
+    <style>
+        @page { margin: 22mm 18mm; }
+        body { font-family: "DejaVu Sans", sans-serif; font-size: 11pt; line-height: 1.5; color: #111; }
+        h1 { font-size: 20pt; margin: 0 0 8mm; }
+        .meta { color: #555; font-size: 9pt; margin-bottom: 8mm; }
+        .body { white-space: pre-wrap; }
+        .documents { margin-top: 10mm; }
+        .documents h2 { font-size: 13pt; }
+    </style>
+</head>
+<body>
+    <h1>{{ announcement.title }}</h1>
+    {% if announcement.publishedAt %}
+        <div class="meta">Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% if announcement.publishedBy %} от {{ announcement.publishedBy.email }}{% endif %}</div>
+    {% endif %}
+    <div class="body">{{ announcement.body }}</div>
+    {% if announcement.documents|length > 0 %}
+        <div class="documents">
+            <h2>Приложени документи</h2>
+            <ul>{% for document in announcement.documents %}<li>{{ document.title }}</li>{% endfor %}</ul>
+        </div>
+    {% endif %}
+</body>
+</html>
