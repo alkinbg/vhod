@@ -23,24 +23,42 @@ final class DocumentAccessPolicyTest extends TestCase
         self::assertSame([DocumentAccessLevel::RESIDENTS], $policy->allowedLevels($resident));
         self::assertTrue($policy->canView($resident, $this->document(DocumentAccessLevel::RESIDENTS)));
         self::assertFalse($policy->canView($resident, $this->document(DocumentAccessLevel::FINANCE)));
+        self::assertFalse($policy->canView($resident, $this->governanceDocument()));
         self::assertFalse($policy->canView($resident, $this->document(DocumentAccessLevel::MANAGEMENT)));
         self::assertFalse($policy->canManageOfficialContent($resident));
+        self::assertFalse($policy->canManageGovernanceEvidence($resident));
     }
 
-    public function testCashierAndControllerCanReadFinanceButNotManagement(): void
+    public function testCashierCanReadFinanceButNotGovernanceOrManagement(): void
     {
         $policy = $this->policy();
+        $cashier = $this->user('cashier@example.com', ['ROLE_CASHIER']);
 
-        foreach (['ROLE_CASHIER', 'ROLE_CONTROLLER'] as $role) {
-            $user = $this->user($role.'@example.com', [$role]);
-            self::assertSame(
-                [DocumentAccessLevel::RESIDENTS, DocumentAccessLevel::FINANCE],
-                $policy->allowedLevels($user),
-            );
-            self::assertTrue($policy->canView($user, $this->document(DocumentAccessLevel::FINANCE)));
-            self::assertFalse($policy->canView($user, $this->document(DocumentAccessLevel::MANAGEMENT)));
-            self::assertFalse($policy->canManageOfficialContent($user));
-        }
+        self::assertSame(
+            [DocumentAccessLevel::RESIDENTS, DocumentAccessLevel::FINANCE],
+            $policy->allowedLevels($cashier),
+        );
+        self::assertTrue($policy->canView($cashier, $this->document(DocumentAccessLevel::FINANCE)));
+        self::assertFalse($policy->canView($cashier, $this->governanceDocument()));
+        self::assertFalse($policy->canView($cashier, $this->document(DocumentAccessLevel::MANAGEMENT)));
+        self::assertFalse($policy->canManageOfficialContent($cashier));
+        self::assertFalse($policy->canManageGovernanceEvidence($cashier));
+    }
+
+    public function testControllerCanReadFinanceAndGovernanceButNotManagement(): void
+    {
+        $policy = $this->policy();
+        $controller = $this->user('controller@example.com', ['ROLE_CONTROLLER']);
+
+        self::assertSame(
+            [DocumentAccessLevel::RESIDENTS, DocumentAccessLevel::FINANCE, DocumentAccessLevel::GOVERNANCE],
+            $policy->allowedLevels($controller),
+        );
+        self::assertTrue($policy->canView($controller, $this->document(DocumentAccessLevel::FINANCE)));
+        self::assertTrue($policy->canView($controller, $this->governanceDocument()));
+        self::assertFalse($policy->canView($controller, $this->document(DocumentAccessLevel::MANAGEMENT)));
+        self::assertFalse($policy->canManageOfficialContent($controller));
+        self::assertTrue($policy->canManageGovernanceEvidence($controller));
     }
 
     public function testManagerAndAdminCanReadAllLevelsAndManageOfficialContent(): void
@@ -50,11 +68,18 @@ final class DocumentAccessPolicyTest extends TestCase
         foreach (['ROLE_MANAGER', 'ROLE_ADMIN'] as $role) {
             $user = $this->user($role.'@example.com', [$role]);
             self::assertSame(
-                [DocumentAccessLevel::RESIDENTS, DocumentAccessLevel::FINANCE, DocumentAccessLevel::MANAGEMENT],
+                [
+                    DocumentAccessLevel::RESIDENTS,
+                    DocumentAccessLevel::FINANCE,
+                    DocumentAccessLevel::GOVERNANCE,
+                    DocumentAccessLevel::MANAGEMENT,
+                ],
                 $policy->allowedLevels($user),
             );
+            self::assertTrue($policy->canView($user, $this->governanceDocument()));
             self::assertTrue($policy->canView($user, $this->document(DocumentAccessLevel::MANAGEMENT)));
             self::assertTrue($policy->canManageOfficialContent($user));
+            self::assertTrue($policy->canManageGovernanceEvidence($user));
         }
     }
 
@@ -67,6 +92,7 @@ final class DocumentAccessPolicyTest extends TestCase
         self::assertSame([], $policy->allowedLevels($manager));
         self::assertFalse($policy->canView($manager, $this->document(DocumentAccessLevel::RESIDENTS)));
         self::assertFalse($policy->canManageOfficialContent($manager));
+        self::assertFalse($policy->canManageGovernanceEvidence($manager));
     }
 
     private function policy(): DocumentAccessPolicy
@@ -83,6 +109,13 @@ final class DocumentAccessPolicyTest extends TestCase
         $user->setRoles($roles);
 
         return $user;
+    }
+
+    private function governanceDocument(): Document
+    {
+        self::assertTrue(defined(DocumentAccessLevel::class.'::GOVERNANCE'), 'DocumentAccessLevel::GOVERNANCE has not been implemented yet.');
+
+        return $this->document(DocumentAccessLevel::GOVERNANCE);
     }
 
     private function document(DocumentAccessLevel $level): Document
