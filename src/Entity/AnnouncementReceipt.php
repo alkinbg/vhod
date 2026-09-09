@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\AnnouncementReceiptRepository;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\Mapping as ORM;
 use DomainException;
 use InvalidArgumentException;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: AnnouncementReceiptRepository::class)]
 #[ORM\Table(name: 'announcement_receipt')]
 class AnnouncementReceipt
 {
