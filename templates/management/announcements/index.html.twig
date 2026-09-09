@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Официални обяви · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Управление</p>
+        <h1>Официални обяви</h1>
+        <p class="muted">Чернови и публикувани съобщения към живущите.</p>
+    </div>
+    <a class="button-link" href="{{ path('app_management_announcement_new') }}">Нова обява</a>
+</section>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<section class="community-feed official-feed">
+    {% for announcement in announcements %}
+        <article class="panel official-card">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Официално</p>
+                    <h2>{{ announcement.title }}</h2>
+                </div>
+                <span class="badge">{{ announcement.status.labelBg }}</span>
+            </div>
+            <p class="muted">
+                Създадена {{ announcement.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }} от {{ announcement.createdBy.userIdentifier }}
+                {% if announcement.publishedAt %} · публикувана {{ announcement.publishedAt|date('d.m.Y H:i', 'Europe/Sofia') }}{% endif %}
+            </p>
+            <div class="community-body">{{ announcement.body|nl2br }}</div>
+
+            {% if announcement.documents|length > 0 %}
+                <div class="official-documents">
+                    <strong>Документи:</strong>
+                    <ul class="compact-list">
+                        {% for document in announcement.documents %}<li><span>{{ document.title }}</span></li>{% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <div class="community-post-footer">
+                {% if announcement.published %}
+                    {% set counts = receipt_counts[announcement.id] ?? {total: 0, read: 0} %}
+                    <span>Прочетено в приложението: {{ counts.read }} / {{ counts.total }}</span>
+                    <small class="muted">Това е вътрешен статус и не е доказателство за законово връчване.</small>
+                {% else %}
+                    <a href="{{ path('app_management_announcement_edit', {id: announcement.id}) }}">Редактирай</a>
+                    <form class="inline-form" method="post" action="{{ path('app_management_announcement_publish', {id: announcement.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('announcement_publish_' ~ announcement.id) }}">
+                        <button type="submit" name="publish_{{ announcement.id }}">Публикувай</button>
+                    </form>
+                {% endif %}
+            </div>
+        </article>
+    {% else %}
+        <article class="panel empty-state">
+            <h2>Няма официални обяви</h2>
+            <p class="muted">Създайте първата чернова, когато има информация за живущите.</p>
+        </article>
+    {% endfor %}
+</section>
+{% endblock %}

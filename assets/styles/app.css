@@ -71,6 +71,21 @@ button, .button-link { border: 0; border-radius: 10px; background: #18212f; colo
 .comment-report summary, .report-box summary { cursor: pointer; color: #68788e; font-size: .85rem; }
 .moderation-card { display: grid; gap: 14px; }
 .empty-state { text-align: center; padding: 36px; }
+
+.official-shell { max-width: 960px; margin: 0 auto; }
+.official-list { display: grid; gap: 16px; }
+.official-card { border-color: #cfd9e7; border-left: 4px solid #536d8f; background: #fbfcfe; }
+.official-card__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #68788e; font-size: .82rem; }
+.official-card__meta time { margin-left: auto; }
+.official-card h2 a:hover { text-decoration: underline; }
+.official-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.official-dashboard-card { background: linear-gradient(180deg, #fbfcfe 0%, #f6f9fc 100%); }
+.badge--official { background: #e7eef7; color: #36516f; }
+.unread-badge { background: #18212f; color: #fff; }
+.nav-unread-badge { padding: 2px 7px; margin-left: 4px; font-size: .68rem; vertical-align: middle; }
+.document-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; color: #68788e; font-size: .82rem; }
+.document-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
 @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } .columns { grid-template-columns: 1fr; } .hero { align-items: start; flex-direction: column; } }
-@media (max-width: 700px) { .topbar { align-items: flex-start; padding-top: 18px; padding-bottom: 18px; } nav { gap: 10px 14px; } .filter-form { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .container { width: min(92vw, 1120px); padding-top: 28px; } .grid { grid-template-columns: 1fr; } .card { min-height: 125px; } .community-post-footer a { margin-left: 0; width: 100%; } }
+@media (max-width: 700px) { .topbar { align-items: flex-start; padding-top: 18px; padding-bottom: 18px; } nav { gap: 10px 14px; } .filter-form { grid-template-columns: 1fr; } .official-card__meta time { width: 100%; margin-left: 0; } }
+@media (max-width: 560px) { .container { width: min(92vw, 1120px); padding-top: 28px; } .grid { grid-template-columns: 1fr; } .card { min-height: 125px; } .community-post-footer a { margin-left: 0; width: 100%; } .official-actions .button-link { width: 100%; } }

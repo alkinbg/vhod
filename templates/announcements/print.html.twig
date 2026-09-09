@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="bg">
+<head>
+    <meta charset="utf-8">
+    <title>{{ announcement.title }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #111; line-height: 1.5; }
+        .meta { color: #555; margin-bottom: 24px; }
+        .body { white-space: pre-wrap; }
+        ul { padding-left: 20px; }
+        @media print { body { margin: 0; max-width: none; } }
+    </style>
+</head>
+<body>
+    <p><strong>Официална обява</strong></p>
+    <h1>{{ announcement.title }}</h1>
+    {% if announcement.publishedAt %}
+        <p class="meta">
+            Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i') }}
+            {% if announcement.publishedBy %}от {{ announcement.publishedBy.person.displayName }}{% endif %}
+        </p>
+    {% endif %}
+    <div class="body">{{ announcement.body }}</div>
+
+    {% if announcement.documents|length > 0 %}
+        <h2>Документи</h2>
+        <ul>
+            {% for document in announcement.documents %}
+                <li>{{ document.title }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>

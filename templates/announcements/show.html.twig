@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ announcement.title }}{% endblock %}
+
+{% block body %}
+    <article class="page-shell official-shell">
+        <header class="page-heading official-heading">
+            <div>
+                <div class="official-card__meta">
+                    <span class="badge badge--official">Официално</span>
+                    {% if receipt and not receipt.read %}
+                        <span class="badge unread-badge">Непрочетено</span>
+                    {% endif %}
+                </div>
+                <h1>{{ announcement.title }}</h1>
+                {% if announcement.publishedAt %}
+                    <p class="muted">
+                        Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i') }}
+                        {% if announcement.publishedBy %}
+                            от {{ announcement.publishedBy.person.displayName }}
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </div>
+        </header>
+
+        <section class="card official-content">
+            <div class="official-body">{{ announcement.body|nl2br }}</div>
+        </section>
+
+        {% if announcement.documents|length > 0 %}
+            <section class="card document-links">
+                <h2>Документи</h2>
+                <ul>
+                    {% for document in announcement.documents %}
+                        <li>
+                            <a href="{{ path('app_document_download', {id: document.id}) }}">{{ document.title }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        {% endif %}
+
+        <div class="official-actions">
+            {% if receipt and not receipt.read %}
+                <form method="post" action="{{ path('app_announcement_read', {id: announcement.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('announcement_read_' ~ announcement.id) }}">
+                    <button type="submit" name="announcement_read_submit" class="btn btn-primary">Маркирай като прочетено</button>
+                </form>
+            {% endif %}
+
+            <a class="btn" href="{{ path('app_announcement_print', {id: announcement.id}) }}" target="_blank" rel="noopener">Печат</a>
+            <a class="btn" href="{{ path('app_announcement_pdf', {id: announcement.id}) }}">PDF</a>
+            {% if viber_share_url %}
+                <a class="btn" href="{{ viber_share_url }}">Сподели във Viber</a>
+            {% endif %}
+            <a class="btn" href="{{ path('app_announcements_index') }}">Назад към обявите</a>
+        </div>
+    </article>
+{% endblock %}

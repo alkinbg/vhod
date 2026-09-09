@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Качване на документ · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Официални документи</p>
+        <h1>Качване на документ</h1>
+        <p class="muted">PDF, JPEG, PNG или WebP до 16 MiB.</p>
+    </div>
+</section>
+
+<div class="panel">
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="post" enctype="multipart/form-data" class="form-grid">
+        <input type="hidden" name="_token" value="{{ csrf_token('document_create') }}">
+        <label>Заглавие
+            <input type="text" name="title" maxlength="180" required value="{{ app.request.request.get('title') }}">
+        </label>
+        <label>Категория
+            <select name="category" required>
+                {% for category in categories %}<option value="{{ category.value }}"{% if app.request.request.get('category') == category.value %} selected{% endif %}>{{ category.labelBg() }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Ниво на достъп
+            <select name="access_level" required>
+                {% for level in access_levels %}<option value="{{ level.value }}"{% if app.request.request.get('access_level') == level.value %} selected{% endif %}>{{ level.labelBg() }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Описание
+            <textarea name="description" maxlength="2000">{{ app.request.request.get('description') }}</textarea>
+        </label>
+        <label>Файл
+            <input type="file" name="document_file" accept="application/pdf,image/jpeg,image/png,image/webp" required>
+        </label>
+        <div class="actions">
+            <button class="button" type="submit" name="document_submit">Качи</button>
+            <a class="button secondary" href="{{ path('app_management_documents') }}">Отказ</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

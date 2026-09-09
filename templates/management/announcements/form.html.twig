@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% set editing = announcement is not null %}
+{% block title %}{{ editing ? 'Редакция на обява' : 'Нова официална обява' }} · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Официално</p>
+        <h1>{{ editing ? 'Редакция на обява' : 'Нова официална обява' }}</h1>
+        <p class="muted">Съдържанието остава чернова до изрично публикуване.</p>
+    </div>
+    <a class="button-link secondary-button" href="{{ path('app_management_announcements') }}">Назад</a>
+</section>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<section class="panel form-panel official-card">
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token(csrf_token_id) }}">
+
+        <label for="announcement_title">Заглавие</label>
+        <input id="announcement_title" name="title" required maxlength="180" value="{{ app.request.request.get('title') ?: (announcement ? announcement.title : '') }}">
+
+        <label for="announcement_body">Текст</label>
+        <textarea id="announcement_body" name="body" rows="12" required>{{ app.request.request.get('body') ?: (announcement ? announcement.body : '') }}</textarea>
+
+        <fieldset class="official-document-picker">
+            <legend>Документи, достъпни за всички живущи</legend>
+            {% for document in documents %}
+                <label class="document-option">
+                    <input type="checkbox" name="document_ids[]" value="{{ document.id }}" {% if document.id in selected_document_ids %}checked{% endif %}>
+                    <span><strong>{{ document.title }}</strong><small>{{ document.category.labelBg }}</small></span>
+                </label>
+            {% else %}
+                <p class="muted">Няма налични документи за всички живущи.</p>
+            {% endfor %}
+        </fieldset>
+
+        <button type="submit" name="announcement_submit">{{ editing ? 'Запази черновата' : 'Създай чернова' }}</button>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Обяви{% endblock %}
+
+{% block body %}
+    <section class="page-shell official-shell">
+        <div class="page-heading">
+            <div>
+                <p class="eyebrow">Официална информация</p>
+                <h1>Обяви</h1>
+                <p class="muted">Публикувани съобщения от управлението на входа.</p>
+            </div>
+        </div>
+
+        <div class="official-list">
+            {% for announcement in announcements %}
+                <article class="card official-card">
+                    <div class="official-card__meta">
+                        <span class="badge badge--official">Официално</span>
+                        {% if announcement.id in unread_announcement_ids %}
+                            <span class="badge unread-badge">Непрочетено</span>
+                        {% endif %}
+                        {% if announcement.publishedAt %}
+                            <time datetime="{{ announcement.publishedAt|date('c') }}">{{ announcement.publishedAt|date('d.m.Y H:i') }}</time>
+                        {% endif %}
+                    </div>
+                    <h2><a href="{{ path('app_announcement_show', {id: announcement.id}) }}">{{ announcement.title }}</a></h2>
+                    <p>{{ announcement.body|slice(0, 220) }}{% if announcement.body|length > 220 %}…{% endif %}</p>
+                </article>
+            {% else %}
+                <div class="card empty-state">
+                    <h2>Няма публикувани обяви</h2>
+                    <p>Когато бъде публикувана официална информация, тя ще се появи тук.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}
