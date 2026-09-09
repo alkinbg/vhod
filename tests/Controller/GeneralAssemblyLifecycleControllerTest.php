@@ -130,6 +130,7 @@ final class GeneralAssemblyLifecycleControllerTest extends WebTestCase
             '75',
             'ЗУЕС — приложим кворум',
             'effective-through-2026-09-09',
+            false,
         ));
         $this->entityManager()->persist($assembly);
         $this->entityManager()->flush();
