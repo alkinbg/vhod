@@ -29,6 +29,8 @@ use InvalidArgumentException;
 #[ORM\Index(name: 'idx_general_assembly_closed_by', columns: ['closed_by_id'])]
 #[ORM\Index(name: 'idx_general_assembly_status_scheduled', columns: ['status', 'scheduled_at'])]
 #[ORM\Index(name: 'idx_general_assembly_invitation_document', columns: ['invitation_document_id'])]
+#[ORM\Index(name: 'idx_general_assembly_minutes_finalized_by', columns: ['minutes_finalized_by_id'])]
+#[ORM\Index(name: 'idx_general_assembly_minutes_document', columns: ['minutes_document_id'])]
 class GeneralAssembly
 {
     #[ORM\Id]
@@ -101,6 +103,29 @@ class GeneralAssembly
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(name: 'invitation_document_id', nullable: true, onDelete: 'RESTRICT', foreignKeyName: 'fk_general_assembly_invitation_document')]
     private ?Document $invitationDocument = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $chairpersonNameSnapshot = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $secretaryNameSnapshot = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $formalNotes = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'minutes_finalized_by_id', nullable: true, onDelete: 'RESTRICT', foreignKeyName: 'fk_general_assembly_minutes_finalized_by')]
+    private ?User $minutesFinalizedBy = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?DateTimeImmutable $minutesFinalizedAt = null;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?DateTimeImmutable $minutesDueOn = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'minutes_document_id', nullable: true, onDelete: 'RESTRICT', foreignKeyName: 'fk_general_assembly_minutes_document')]
+    private ?Document $minutesDocument = null;
 
     #[ORM\Column(name: 'quorum_rule_code', length: 80, nullable: true)]
     private ?string $quorumRuleCode = null;
@@ -352,6 +377,55 @@ class GeneralAssembly
         $this->closedAt = $closedAt;
     }
 
+    public function setMinutesMetadata(string $chairpersonName, string $secretaryName, ?string $formalNotes = null): void
+    {
+        $this->assertStatus(GeneralAssemblyStatus::CLOSED, 'Minutes metadata may be recorded only for a closed General Assembly.');
+
+        $chairpersonName = trim($chairpersonName);
+        $secretaryName = trim($secretaryName);
+        $formalNotes = self::nullableTrim($formalNotes);
+
+        if ('' === $chairpersonName || mb_strlen($chairpersonName) > 255) {
+            throw new InvalidArgumentException('Chairperson name must contain between 1 and 255 characters.');
+        }
+        if ('' === $secretaryName || mb_strlen($secretaryName) > 255) {
+            throw new InvalidArgumentException('Secretary name must contain between 1 and 255 characters.');
+        }
+        if (null !== $formalNotes && mb_strlen($formalNotes) > 10000) {
+            throw new InvalidArgumentException('Formal minutes notes cannot exceed 10000 characters.');
+        }
+
+        $this->chairpersonNameSnapshot = $chairpersonName;
+        $this->secretaryNameSnapshot = $secretaryName;
+        $this->formalNotes = $formalNotes;
+    }
+
+    public function finalizeMinutes(
+        Document $document,
+        User $actor,
+        DateTimeImmutable $finalizedAt,
+        DateTimeImmutable $minutesDueOn,
+    ): void {
+        $this->assertStatus(GeneralAssemblyStatus::CLOSED, 'Minutes may be finalized only for a closed General Assembly.');
+        if (!$this->hasCompleteMinutesMetadata()) {
+            throw new DomainException('Chairperson and secretary are required before minutes finalization.');
+        }
+        if (DocumentCategory::MEETING_MINUTES !== $document->getCategory() || DocumentAccessLevel::RESIDENTS !== $document->getAccessLevel()) {
+            throw new InvalidArgumentException('Final minutes must be a resident-visible MEETING_MINUTES document.');
+        }
+
+        $finalizedAt = self::toUtc($finalizedAt);
+        if (null === $this->closedAt || $finalizedAt < $this->closedAt) {
+            throw new InvalidArgumentException('Minutes cannot be finalized before the meeting is closed.');
+        }
+
+        $this->minutesDocument = $document;
+        $this->minutesFinalizedBy = $actor;
+        $this->minutesFinalizedAt = $finalizedAt;
+        $this->minutesDueOn = $minutesDueOn;
+        $this->status = GeneralAssemblyStatus::MINUTES_FINALIZED;
+    }
+
     public function getId(): ?int { return $this->id; }
     public function getStatus(): GeneralAssemblyStatus { return $this->status; }
     public function getTitle(): string { return $this->title; }
@@ -372,6 +446,18 @@ class GeneralAssembly
     public function getStartedAt(): ?DateTimeImmutable { return $this->startedAt; }
     public function getClosedBy(): ?User { return $this->closedBy; }
     public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
+    public function getChairpersonNameSnapshot(): ?string { return $this->chairpersonNameSnapshot; }
+    public function getSecretaryNameSnapshot(): ?string { return $this->secretaryNameSnapshot; }
+    public function getFormalNotes(): ?string { return $this->formalNotes; }
+    public function getMinutesFinalizedBy(): ?User { return $this->minutesFinalizedBy; }
+    public function getMinutesFinalizedAt(): ?DateTimeImmutable { return $this->minutesFinalizedAt; }
+    public function getMinutesDueOn(): ?DateTimeImmutable { return $this->minutesDueOn; }
+    public function getMinutesDocument(): ?Document { return $this->minutesDocument; }
+
+    public function hasCompleteMinutesMetadata(): bool
+    {
+        return null !== $this->chairpersonNameSnapshot && null !== $this->secretaryNameSnapshot;
+    }
 
     public function linkInvitation(Document $document): void
     {
