@@ -1,0 +1,41 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Нов сигнал · Поддръжка · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Поддръжка</p><h1>Нов сигнал</h1><p class="muted">Опиши проблема възможно най-конкретно. Снимка или PDF може да се добави след създаването на сигнала.</p></div></section>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+<div class="panel form-panel">
+    <form method="post" action="{{ path('app_maintenance_signal_new') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('maintenance_signal_create') }}">
+
+        <label for="maintenance-category">Категория</label>
+        <select id="maintenance-category" name="category" required>
+            {% for category in categories %}<option value="{{ category.value }}"{% if app.request.request.get('category') == category.value %} selected{% endif %}>{{ category.labelBg() }}</option>{% endfor %}
+        </select>
+
+        <label for="maintenance-priority">Приоритет</label>
+        <select id="maintenance-priority" name="priority" required>
+            {% for priority in priorities %}<option value="{{ priority.value }}"{% if app.request.request.get('priority') == priority.value %} selected{% endif %}>{{ priority.labelBg() }}</option>{% endfor %}
+        </select>
+
+        <label for="maintenance-title">Заглавие</label>
+        <input id="maintenance-title" name="title" maxlength="180" required value="{{ app.request.request.get('title') }}">
+
+        <label for="maintenance-description">Описание</label>
+        <textarea id="maintenance-description" name="description" maxlength="10000" rows="8" required>{{ app.request.request.get('description') }}</textarea>
+
+        <label for="maintenance-location">Място</label>
+        <input id="maintenance-location" name="location" maxlength="180" required value="{{ app.request.request.get('location') }}">
+
+        <label for="maintenance-asset">Свързан общ актив <span class="muted">(по избор)</span></label>
+        <select id="maintenance-asset" name="asset_id">
+            <option value="">Без конкретен актив</option>
+            {% for asset in assets %}<option value="{{ asset.id }}"{% if app.request.request.get('asset_id') == (asset.id ~ '') %} selected{% endif %}>{{ asset.name }} · {{ asset.location }}</option>{% endfor %}
+        </select>
+
+        <button type="submit" name="signal_submit">Подай сигнал</button>
+    </form>
+</div>
+{% endblock %}

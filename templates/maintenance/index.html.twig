@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Поддръжка · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Поддръжка</p><h1>Моите сигнали</h1><p class="muted">Подай сигнал за проблем в общите части и следи статуса му.</p></div><div><a class="button" href="{{ path('app_maintenance_signal_new') }}">Нов сигнал</a></div></section>
+
+<div class="panel">
+    {% if signals is empty %}
+        <p class="muted">Все още няма подадени сигнали.</p>
+    {% else %}
+        <div class="table-wrap"><table><thead><tr><th>Сигнал</th><th>Категория</th><th>Приоритет</th><th>Статус</th><th>Подаден</th></tr></thead><tbody>
+        {% for signal in signals %}
+            <tr>
+                <td><a href="{{ path('app_maintenance_signal_show', {id: signal.id}) }}">{{ signal.title }}</a><br><small class="muted">{{ signal.location }}</small></td>
+                <td>{{ signal.category.labelBg() }}</td>
+                <td>{{ signal.priority.labelBg() }}</td>
+                <td>{{ signal.status.labelBg() }}</td>
+                <td>{{ signal.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }}</td>
+            </tr>
+        {% endfor %}
+        </tbody></table></div>
+    {% endif %}
+</div>
+{% endblock %}
