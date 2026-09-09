@@ -6,7 +6,9 @@ namespace App\Entity;
 
 use App\Enum\AgendaItemStatus;
 use App\Enum\AssemblyDecisionKind;
+use App\Enum\AssemblyVoteDenominator;
 use App\Enum\GeneralAssemblyStatus;
+use App\Enum\MajorityComparison;
 use App\Value\AssemblyMajorityRuleSnapshot;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -46,8 +48,26 @@ class AssemblyAgendaItem
     #[ORM\Column(length: 64, enumType: AssemblyDecisionKind::class)]
     private AssemblyDecisionKind $kind;
 
-    #[ORM\Embedded(class: AssemblyMajorityRuleSnapshot::class, columnPrefix: 'majority_')]
-    private AssemblyMajorityRuleSnapshot $majorityRule;
+    #[ORM\Column(name: 'majority_rule_code', length: 80)]
+    private string $majorityRuleCode;
+
+    #[ORM\Column(name: 'majority_denominator', length: 48, enumType: AssemblyVoteDenominator::class)]
+    private AssemblyVoteDenominator $majorityDenominator;
+
+    #[ORM\Column(name: 'majority_threshold_percent', type: 'decimal', precision: 14, scale: 8)]
+    private string $majorityThresholdPercent;
+
+    #[ORM\Column(name: 'majority_comparison', length: 24, enumType: MajorityComparison::class)]
+    private MajorityComparison $majorityComparison;
+
+    #[ORM\Column(name: 'majority_legal_basis', type: 'text')]
+    private string $majorityLegalBasis;
+
+    #[ORM\Column(name: 'majority_source_version', length: 120)]
+    private string $majoritySourceVersion;
+
+    #[ORM\Column(name: 'majority_requires_legal_review', options: ['default' => false])]
+    private bool $majorityRequiresLegalReview;
 
     #[ORM\Column(options: ['default' => false])]
     private bool $isEmergency;
@@ -94,7 +114,7 @@ class AssemblyAgendaItem
         $this->description = $description;
         $this->draftResolutionText = $draftResolutionText;
         $this->kind = $kind;
-        $this->majorityRule = $majorityRule;
+        $this->applyMajorityRule($majorityRule);
         $this->isEmergency = $isEmergency;
         $this->emergencyReason = $emergencyReason;
         $this->status = AgendaItemStatus::PLANNED;
@@ -149,7 +169,7 @@ class AssemblyAgendaItem
         $this->description = $description;
         $this->draftResolutionText = $draftResolutionText;
         $this->kind = $kind;
-        $this->majorityRule = $majorityRule;
+        $this->applyMajorityRule($majorityRule);
     }
 
     public function open(string $finalResolutionText, DateTimeImmutable $openedAt): void
@@ -204,12 +224,34 @@ class AssemblyAgendaItem
     public function getDraftResolutionText(): string { return $this->draftResolutionText; }
     public function getFinalResolutionText(): ?string { return $this->finalResolutionText; }
     public function getKind(): AssemblyDecisionKind { return $this->kind; }
-    public function getMajorityRule(): AssemblyMajorityRuleSnapshot { return $this->majorityRule; }
+    public function getMajorityRule(): AssemblyMajorityRuleSnapshot
+    {
+        return new AssemblyMajorityRuleSnapshot(
+            $this->majorityRuleCode,
+            $this->majorityDenominator,
+            $this->majorityThresholdPercent,
+            $this->majorityComparison,
+            $this->majorityLegalBasis,
+            $this->majoritySourceVersion,
+            $this->majorityRequiresLegalReview,
+        );
+    }
     public function isEmergency(): bool { return $this->isEmergency; }
     public function getEmergencyReason(): ?string { return $this->emergencyReason; }
     public function getStatus(): AgendaItemStatus { return $this->status; }
     public function getOpenedAt(): ?DateTimeImmutable { return $this->openedAt; }
     public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
+
+    private function applyMajorityRule(AssemblyMajorityRuleSnapshot $rule): void
+    {
+        $this->majorityRuleCode = $rule->getRuleCode();
+        $this->majorityDenominator = $rule->getDenominator();
+        $this->majorityThresholdPercent = $rule->getThresholdPercent();
+        $this->majorityComparison = $rule->getComparison();
+        $this->majorityLegalBasis = $rule->getLegalBasis();
+        $this->majoritySourceVersion = $rule->getSourceVersion();
+        $this->majorityRequiresLegalReview = $rule->requiresLegalReview();
+    }
 
     /** @return array{string, ?string, string} */
     private static function normalizeContent(string $title, ?string $description, string $resolution): array
