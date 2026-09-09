@@ -116,13 +116,16 @@ final class AnnouncementManagementControllerTest extends WebTestCase
     {
         $this->client->loginUser($this->user($this->managerId));
         $crawler = $this->client->request('GET', '/management/announcement/new');
-        $form = $crawler->selectButton('announcement_submit')->form([
+        self::assertResponseIsSuccessful();
+        $token = $crawler->filter('input[name="_token"]')->attr('value');
+        self::assertIsString($token);
+
+        $this->client->request('POST', '/management/announcement/new', [
+            '_token' => $token,
             'title' => 'Невалидна обява',
             'body' => 'Опит за прикачване на финансов документ.',
+            'document_ids' => [(string) $this->financeDocumentId],
         ]);
-        $form['document_ids']->disableValidation();
-        $form['document_ids']->setValue([(string) $this->financeDocumentId]);
-        $this->client->submit($form);
 
         self::assertResponseStatusCodeSame(422);
         self::assertCount(0, $this->entityManager()->getRepository(OfficialAnnouncement::class)->findAll());
