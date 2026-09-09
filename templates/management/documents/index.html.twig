@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Управление на документи · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Официални документи</p>
+        <h1>Управление на документи</h1>
+        <p class="muted">Частно хранилище за официалните документи на входа.</p>
+    </div>
+    <div><a class="button" href="{{ path('app_management_document_new') }}">Качи документ</a></div>
+</section>
+
+<div class="panel">
+    {% if documents is empty %}
+        <p class="muted">Все още няма качени документи.</p>
+    {% else %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Документ</th><th>Категория</th><th>Достъп</th><th>Качен от</th><th>Дата</th></tr></thead>
+                <tbody>
+                {% for document in documents %}
+                    <tr>
+                        <td><strong>{{ document.title }}</strong>{% if document.description %}<br><small class="muted">{{ document.description }}</small>{% endif %}</td>
+                        <td>{{ document.category.labelBg() }}</td>
+                        <td>{{ document.accessLevel.labelBg() }}</td>
+                        <td>{{ document.uploadedBy.email }}</td>
+                        <td>{{ document.uploadedAt|date('d.m.Y H:i', 'Europe/Sofia') }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

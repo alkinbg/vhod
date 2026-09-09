@@ -13,6 +13,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 final class DocumentManagementControllerTest extends WebTestCase
 {
@@ -101,7 +102,7 @@ final class DocumentManagementControllerTest extends WebTestCase
             'title' => 'Blocked',
             '_token' => 'invalid',
         ], [
-            'document_file' => new \Symfony\Component\HttpFoundation\File\UploadedFile($path, 'blocked.pdf', 'application/pdf', null, true),
+            'document_file' => new UploadedFile($path, 'blocked.pdf', 'application/pdf', null, true),
         ]);
 
         self::assertResponseStatusCodeSame(403);
@@ -116,9 +117,31 @@ final class DocumentManagementControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/management/document/new');
         $path = $this->pdfFixture();
         $form = $crawler->selectButton('document_submit')->form([
-            'category' => 'invalid-category',
             'access_level' => DocumentAccessLevel::RESIDENTS->value,
             'title' => 'Invalid',
+        ]);
+        $form['category']->disableValidation();
+        $form['category']->setValue('invalid-category');
+        $form['document_file']->upload($path);
+        $this->client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertCount(0, $this->entityManager()->getRepository(Document::class)->findAll());
+        self::assertSame([], array_values(array_filter(glob($this->storageDirectory().'/*') ?: [], 'is_file')));
+        @unlink($path);
+    }
+
+    public function testInvalidMimeReturnsUnprocessableAndLeavesNoState(): void
+    {
+        $this->client->loginUser($this->user($this->managerId));
+        $crawler = $this->client->request('GET', '/management/document/new');
+        $path = tempnam(sys_get_temp_dir(), 'vhod-doc-text-');
+        self::assertIsString($path);
+        file_put_contents($path, 'plain text');
+        $form = $crawler->selectButton('document_submit')->form([
+            'category' => DocumentCategory::OTHER->value,
+            'access_level' => DocumentAccessLevel::RESIDENTS->value,
+            'title' => 'Invalid MIME',
         ]);
         $form['document_file']->upload($path);
         $this->client->submit($form);
