@@ -6,31 +6,16 @@ namespace App\Value;
 
 use App\Enum\AssemblyVoteDenominator;
 use App\Enum\MajorityComparison;
-use Doctrine\ORM\Mapping as ORM;
 use InvalidArgumentException;
 
-#[ORM\Embeddable]
-final class AssemblyMajorityRuleSnapshot
+final readonly class AssemblyMajorityRuleSnapshot
 {
-    #[ORM\Column(name: 'rule_code', length: 80)]
     private string $ruleCode;
-
-    #[ORM\Column(name: 'denominator', length: 48, enumType: AssemblyVoteDenominator::class)]
     private AssemblyVoteDenominator $denominator;
-
-    #[ORM\Column(name: 'threshold_percent', type: 'decimal', precision: 14, scale: 8)]
     private string $thresholdPercent;
-
-    #[ORM\Column(name: 'comparison', length: 24, enumType: MajorityComparison::class)]
     private MajorityComparison $comparison;
-
-    #[ORM\Column(name: 'legal_basis', type: 'text')]
     private string $legalBasis;
-
-    #[ORM\Column(name: 'source_version', length: 120)]
     private string $sourceVersion;
-
-    #[ORM\Column(name: 'requires_legal_review', options: ['default' => false])]
     private bool $requiresLegalReview;
 
     public function __construct(
