@@ -1,0 +1,82 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ assembly ? 'Редакция на общо събрание' : 'Ново общо събрание' }}{% endblock %}
+
+{% block body %}
+{% set title_value = submitted.title|default(assembly ? assembly.title : '') %}
+{% set scheduled_value = submitted.scheduled_at|default(assembly ? assembly.scheduledAt|date('Y-m-d\\TH:i', local_timezone) : '') %}
+{% set reference_value = submitted.reference_date|default(assembly ? assembly.referenceDate|date('Y-m-d', local_timezone) : '') %}
+{% set place_value = submitted.place|default(assembly ? assembly.place : '') %}
+{% set basis_value = submitted.convening_basis|default(assembly ? assembly.conveningBasis.value : '') %}
+{% set initiator_value = submitted.initiator_display_name|default(assembly ? assembly.initiatorDisplayName : '') %}
+{% set online_value = submitted.online_meeting_reference|default(assembly ? assembly.onlineMeetingReference : '') %}
+{% set basis_note_value = submitted.convening_basis_note|default(assembly ? assembly.conveningBasisNote : '') %}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2 mb-0">{{ assembly ? 'Редакция на общо събрание' : 'Ново общо събрание' }}</h1>
+                <a href="{{ path('app_management_assemblies') }}" class="btn btn-outline-secondary">Назад</a>
+            </div>
+
+            {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+            <form method="post" class="card">
+                <div class="card-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token(csrf_token_id) }}">
+
+                    <div class="mb-3">
+                        <label class="form-label" for="assembly_title">Заглавие</label>
+                        <input class="form-control" id="assembly_title" name="title" required maxlength="180" value="{{ title_value }}">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="assembly_scheduled_at">Дата и час</label>
+                            <input class="form-control" type="datetime-local" id="assembly_scheduled_at" name="scheduled_at" required value="{{ scheduled_value }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="assembly_reference_date">Референтна дата за собствеността</label>
+                            <input class="form-control" type="date" id="assembly_reference_date" name="reference_date" required value="{{ reference_value }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="assembly_place">Място</label>
+                        <input class="form-control" id="assembly_place" name="place" required maxlength="255" value="{{ place_value }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="assembly_convening_basis">Основание за свикване</label>
+                        <select class="form-select" id="assembly_convening_basis" name="convening_basis" required>
+                            <option value="">Изберете</option>
+                            {% for basis in convening_bases %}
+                                <option value="{{ basis.value }}"{{ basis.value == basis_value ? ' selected' : '' }}>{{ basis.value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="assembly_initiator">Свикващ</label>
+                        <input class="form-control" id="assembly_initiator" name="initiator_display_name" required maxlength="255" value="{{ initiator_value }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="assembly_online">Онлайн участие (по избор)</label>
+                        <input class="form-control" id="assembly_online" name="online_meeting_reference" maxlength="1000" value="{{ online_value }}">
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label" for="assembly_basis_note">Бележка към правното основание (по избор)</label>
+                        <textarea class="form-control" id="assembly_basis_note" name="convening_basis_note" rows="3">{{ basis_note_value }}</textarea>
+                    </div>
+                </div>
+                <div class="card-footer text-end">
+                    <button type="submit" name="assembly_submit" class="btn btn-primary">Запази чернова</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
