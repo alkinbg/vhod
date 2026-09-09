@@ -68,7 +68,10 @@ final class MaintenanceController extends AbstractController
                     throw new InvalidArgumentException('Невалидна категория или приоритет.');
                 }
 
-                $asset = $this->optionalActiveAsset($request->request->getInt('asset_id'));
+                $assetId = trim($request->request->getString('asset_id'));
+                $asset = $this->optionalActiveAsset(
+                    '' === $assetId ? null : $this->positiveInt($assetId, 'Невалиден актив.'),
+                );
                 $signal = $this->signalService->create(
                     $user,
                     $category,
@@ -196,9 +199,9 @@ final class MaintenanceController extends AbstractController
         return in_array('ROLE_MANAGER', $roles, true) || in_array('ROLE_ADMIN', $roles, true);
     }
 
-    private function optionalActiveAsset(int $id): ?BuildingAsset
+    private function optionalActiveAsset(?int $id): ?BuildingAsset
     {
-        if ($id <= 0) {
+        if (null === $id) {
             return null;
         }
 
@@ -208,6 +211,15 @@ final class MaintenanceController extends AbstractController
         }
 
         return $asset;
+    }
+
+    private function positiveInt(string $value, string $message): int
+    {
+        if (1 !== preg_match('/^[1-9]\\d*$/', $value)) {
+            throw new InvalidArgumentException($message);
+        }
+
+        return (int) $value;
     }
 
     private function requireCsrf(string $tokenId, Request $request): void
