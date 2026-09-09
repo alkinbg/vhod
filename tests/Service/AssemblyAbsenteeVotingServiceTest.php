@@ -26,7 +26,9 @@ use App\Enum\AssemblyVoteDenominator;
 use App\Enum\DocumentAccessLevel;
 use App\Enum\DocumentCategory;
 use App\Enum\MajorityComparison;
+use App\Security\GeneralAssemblyAccessPolicy;
 use App\Service\AssemblyAbsenteeVotingService;
+use App\Service\AssemblyVotingService;
 use App\Value\AssemblyMajorityRuleSnapshot;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -55,9 +57,11 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
         $tool->dropSchema($metadata);
         $tool->createSchema($metadata);
 
-        $service = self::getContainer()->get(AssemblyAbsenteeVotingService::class);
-        self::assertInstanceOf(AssemblyAbsenteeVotingService::class, $service);
-        $this->service = $service;
+        $accessPolicy = self::getContainer()->get(GeneralAssemblyAccessPolicy::class);
+        self::assertInstanceOf(GeneralAssemblyAccessPolicy::class, $accessPolicy);
+        $votingService = self::getContainer()->get(AssemblyVotingService::class);
+        self::assertInstanceOf(AssemblyVotingService::class, $votingService);
+        $this->service = new AssemblyAbsenteeVotingService($em, $accessPolicy, $votingService);
 
         $managerPerson = new Person('Мария', 'Управител', email: 'manager-absentee@example.com');
         $this->manager = new User($managerPerson, 'manager-absentee@example.com', 'hash');
