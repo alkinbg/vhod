@@ -280,7 +280,7 @@ final class MaintenanceManagementController extends AbstractController
         /** @var list<MaintenanceSupplier> $suppliers */
         $suppliers = $this->entityManager->getRepository(MaintenanceSupplier::class)->findBy(['active' => true], ['name' => 'ASC']);
         /** @var list<MaintenanceContract> $contracts */
-        $contracts = $this->entityManager->getRepository(MaintenanceContract::class)->findBy(['active' => true], ['createdAt' => 'DESC']);
+        $contracts = $this->entityManager->getRepository(MaintenanceContract::class)->findBy([], ['createdAt' => 'DESC']);
         /** @var list<MaintenanceSignal> $signals */
         $signals = $this->entityManager->getRepository(MaintenanceSignal::class)->findBy([], ['createdAt' => 'DESC']);
 
@@ -352,7 +352,7 @@ final class MaintenanceManagementController extends AbstractController
         }
 
         $contract = $this->entityManager->find(MaintenanceContract::class, $id);
-        if (!$contract instanceof MaintenanceContract || !$contract->isActive()) {
+        if (!$contract instanceof MaintenanceContract) {
             throw new InvalidArgumentException('Избраният договор не е наличен.');
         }
 
