@@ -23,9 +23,24 @@
         <div class="panel-title"><div><p class="eyebrow">Общност</p><h2>Какво обсъждат съседите</h2></div><span class="badge">Скоро</span></div>
         <p class="muted">Публикации, идеи, взаимопомощ, анкети и събития — само за хората от входа.</p>
     </article>
-    <article class="panel">
-        <div class="panel-title"><div><p class="eyebrow">Официално</p><h2>Съобщения и решения</h2></div></div>
-        <p class="muted">Официалните уведомления ще бъдат ясно отделени от разговорите в общността.</p>
+    {% set unreadCount = announcement_unread_count() %}
+    <article class="panel official-dashboard-card official-card">
+        <div class="panel-title">
+            <div>
+                <p class="eyebrow">Официално</p>
+                <h2>Официални обяви</h2>
+            </div>
+            {% if unreadCount > 0 %}
+                <span class="badge unread-badge">{{ unreadCount }} непрочетени</span>
+            {% else %}
+                <span class="badge badge--official">Актуално</span>
+            {% endif %}
+        </div>
+        <p class="muted">Публикувани съобщения от управлението на входа, отделени от разговорите в общността.</p>
+        <div class="official-actions">
+            <a class="button-link" href="{{ path('app_announcements_index') }}">Виж обявите</a>
+            <a class="button-link secondary-button" href="{{ path('app_documents_index') }}">Документи</a>
+        </div>
     </article>
 </section>
 {% endblock %}
