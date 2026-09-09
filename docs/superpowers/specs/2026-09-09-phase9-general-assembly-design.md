@@ -2,137 +2,154 @@
 
 ## Goal
 
-Implement roadmap Phase 9 as a legally aware, authenticated General Assembly workflow for one residential entrance. The slice must support preparation, convening, agenda control, attendance, proxies, quorum, weighted voting, resolutions and minutes while preserving a strict separation from informal Community polls.
+Implement roadmap Phase 9 as a legally aware, authenticated General Assembly workflow for one residential entrance. The slice covers preparation, convening, agenda control, attendance, proxies, quorum, weighted formal voting, resolutions, optional statutory absentee voting, and minutes.
 
-The design is intentionally narrower than a generic meeting, election, e-signature or video-conferencing platform. Vhod records and validates the formal workflow and its evidence; it does not provide its own videoconference service, qualified electronic signature authority, notarization service or public voting portal.
+Formal General Assembly voting remains completely separate from Community polls. Vhod records and validates the workflow and its evidence; it does not become a videoconference platform, qualified-signature authority, notary, identity provider, court-proof service system, or generic election product.
 
-The implementation must preserve historical truth. Ownership, represented ideal parts, attendance, quorum rules, majority rules and voting results are snapshotted into the meeting record so later edits to the condominium book or later legal changes do not rewrite an old General Assembly retroactively.
+The central design rule is historical truth: ownership, represented ideal parts, attendance, legal-rule inputs, votes and results are snapshotted so later changes to `Unit`, `UnitRelation`, users, or legislation cannot silently rewrite an old meeting.
 
-## Current legal baseline and safety boundary
+## Verified legal baseline and safety boundary
 
-The design was checked on 2026-09-09 against official Bulgarian sources, including the current MRRB page for the Condominium Ownership Management Act (ЗУЕС), marked as amended through State Gazette issue 49 of 17 June 2025, and the National Assembly materials for the amendments introducing the current quorum thresholds, online participation and absentee voting.
+The design was checked on 2026-09-09 against official Bulgarian sources: the current MRRB page for ЗУЕС, marked as amended through State Gazette issue 49 of 17 June 2025, and National Assembly/State Gazette materials for the amendments governing quorum, online participation and absentee voting.
 
-The current implementation baseline includes these rules:
+The implementation baseline currently includes:
 
-- ordinary first-call quorum is at least 51% of ideal parts represented;
-- if that quorum is not present, the meeting may proceed one hour later when at least 26% of ideal parts are represented;
-- when one natural or legal person owns more than 51% of the common ideal parts, the special quorum rule requires at least 75% represented;
-- one proxy may represent at most three owners and/or users under the statutory proxy rule;
-- online participation may be recorded when the meeting itself is conducted with an external online-meeting facility;
-- statutory absentee voting is available only for the decision categories allowed by law and runs through a declaration workflow after the meeting within the statutory period;
-- the meeting minutes have a statutory preparation/publication workflow and deadline.
+- ordinary first-call quorum: at least 51% represented ideal parts;
+- delayed call after one hour: at least 26% represented ideal parts;
+- special dominant-owner case: when one natural/legal person owns more than 51%, the applicable quorum is at least 75%;
+- one proxy may represent at most three owners and/or users where the statutory proxy rule applies;
+- online participation may be recorded when an external online-meeting facility is used;
+- statutory absentee voting is available only for legally eligible decision categories, through a declaration/evidence workflow and statutory time window;
+- minutes have a statutory preparation/notification workflow and deadline.
 
-These rules are not scattered as hard-coded controller constants. The legal rule actually applied to a meeting or resolution is snapshotted with a machine-readable rule code, numeric threshold/denominator semantics and a human-readable legal-basis note.
+These values must not be scattered through controllers. The rule applied to each meeting/decision is snapshotted with a stable rule code, exact decimal threshold/denominator semantics, legal-basis text and source/effective-date note.
 
-Vhod is an operational aid, not legal counsel and not an evidentiary authority. It must never claim that an electronic action inside Vhod by itself proves valid statutory service, identity, qualified electronic signature, notarization or court-proof compliance.
+Vhod is an operational aid, not legal counsel or an evidentiary authority. A Vhod login, click, receipt or uploaded scan must never be described as proof of valid statutory service, identity, qualified electronic signature, notarization or court-proof compliance.
 
-If required source data are incomplete or inconsistent, Vhod must fail closed for automatic legal conclusions and display `legal review required` instead of inventing a quorum or majority result.
+When material ownership or legal-rule data are incomplete or contradictory, automatic legal conclusions fail closed as `REVIEW_REQUIRED`.
 
 ## Scope
 
 Phase 9 includes:
 
-- General Assembly draft lifecycle;
-- meeting initiator and convening basis;
-- meeting date/time/place and optional external online-meeting reference;
+- General Assembly lifecycle;
+- convening basis and initiator snapshot;
+- date/time/place and optional external online-meeting reference;
 - ordered agenda and draft resolutions;
-- controlled emergency agenda addition with explicit reason;
-- invitation generation using the Phase 8 private document infrastructure;
-- invitation-posting evidence and timestamp;
-- electorate/ownership snapshot for the meeting;
-- attendance registration;
-- online attendance registration;
-- proxy registration and proxy evidence document;
+- controlled emergency agenda items with explicit reason;
+- immutable electorate/ownership snapshot;
+- invitation generation using Phase 8 private documents;
+- physical posting evidence separate from in-app read state;
+- attendance: in person, online, representative/proxy;
+- proxy authority and evidence documents;
 - represented ideal-parts calculation;
-- quorum checks and persisted quorum snapshots;
-- decision/majority rule snapshots per agenda item;
-- formal `FOR / AGAINST / ABSTAIN` voting separate from Community polls;
-- prevention of double representation/double voting;
-- resolution result calculation;
-- optional statutory absentee-voting follow-up for legally eligible decisions;
-- meeting closing;
-- minutes drafting and finalization;
-- generated printable/PDF invitation and minutes;
-- linking final invitation/minutes documents to the existing private Document library;
-- resident read-only view of convened/finalized meeting material;
-- management/controller working UI for conducting the meeting;
-- full audit-safe history with no hard-delete workflow.
+- immutable quorum checks;
+- majority-rule snapshots per agenda item;
+- `FOR / AGAINST / ABSTAIN` formal votes;
+- explicit vote corrections before item close;
+- resolution calculation;
+- optional statutory absentee-voting follow-up for eligible items;
+- meeting close;
+- minutes draft, PDF and finalization;
+- append-only minutes corrections/addenda;
+- resident read-only views;
+- manager/controller/admin live workbench;
+- no hard-delete workflow.
 
 ## Non-goals
 
-The following are explicitly out of scope:
+No Phase 9 implementation of:
 
-- building an online video-conferencing system;
-- hosting WebRTC streams;
-- verifying qualified electronic signatures cryptographically;
-- issuing electronic signatures;
+- WebRTC/video hosting;
+- cryptographic QES verification or signature issuance;
 - notarization;
-- public anonymous meeting URLs;
-- secret-ballot elections;
-- cryptographic/blockchain voting;
-- remote identity-proofing/KYC;
-- generalized parliamentary procedure;
-- generalized election campaigns;
-- arbitrary multi-building or multi-tenant meeting administration;
-- integration with municipal/state registers;
-- automatic legal advice about whether a controversial decision is lawful;
-- automatic court challenge workflows;
-- automatic cancellation or erasure of finalized meeting history;
-- using Community poll entities/tables/services for formal voting.
+- public/anonymous meeting URLs;
+- secret ballots;
+- blockchain/cryptographic voting;
+- remote KYC;
+- generic parliamentary procedure;
+- municipal/state-register integration;
+- court-challenge automation;
+- automatic legal advice for disputed cases;
+- multi-building SaaS abstractions;
+- Community poll reuse.
 
-## Core design principles
+## Core principles
 
-### 1. Formal voting is a distinct bounded context
+### Formal votes are a separate bounded context
 
-`CommunityPollVote` remains informal neighbour opinion. General Assembly voting gets separate entities, repositories, services, routes and UI. No Community vote row can ever be interpreted as a formal vote.
+`CommunityPollVote` remains informal neighbour opinion. General Assembly entities, repositories, services, routes and templates are separate. No Community row can influence formal quorum or results.
 
-### 2. Historical truth beats live joins
+### Historical snapshots, not live legal state
 
-Meeting legality must not depend on the current `Unit`, `UnitRelation` or `Person` state after convening. The meeting stores an immutable electorate snapshot and rule snapshots.
+After convening, calculations use meeting snapshots. Later condominium-book changes cannot alter old quorum or votes.
 
-### 3. Legal conclusion requires complete inputs
+### Exact decimal arithmetic
 
-Quorum and majority calculators operate only when the represented ideal-parts universe is sufficiently known for the applicable rule. Missing or contradictory ownership data produces `REVIEW_REQUIRED`, not a fabricated percentage.
+The existing `Unit::idealParts` has four decimal places, and co-ownership multiplication can require more precision. Phase 9 therefore stores legal calculation values as fixed-precision decimal strings/Doctrine `decimal` values, normally `DECIMAL(14,8)` percentage points.
 
-### 4. No silent mutation after formal boundaries
+All arithmetic/comparisons use BCMath (`ext-bcmath`) or an equivalent exact-decimal helper introduced explicitly by the implementation plan. Binary floating point is forbidden for legal threshold decisions.
 
-Convening freezes the ordinary agenda and electorate snapshot. Closing freezes attendance and in-meeting votes. Finalizing minutes freezes the final record. Corrections after finalization are appended as explicit correction records/documents rather than rewriting history.
+Examples:
 
-### 5. Reuse Phase 8 documents, not Phase 8 notification semantics
+- `51.00000000` means 51% of common ideal parts;
+- a unit with `8.0000` ideal parts and a 50% co-owner yields exactly `4.00000000` represented ideal parts.
 
-Invitation/minutes/proxy evidence use private `Document` storage. `AnnouncementReceipt` is never reused as statutory invitation-service proof.
+The service never rescales known values merely to force a building total to 100%.
 
-## Roles and authorization
+### Formal boundaries are immutable
 
-All Phase 9 routes require authentication.
+- convening freezes the ordinary agenda, electorate and legal-rule snapshots;
+- meeting close freezes in-meeting attendance/proxies/votes;
+- minutes finalization freezes the final meeting record;
+- corrections after finalization are addenda, never silent rewrites.
 
-### Management rights
+### Phase 8 documents are reused, Phase 8 receipts are not legal service
 
-Users with any of these roles may manage the General Assembly workflow:
+Invitation, minutes and evidence use private `Document` storage. `AnnouncementReceipt` is never treated as statutory invitation/posting proof.
 
-- `ROLE_MANAGER`;
-- `ROLE_CONTROLLER`;
-- `ROLE_ADMIN`.
+## Authorization and document access
 
-This deliberately includes `ROLE_CONTROLLER` because the statutory framework permits the control board/controller to convene a General Assembly and the project already treats controller access as privileged condominium-governance access.
+All routes require authentication.
 
-`ROLE_CASHIER` alone has no Phase 9 management authority.
+### General Assembly management
 
-### Resident rights
+`ROLE_MANAGER`, `ROLE_CONTROLLER`, and `ROLE_ADMIN` may manage Phase 9.
 
-Every active authenticated user may view meetings that have reached the public-to-residents `CONVENED` state, together with resident-visible invitation documents, published decisions and finalized minutes.
+`ROLE_CONTROLLER` is intentionally included because the legal framework permits the controller/control board to convene a General Assembly and the project already treats controller access as privileged condominium-governance access.
 
-Residents do not receive a self-service formal vote button in Phase 9. Formal voting is recorded by an authorized meeting operator from verified attendance/proxy/absentee evidence. This avoids pretending that a normal Vhod login is equivalent to statutory identity verification or signature.
+`ROLE_CASHIER` alone has no meeting-management authority.
 
-### Server-side enforcement
+### Resident access
 
-Twig visibility is presentation only. Controllers/application services enforce permissions for every mutation and every management detail route.
+Active authenticated users may view meetings from `CONVENED` onward, resident-visible invitation documents, published decisions and finalized minutes.
 
-All POST mutations are CSRF-protected.
+There is **no resident self-service formal vote POST** in Phase 9. Formal votes are recorded by an authorized operator from attendance/proxy/absentee evidence; a normal authenticated session is not treated as statutory identity/signature proof.
+
+### Governance evidence documents
+
+Phase 9 adds a fourth `DocumentAccessLevel`:
+
+- `GOVERNANCE` — `ROLE_CONTROLLER`, `ROLE_MANAGER`, `ROLE_ADMIN`.
+
+The final access matrix becomes:
+
+- `RESIDENTS` — every active authenticated user;
+- `FINANCE` — cashier/controller/manager/admin;
+- `GOVERNANCE` — controller/manager/admin;
+- `MANAGEMENT` — manager/admin.
+
+Proxy documents, posting evidence and absentee declarations use `GOVERNANCE` by default. Invitation and finalized minutes use `RESIDENTS`.
+
+This avoids exposing personal evidence to all residents or to the cashier while still allowing a controller to conduct a meeting. Evidence must not bypass `DocumentAccessPolicy` through special download routes.
+
+Phase 9 adds `MEETING_PROXY` to `DocumentCategory`; existing `MEETING_INVITATION` and `MEETING_MINUTES` are reused.
+
+Every POST mutation is CSRF-protected. Twig link visibility is never the security boundary.
 
 ## General Assembly lifecycle
 
-`GeneralAssemblyStatus` has exactly these values:
+`GeneralAssemblyStatus`:
 
 - `DRAFT`;
 - `CONVENED`;
@@ -142,104 +159,83 @@ All POST mutations are CSRF-protected.
 
 ### DRAFT
 
-Management may edit:
+Editable:
 
 - title/internal reference;
-- initiator;
-- convening basis;
-- meeting date/time/place;
-- online meeting reference if relevant;
+- initiator and convening basis;
+- scheduled time and place;
+- optional online-meeting reference;
 - ordinary agenda;
-- draft resolutions;
-- proposed majority-rule classifications.
+- draft resolution wording;
+- decision kinds and proposed legal rule snapshots.
 
-No resident visibility and no formal legal snapshot exists yet.
+Not resident-visible.
 
 ### CONVENED
 
-Convening is an immutable boundary. The service:
+Convening is transactional and immutable. It:
 
-- validates required meeting metadata;
-- freezes and snapshots the ordinary agenda;
-- creates the electorate snapshot as of the meeting/legal reference date;
-- snapshots the applicable quorum rule configuration;
-- generates/links the invitation document;
-- records who convened the meeting and when;
-- makes the meeting visible to active residents.
+1. validates required meeting metadata;
+2. freezes the ordinary agenda;
+3. creates the electorate snapshot for the meeting reference date;
+4. snapshots quorum and majority rules;
+5. generates/stores the invitation;
+6. records actor/time;
+7. makes the meeting resident-visible.
 
-After convening, ordinary agenda items cannot be silently edited, removed or reordered.
+Ordinary agenda items cannot then be edited, deleted or reordered.
 
 ### IN_PROGRESS
 
-The meeting operator may:
+Authorized operators may register attendance, proxies, online participation, quorum checks, emergency items and formal votes.
 
-- register attendance;
-- register proxy representation;
-- record external online participation;
-- run quorum checks;
-- add an explicitly flagged emergency agenda item with written reason;
-- open agenda items for voting;
-- record formal votes;
-- close individual agenda items.
-
-The meeting cannot start unless there is at least one persisted quorum check. If automatic validity cannot be determined, management may continue recording facts but the UI must clearly show `legal review required`; it must not show a green valid-quorum badge.
+A meeting may enter `IN_PROGRESS` before a valid quorum is established so facts can be recorded, but no UI may label the meeting legally quorate without a persisted `VALID` check. `REVIEW_REQUIRED` is always visibly different from valid.
 
 ### CLOSED
 
-Closing freezes in-meeting attendance and formal votes. The system computes persisted outcome snapshots for each agenda item.
+Closing freezes in-meeting attendance/proxies/votes.
 
-If one or more agenda items are configured as legally eligible for absentee voting and the meeting explicitly resolves to use that mechanism, those items remain in an `ABSENTEE_WINDOW` decision state until the window closes. The General Assembly itself stays `CLOSED`; the post-meeting absentee declarations are a separate bounded follow-up process attached to the closed meeting.
+Agenda items without an absentee extension get their final resolution snapshot on close. Eligible items for which the assembly explicitly opens absentee voting transition to `ABSENTEE_WINDOW` and defer final resolution until that window closes.
 
 ### MINUTES_FINALIZED
 
-Finalization is allowed only when:
+Finalization is one transactional operation. It validates that all agenda items are resolved or explicitly `REVIEW_REQUIRED`, all absentee windows are closed, and required minutes metadata exist; then it renders/stores the final minutes document, links it, records finalizer/time and transitions the meeting.
 
-- all vote windows are closed;
-- every agenda item has a persisted result or explicit `REVIEW_REQUIRED` outcome;
-- minutes fields required by the application are present;
-- the final minutes document has been generated/linked.
+If PDF/storage/persistence fails, the meeting remains `CLOSED`; there is no state in which `MINUTES_FINALIZED` exists without its final document.
 
-After finalization, meeting facts, electorate, attendance, proxies, votes and result snapshots are immutable through normal UI/service APIs.
-
-## Domain model
+## Core domain model
 
 ### GeneralAssembly
 
-Represents one formal General Assembly.
-
-Fields:
+Key fields:
 
 - `id`;
-- `status: GeneralAssemblyStatus`;
+- `status`;
 - `title`;
-- `meetingDate` local calendar date;
 - `scheduledAt` UTC;
+- `timezoneSnapshot` (for this product normally `Europe/Sofia`);
+- `referenceDate` local `date_immutable` used for ownership snapshot;
 - `place`;
-- nullable `onlineMeetingReference` plain text/URL metadata;
-- `conveningBasis: AssemblyConveningBasis`;
+- nullable `onlineMeetingReference`;
+- `conveningBasis`;
 - `initiatorDisplayName` snapshot;
-- nullable `initiatorUser: User` when convened by a system user;
-- `createdBy: User`;
-- `createdAt` UTC;
-- nullable `convenedBy: User`;
-- nullable `convenedAt` UTC;
-- nullable `startedBy: User`;
-- nullable `startedAt` UTC;
-- nullable `closedBy: User`;
-- nullable `closedAt` UTC;
-- nullable `minutesFinalizedBy: User`;
-- nullable `minutesFinalizedAt` UTC;
-- nullable `minutesDeadlineAt` UTC/local-derived timestamp;
-- nullable `invitationDocument: Document`;
-- nullable `minutesDocument: Document`;
-- optional chairperson/secretary names as meeting-time snapshots;
-- optional notes relevant to the formal record.
+- nullable `initiatorUser`;
+- `createdBy`, `createdAt`;
+- nullable `convenedBy`, `convenedAt`;
+- nullable `startedBy`, `startedAt`;
+- nullable `closedBy`, `closedAt`;
+- nullable `minutesFinalizedBy`, `minutesFinalizedAt`;
+- nullable `minutesDueOn` local `date_immutable` snapshot;
+- nullable `invitationDocument`;
+- nullable `minutesDocument`;
+- nullable chairperson/secretary name snapshots;
+- optional formal notes.
 
-All transition methods validate temporal ordering and current state.
+Transitions validate state and timestamp order.
 
 ### AssemblyConveningBasis
 
-Controlled enum used to explain why/how the meeting is being convened, initially:
+Initial enum:
 
 - `MANAGER_OR_BOARD`;
 - `CONTROLLER_OR_CONTROL_BOARD`;
@@ -249,34 +245,38 @@ Controlled enum used to explain why/how the meeting is being convened, initially
 - `FIRST_ASSEMBLY`;
 - `OTHER_LEGAL_BASIS`.
 
-`OTHER_LEGAL_BASIS` requires a non-blank explanatory note. The enum is descriptive; it does not independently prove legal validity.
+`OTHER_LEGAL_BASIS` requires explanatory text. This field records the claimed basis; it does not prove legal validity.
 
 ### AssemblyAgendaItem
 
 Fields:
 
-- `id`;
 - `assembly`;
-- `position` positive integer;
+- unique positive `position` within assembly;
 - `title`;
 - optional `description`;
 - `draftResolutionText`;
+- `finalResolutionText` once opened;
 - `kind: AssemblyDecisionKind`;
-- `majorityRuleSnapshot: AssemblyMajorityRuleSnapshot` as embedded/value fields;
+- majority-rule snapshot fields;
 - `isEmergency`;
 - nullable `emergencyReason`;
 - `status: AgendaItemStatus`;
-- nullable `openedAt`;
-- nullable `closedAt`;
-- nullable `resolution: AssemblyResolution`.
+- nullable `openedAt`, `closedAt`;
+- nullable one-to-one `resolution`.
 
-Ordinary items are frozen at convening. Emergency items may only be created after start, require `isEmergency=true` and a reason, and are visibly marked in minutes.
+`AgendaItemStatus`:
+
+- `PLANNED`;
+- `OPEN`;
+- `ABSENTEE_WINDOW`;
+- `RESOLVED`.
+
+Ordinary items become immutable at convening. Emergency items may be created only during `IN_PROGRESS`, require a non-blank reason and are marked explicitly in minutes.
 
 ### AssemblyDecisionKind
 
-A controlled application enum representing classes of decisions for which the legal majority semantics differ. Initial values should cover the practical ZUES categories required by the entrance without pretending to encode every possible legal dispute.
-
-Initial categories:
+Initial controlled categories:
 
 - `ORDINARY`;
 - `ELECTION_OR_REMOVAL`;
@@ -289,864 +289,675 @@ Initial categories:
 - `ASSOCIATION_RELATED`;
 - `OTHER_REQUIRES_REVIEW`.
 
-Each kind maps at draft time to a suggested majority rule, but the operator must see the rule and legal-basis text before convening. `OTHER_REQUIRES_REVIEW` cannot produce an automatic accepted/rejected legal conclusion until a rule is explicitly supplied and confirmed.
+A kind provides a suggested rule, not unquestionable legal advice. Before convening, the operator sees the exact rule/legal-basis snapshot. `OTHER_REQUIRES_REVIEW` cannot produce an automatic accepted/rejected conclusion until a rule is explicitly confirmed.
 
 ### AssemblyMajorityRuleSnapshot
 
-This is not a shared mutable configuration row. It is a snapshot copied onto each agenda item before convening.
+Stored directly/embedded on the agenda item, never as a mutable global rule row.
 
-Fields/value properties:
+Properties:
 
-- `ruleCode` stable machine code;
-- `denominator: AssemblyVoteDenominator`;
-- `thresholdBasisPoints` integer to avoid floating-point comparison;
-- `comparison: MajorityComparison` (`GREATER_THAN` or `AT_LEAST`);
-- `legalBasis` human-readable text;
-- `requiresLegalReview` boolean;
-- `sourceVersion`/effective-date note.
+- `ruleCode`;
+- `denominator: ALL_COMMON_IDEAL_PARTS | REPRESENTED_AT_MEETING | ELIGIBLE_ABSENTEE_UNIVERSE`;
+- `thresholdPercent` exact decimal string, e.g. `50.00000000`;
+- `comparison: GREATER_THAN | AT_LEAST`;
+- `legalBasis`;
+- `sourceVersion`/effective-date note;
+- `requiresLegalReview`.
 
-`AssemblyVoteDenominator` initially supports:
-
-- `ALL_COMMON_IDEAL_PARTS`;
-- `REPRESENTED_AT_MEETING`;
-- `ELIGIBLE_ABSENTEE_UNIVERSE` when specifically required by the configured legal rule.
-
-Percentages are stored/calculated as integer basis points or higher fixed precision, never binary floats.
+The exact distinction between `>` and `>=` is preserved.
 
 ### AssemblyElectorateEntry
 
-Immutable meeting snapshot of the voting/representation universe.
+Immutable ownership/voting-weight snapshot.
+
+Each entry represents one ownership principal's portion of one unit's common ideal parts.
 
 Fields:
 
-- `id`;
 - `assembly`;
-- nullable source `unit: Unit` reference for traceability;
-- nullable source `unitRelation: UnitRelation` reference for traceability;
+- nullable source `unit` and `unitRelation` references for traceability;
 - `unitDesignationSnapshot`;
 - `principalType: PERSON | LEGAL_ENTITY`;
-- nullable `person: Person` source reference;
+- nullable source `person`;
 - `principalNameSnapshot`;
-- nullable `principalIdentifierSnapshot` where appropriate and permitted;
+- nullable legal-entity identifier snapshot where applicable;
 - `relationTypeSnapshot`;
-- nullable `ownershipShareSnapshot`;
-- `unitIdealPartsSnapshot`;
-- `representedIdealPartsSnapshot`;
-- `eligibleToVote`;
+- `ownershipSharePercentSnapshot`;
+- `unitIdealPartsPercentSnapshot`;
+- `representedIdealPartsPercentSnapshot` as exact `DECIMAL(14,8)`;
+- `quorumEligible`;
 - nullable `reviewReason`;
-- `createdAt` UTC.
+- `createdAt`.
 
-The snapshot distinguishes ownership share inside an individual unit from the unit's common ideal-parts percentage. For example, if a unit has 8% common ideal parts and two co-owners each own 50% of the unit, each electorate entry represents 4% of common ideal parts.
+The automatic quorum universe is ownership-based. Active owner relations are snapshotted from `UnitRelationType::OWNER`.
 
-No later condominium-book edit changes these values.
+A user/polzvatel may still participate where permitted by law/agreement, but the system does not infer legal voting authority from free-text `managementRightsAndObligations`. Such representation is recorded through an explicit attendance authority mode and may require operator/legal confirmation for the specific agenda item.
 
 ### Electorate integrity
 
-At convening, `AssemblyElectorateSnapshotService` validates:
+`AssemblyElectorateSnapshotService` checks:
 
-- active unit status;
-- active ownership relations as of the meeting reference date;
-- ownership shares within each unit;
-- common ideal-parts data;
-- duplicate/overlapping active owner relations;
-- total represented ownership universe.
+- active units;
+- active ownership relations as of `referenceDate`;
+- common ideal-parts values;
+- co-owner ownership shares;
+- overlapping/contradictory owner relations;
+- exact represented weight per principal;
+- total known common ideal parts.
 
-If a unit has missing ideal parts, ambiguous co-ownership shares or contradictory active owner relations, affected electorate entries are marked for review and automatic quorum/majority conclusions are disabled where the missing data could change the result.
-
-The service never rescales known percentages to force the building total to 100%.
+Missing/ambiguous material data create `reviewReason` and can force quorum/resolution to `REVIEW_REQUIRED`.
 
 ### AssemblyAttendance
 
-Represents attendance by one principal/electorate entry.
+One current attendance record per `(assembly, electorateEntry)` enforced by a database unique constraint.
 
 Fields:
 
-- `id`;
 - `assembly`;
 - `electorateEntry`;
-- `mode: AssemblyAttendanceMode`;
-- nullable `representativePerson: Person` when represented by another known person;
-- nullable `representativeNameSnapshot` for an external/non-user representative;
-- `registeredBy: User`;
-- `registeredAt` UTC;
-- nullable `leftAt` UTC;
+- `mode: IN_PERSON | ONLINE | BY_PROXY | STATUTORY_USER_AUTHORITY`;
+- nullable known `representativePerson`;
+- nullable representative name snapshot;
+- `registeredBy`, `registeredAt`;
+- nullable `leftAt`;
 - optional notes.
 
-Modes:
+`STATUTORY_USER_AUTHORITY` records a user/polzvatel acting under claimed statutory/contractual management authority rather than as owner/proxy. The UI requires explicit authority note/confirmation and never silently infers it from free text.
 
-- `IN_PERSON`;
-- `ONLINE`;
-- `BY_PROXY`.
+Corrections before meeting close use `AssemblyAttendanceChange` audit rows rather than silent edits.
 
-One electorate entry can have at most one active attendance representation at a time.
+### AssemblyAttendanceChange
+
+Append-only audit row containing attendance, old/new mode/state, reason, actor and timestamp.
 
 ### AssemblyProxy
 
-Represents one proxy authority used for the meeting.
-
 Fields:
 
-- `id`;
 - `assembly`;
 - `principalEntry`;
-- nullable known `representativePerson: Person`;
-- `representativeNameSnapshot`;
-- nullable `representativeIdentifierSnapshot` if legitimately recorded;
+- nullable known `representativePerson`;
+- representative name snapshot;
 - `authorityKind`;
-- `evidenceDocument: Document`;
-- `registeredBy: User`;
-- `registeredAt` UTC;
-- optional `notes`.
+- `evidenceDocument` with `GOVERNANCE` access;
+- `registeredBy`, `registeredAt`;
+- optional notes;
+- nullable `revokedAt`, `revokedBy`, `revocationReason` for a pre-close correction.
 
 Rules:
 
-- evidence document must have `RESIDENTS` or a dedicated safe meeting-evidence access policy decided in implementation; it must never become public;
-- one principal entry cannot have two active proxies;
-- a represented principal cannot simultaneously be marked in-person/online;
-- a natural representative cannot exceed the statutory maximum of three represented owners/users when that rule applies;
-- proxy registration is immutable after the meeting is closed.
-
-Phase 9 adds `MEETING_PROXY` to `DocumentCategory`.
+- one principal cannot have two effective proxies;
+- principal cannot be simultaneously personally/online represented and proxied;
+- representative cannot exceed the statutory maximum represented principals where applicable;
+- revocation/replacement is explicit and audited;
+- no change after meeting close.
 
 ### AssemblyQuorumRuleSnapshot
 
-Stored on the meeting at convening.
+Properties:
 
-Fields/value properties:
-
-- `firstCallThresholdBasisPoints` (current baseline 5100);
-- `delayedCallThresholdBasisPoints` (current baseline 2600);
-- `dominantOwnerTriggerBasisPoints` (current baseline >5100);
-- `dominantOwnerRequiredThresholdBasisPoints` (current baseline 7500);
+- `firstCallThresholdPercent` current baseline `51.00000000`;
+- `delayedCallThresholdPercent` current baseline `26.00000000`;
+- `dominantOwnerTriggerPercent` current baseline `51.00000000` with `GREATER_THAN` semantics;
+- `dominantOwnerRequiredThresholdPercent` current baseline `75.00000000`;
 - `legalBasis`;
 - `sourceVersion`;
 - `requiresLegalReview`.
 
-The service detects whether the dominant-owner special rule applies from the electorate snapshot.
-
 ### AssemblyQuorumCheck
 
-Immutable persisted check.
+Immutable append-only row:
 
-Fields:
-
-- `id`;
 - `assembly`;
 - `kind: FIRST_CALL | DELAYED_CALL | MANUAL_REVIEW`;
-- `checkedAt` UTC;
-- `representedIdealPartsBasisPoints` fixed-precision value;
-- `requiredIdealPartsBasisPoints` fixed-precision value;
+- `checkedAt`;
+- exact `representedIdealPartsPercent`;
+- exact `requiredIdealPartsPercent`;
 - `ruleCode`;
 - `result: VALID | INVALID | REVIEW_REQUIRED`;
-- `calculationDetails` structured/simple text snapshot;
-- `checkedBy: User`.
+- calculation explanation snapshot;
+- `checkedBy`.
 
-A later attendance change never mutates an old quorum check; a new check is appended.
+Attendance changes never rewrite previous checks; a new check is added.
 
 ### AssemblyVote
 
-Formal vote row, never shared with Community.
+Formal vote row:
 
-Fields:
-
-- `id`;
 - `agendaItem`;
 - `electorateEntry`;
-- `choice: AssemblyVoteChoice` (`FOR`, `AGAINST`, `ABSTAIN`);
-- `weightIdealPartsSnapshot`;
-- `castMode: IN_PERSON | ONLINE | PROXY | ABSENTEE_DECLARATION`;
-- nullable `proxy: AssemblyProxy`;
-- nullable `absenteeDeclaration: AssemblyAbsenteeDeclaration`;
-- `recordedBy: User`;
-- `recordedAt` UTC.
+- `choice: FOR | AGAINST | ABSTAIN`;
+- exact `weightIdealPartsPercentSnapshot`;
+- `castMode: IN_PERSON | ONLINE | PROXY | STATUTORY_USER_AUTHORITY | ABSENTEE_DECLARATION`;
+- nullable `proxy`;
+- nullable `absenteeDeclaration`;
+- `recordedBy`, `recordedAt`.
 
-Database uniqueness ensures one effective vote per electorate entry per agenda item.
+One effective vote per `(agendaItem, electorateEntry)` is enforced. Vote weight is derived from the electorate snapshot; operators never type arbitrary weight.
 
-A vote is accepted only when the principal is validly represented for that mode and the vote weight exactly matches the electorate snapshot weight.
+### AssemblyVoteCorrection
+
+Before an item is resolved, a mistaken vote may be replaced only through an explicit correction operation recording old choice, new choice, reason, actor and time. After item resolution, normal corrections are forbidden.
 
 ### AssemblyResolution
 
-Immutable computed result for a closed agenda item.
+One immutable resolution per resolved agenda item:
+
+- final resolution text;
+- exact `forIdealParts`, `againstIdealParts`, `abstainIdealParts`;
+- exact denominator and threshold used;
+- rule code and legal-basis snapshot;
+- `result: ACCEPTED | REJECTED | REVIEW_REQUIRED`;
+- calculator actor/time metadata.
+
+The persisted result does not change if future code or law changes.
+
+### AssemblyAbsenteeWindow
+
+Explicit entity/table, never an implicit status-only concept.
 
 Fields:
 
-- `id`;
-- `agendaItem` one-to-one;
-- `finalResolutionText`;
-- `forIdealParts`;
-- `againstIdealParts`;
-- `abstainIdealParts`;
-- `denominatorIdealParts`;
-- `thresholdIdealParts`;
-- `ruleCode`;
-- `legalBasisSnapshot`;
-- `result: ACCEPTED | REJECTED | REVIEW_REQUIRED`;
-- `calculatedAt` UTC;
-- `calculatedBy: User`.
+- `assembly`;
+- `openedAt`, `openedBy`;
+- `deadlineAt`;
+- `closedAt`, `closedBy` nullable;
+- legal-basis/source note;
+- relation to exactly the eligible agenda items participating in that window.
 
-The result is derived from snapshotted rule semantics and votes, then persisted so later code/rule changes do not alter historical results.
+Only one effective absentee window per meeting is needed in Phase 9.
 
 ### AssemblyAbsenteeDeclaration
 
-Represents one statutory post-meeting absentee declaration when permitted.
-
 Fields:
 
-- `id`;
 - `assembly`;
 - `electorateEntry`;
-- `evidenceDocument: Document`;
-- `submittedAt` UTC;
-- `registeredBy: User`;
+- `window`;
+- `evidenceDocument` with `GOVERNANCE` access;
+- `submittedAt`;
+- `registeredBy`;
 - `signatureModeSnapshot: HAND_SIGNED | ELECTRONIC_DECLARATION_RECORDED`;
-- optional verification/notes text;
-- one or more linked declaration vote choices for eligible agenda items.
+- optional verification/notes.
 
-Vhod records that an electronic declaration was supplied; it does not cryptographically certify an electronic signature.
+Declaration vote rows record `FOR / AGAINST / ABSTAIN` for eligible agenda items.
 
-The absentee service enforces:
+Vhod records that an electronic declaration was supplied but does not cryptographically certify its signature.
 
-- meeting explicitly opened an absentee-voting window;
-- agenda item is marked legally eligible;
-- declaration arrives inside the configured statutory deadline;
-- principal did not already cast an effective vote for the same agenda item;
-- declaration document is retained privately;
-- after the window closes, no further declaration can be registered normally.
+Rules:
 
-### AssemblyMinutesCorrection
+- window must be open;
+- item must be eligible;
+- deadline enforced;
+- evidence required;
+- no duplicate effective vote for the same principal/item;
+- no new declarations after close.
 
-Append-only correction metadata for a finalized meeting.
+### AssemblyInvitationPosting
 
-Fields:
-
-- `id`;
-- `assembly`;
-- `reason`;
-- `document: Document`;
-- `recordedBy: User`;
-- `recordedAt` UTC.
-
-It does not mutate old votes/results. It records a correction/addendum artifact and reason.
-
-## Invitation workflow
-
-### Invitation contents
-
-Generated invitation includes at minimum the application-held data required for the workflow:
-
-- who convenes the meeting;
-- date;
-- time;
-- place;
-- online participation information when applicable;
-- ordered agenda;
-- draft resolution text where required/appropriate;
-- clear identification of agenda items proposed for absentee-voting eligibility where relevant.
-
-The invitation is rendered to print-friendly HTML/PDF using the existing Dompdf setup and stored through the Phase 8 `DocumentService` as category `MEETING_INVITATION`, access `RESIDENTS`.
-
-### Posting evidence
-
-`AssemblyInvitationPosting` records the physical/legal notification act separately from in-app availability.
-
-Fields:
+Separate legal-notification evidence:
 
 - `assembly`;
 - `postedAt`;
 - `postingPlace`;
-- `confirmedBy: User`;
-- optional `evidenceDocument: Document`;
+- `confirmedBy`;
+- optional `evidenceDocument` with `GOVERNANCE` access;
 - optional notes.
 
-The UI must distinguish:
+UI distinguishes `Published in Vhod` from `Physical posting recorded`. `AnnouncementReceipt` is never called proof of statutory service.
 
-- `Invitation published in Vhod`;
-- `Physical posting recorded`;
-- any additional notification method recorded as metadata.
+### AssemblyMinutesCorrection
 
-A Phase 8 `AnnouncementReceipt` is never labeled as proof of statutory posting/service.
+Append-only finalized-meeting addendum:
 
-## Meeting start and attendance workflow
+- `assembly`;
+- `reason`;
+- `document`;
+- `recordedBy`, `recordedAt`.
 
-Before starting, management sees an electorate readiness summary:
+It does not mutate votes or historical results.
 
-- total active units;
-- units with usable ideal-parts data;
-- electorate entries;
-- total known common ideal parts;
-- unresolved electorate warnings.
-
-Attendance UI is optimized for live use:
-
-- searchable unit/principal list;
-- one-click in-person/online registration;
-- proxy registration flow;
-- visible represented ideal parts;
-- duplicate-representation prevention;
-- real-time informational represented percentage.
-
-The informational live percentage is not itself the legal quorum record. Pressing `Провери кворум` creates an immutable `AssemblyQuorumCheck` snapshot.
-
-## Quorum calculation
-
-`AssemblyQuorumCalculator` is a pure domain service operating on snapshot values.
-
-Inputs:
-
-- quorum rule snapshot;
-- electorate snapshot;
-- effective attendance/proxy representation at check time;
-- check kind/time.
-
-Output:
-
-- represented ideal parts;
-- required ideal parts;
-- applied rule code;
-- `VALID`, `INVALID` or `REVIEW_REQUIRED`;
-- explanation.
-
-The calculator:
-
-- never uses binary floating point for legal comparisons;
-- detects the dominant-owner special rule;
-- counts each electorate weight at most once;
-- does not count an absentee declaration in the physical/online meeting quorum unless the applicable legal rule explicitly says so;
-- returns `REVIEW_REQUIRED` when unknown/malformed electorate data can alter the outcome.
-
-## Voting and result calculation
-
-### Opening an agenda item
-
-Only one agenda item needs to be active at a time in the management UI, although this is an application UX rule rather than a legal domain requirement.
-
-Opening an item freezes the final resolution wording that is being voted on for that vote round.
-
-### Recording votes
-
-Management records votes against electorate entries, not users.
-
-This is important because:
-
-- one user account is not necessarily one legal voter;
-- co-owners may have separate weights;
-- a proxy may represent several principals;
-- legal entities may be represented by a person who has no Vhod account.
-
-The system derives weight from the electorate snapshot and never accepts arbitrary operator-entered vote weight.
-
-### Changing a vote
-
-Before an agenda item is closed, an authorized operator may correct a mistakenly recorded vote through an explicit replacement operation that records audit metadata (old choice, new choice, actor, timestamp, reason). Silent row overwrite is not allowed.
-
-After the agenda item is closed, normal vote edits are forbidden.
-
-### Result calculation
-
-`AssemblyResolutionCalculator`:
-
-- aggregates effective votes;
-- derives the denominator from the rule snapshot;
-- applies exact threshold/comparison semantics;
-- returns `ACCEPTED`, `REJECTED` or `REVIEW_REQUIRED`;
-- persists all numerator/denominator/threshold values used.
-
-A result can be automatically `ACCEPTED`/`REJECTED` only when the rule snapshot and electorate data are complete enough to make the conclusion deterministic.
-
-## Absentee-voting workflow
-
-Phase 9 supports absentee voting only as an explicit optional extension for agenda items configured as legally eligible.
-
-At the in-person/online meeting, management records whether the General Assembly decided to open the absentee window.
-
-If opened:
-
-- the window deadline is persisted;
-- only eligible agenda items are included;
-- submitted declarations are stored as private documents;
-- management records the declaration votes exactly as evidenced;
-- the system prevents duplicate effective votes;
-- final resolution calculation waits until the window is closed.
-
-There is no resident-facing button that generates a legally binding declaration from a simple login session.
-
-## Minutes workflow
-
-### Draft minutes
-
-After the meeting closes, Vhod generates a structured draft containing:
-
-- meeting identification, date/time/place;
-- convening/initiator information;
-- chairperson and secretary where entered;
-- quorum checks and applied rule;
-- attendance list;
-- proxy representation and represented ideal parts;
-- online participation list;
-- agenda;
-- proposals/final wording voted on;
-- vote totals by ideal parts;
-- decisions/results;
-- emergency items and reasons;
-- absentee-voting window/declaration summary when applicable;
-- unresolved legal-review warnings.
-
-### Finalization
-
-Finalization generates a PDF and stores it as `DocumentCategory::MEETING_MINUTES`, `RESIDENTS` access.
-
-The service also snapshots the statutory minutes deadline and displays overdue warnings before finalization. The deadline is informational/compliance support; Vhod does not claim that generating the PDF alone completes every statutory publication/notification step.
-
-After finalization the minutes document is immutable. Corrections use `AssemblyMinutesCorrection` and an addendum document.
-
-## Document integration
-
-Phase 9 reuses Phase 8 `Document`, `DocumentStorage`, `DocumentService` and authenticated download routes.
-
-`DocumentCategory` adds:
-
-- `MEETING_PROXY`.
-
-Existing categories reused:
-
-- `MEETING_INVITATION`;
-- `MEETING_MINUTES`.
-
-For other evidence, `OTHER` may be used initially rather than creating a large legal-document taxonomy.
-
-All meeting evidence remains outside `public/`.
-
-## Repository/application services
+## Application services
 
 ### GeneralAssemblyAccessPolicy
 
-Responsibilities:
-
-- `canManage(User)` for manager/controller/admin;
-- `canViewResident(User, GeneralAssembly)` for active authenticated users when state is resident-visible;
-- helper policy decisions for finalized/private evidence where needed.
+- `canManage(User)` — manager/controller/admin;
+- `canViewResident(User, GeneralAssembly)` — active user + resident-visible state.
 
 ### GeneralAssemblyService
 
-Responsibilities:
-
 - create/edit draft;
-- convene under transaction/pessimistic lock;
-- invoke electorate snapshot service;
+- convene transactionally under pessimistic lock;
+- invoke electorate snapshot;
 - freeze agenda/rules;
-- start meeting;
-- close meeting;
-- finalize minutes;
+- start/close meeting;
 - enforce lifecycle boundaries.
+
+Minutes finalization itself is delegated to `AssemblyMinutesService`.
 
 ### AssemblyElectorateSnapshotService
 
-Responsibilities:
-
-- load active `Unit`/`UnitRelation` ownership data as of the reference date;
-- calculate represented common ideal parts per owner/principal;
-- identify incomplete/ambiguous ownership;
-- create immutable electorate rows;
-- generate readiness/review status.
+- load active ownership as of reference date;
+- calculate co-owner represented common ideal parts exactly;
+- create immutable entries;
+- surface readiness/review warnings.
 
 ### AssemblyInvitationService
 
-Responsibilities:
-
-- render invitation HTML/PDF;
-- persist private invitation document;
-- link it to the meeting;
-- record posting evidence through a separate operation.
+- render invitation HTML/PDF using existing Dompdf setup;
+- persist `MEETING_INVITATION` / `RESIDENTS` document;
+- link invitation;
+- record physical posting separately.
 
 ### AssemblyAttendanceService
 
-Responsibilities:
-
-- register in-person/online attendance;
-- register proxy-based attendance;
-- prevent duplicate representation;
-- end/change active representation before closing with explicit audit operations.
+- register attendance modes;
+- enforce one effective representation per principal;
+- record explicit corrections/leave state with audit rows.
 
 ### AssemblyProxyService
 
-Responsibilities:
+- validate `GOVERNANCE` evidence;
+- enforce proxy count and duplicate-representation rules;
+- revoke/replace explicitly before close.
 
-- validate evidence document;
-- enforce one active proxy per principal;
-- enforce representative proxy-count rule;
-- create immutable proxy records.
+### AssemblyQuorumCalculator and AssemblyQuorumService
 
-### AssemblyQuorumCalculator / AssemblyQuorumService
-
-Pure calculator returns a result; application service persists immutable checks with actor/time.
+Pure calculator + persistence service. Calculator uses exact decimal arithmetic, applies the snapshotted normal/delayed/dominant-owner rule, counts each ownership weight once and returns `VALID`, `INVALID` or `REVIEW_REQUIRED`.
 
 ### AssemblyVotingService
 
-Responsibilities:
-
-- open agenda item;
-- record vote from effective representation;
-- explicitly correct a vote before close with audit row;
-- close agenda item;
-- invoke resolution calculator when eligible;
-- enforce uniqueness and lifecycle.
+- open item and freeze final resolution wording;
+- record votes from effective representation;
+- create explicit vote corrections before resolution;
+- resolve immediately when no absentee extension applies;
+- transition eligible items into `ABSENTEE_WINDOW` when the meeting opens that mechanism.
 
 ### AssemblyResolutionCalculator
 
-Pure deterministic fixed-precision calculation from votes + rule snapshot + electorate/attendance context.
+Pure exact-decimal calculator from votes + snapshotted majority rule. It preserves denominator type, threshold and `>`/`>=` semantics.
 
 ### AssemblyAbsenteeVotingService
 
-Responsibilities:
-
-- open/close statutory absentee window;
-- validate item eligibility;
-- register declaration evidence;
-- prevent duplicate votes;
-- trigger final recalculation after closing.
+- open one meeting absentee window;
+- bind eligible agenda items;
+- register evidence/declaration votes;
+- enforce deadline and uniqueness;
+- close the window and resolve deferred items.
 
 ### AssemblyMinutesService
 
-Responsibilities:
-
-- build structured minutes view model;
+- build structured minutes model;
 - render print/PDF;
-- store final minutes document;
-- enforce finalization prerequisites;
-- record later correction/addendum documents without rewriting history.
+- calculate/store `minutesDueOn` compliance snapshot;
+- transactionally store/link `MEETING_MINUTES` / `RESIDENTS` document and transition to `MINUTES_FINALIZED`;
+- append later corrections/addenda without rewriting history.
 
-## Persistence model and integrity
+## Invitation workflow
 
-Expected new tables include:
+Generated invitation includes the application-held formal data:
+
+- convening person/body;
+- date/time/place;
+- online participation reference where applicable;
+- ordered agenda;
+- draft resolution wording where required/appropriate;
+- absentee-voting proposal information where relevant.
+
+Invitation is stored privately as `MEETING_INVITATION`, access `RESIDENTS`.
+
+The physical posting act is captured only by `AssemblyInvitationPosting`, not by an app receipt.
+
+## Live meeting workflow
+
+Before start, the workbench shows:
+
+- total active units;
+- electorate entries;
+- total known ideal parts;
+- unresolved electorate warnings.
+
+Attendance list shows unit, principal, exact weight, attendance mode, representative and warnings.
+
+The displayed live represented percentage is informational. Clicking `Провери кворум` persists an immutable `AssemblyQuorumCheck`.
+
+Only one agenda item is opened at a time in the Phase 9 UI for operator accuracy.
+
+Votes are recorded against electorate entries, not user accounts, because co-owners, proxies and legal entities break the one-account/one-vote assumption.
+
+## Absentee voting
+
+Absentee voting is optional and only available when:
+
+- the meeting explicitly opens it;
+- the decision kind/rule snapshot marks the item legally eligible;
+- the declaration is registered inside the stored statutory window;
+- private evidence exists.
+
+There is no resident button that turns an ordinary login into a legally binding declaration.
+
+## Minutes
+
+The draft minutes view contains at minimum:
+
+- meeting identification/time/place;
+- initiator/convening basis;
+- chairperson/secretary when entered;
+- quorum checks and applied rule;
+- attendance and online participation;
+- proxy representation;
+- represented ideal parts;
+- agenda and emergency-item reasons;
+- exact resolution wording;
+- vote totals and results;
+- absentee declaration summary when used;
+- `REVIEW_REQUIRED` warnings.
+
+Finalization is blocked while any absentee window remains open or any agenda item lacks a deterministic result/review status.
+
+Finalized PDF is stored as `MEETING_MINUTES`, access `RESIDENTS`. Generating/storing/linking the document and transitioning status form one logical transaction with compensating file cleanup on persistence failure, following the existing private-document pattern.
+
+## Persistence and integrity
+
+New tables are expected to include:
 
 - `general_assembly`;
 - `assembly_agenda_item`;
 - `assembly_electorate_entry`;
 - `assembly_attendance`;
+- `assembly_attendance_change`;
 - `assembly_proxy`;
 - `assembly_quorum_check`;
 - `assembly_vote`;
 - `assembly_vote_correction`;
 - `assembly_resolution`;
 - `assembly_invitation_posting`;
-- `assembly_absentee_window` or equivalent explicit window state;
+- `assembly_absentee_window`;
+- `assembly_absentee_window_item`;
 - `assembly_absentee_declaration`;
-- declaration-to-agenda vote rows where required;
+- `assembly_absentee_declaration_vote`;
 - `assembly_minutes_correction`.
 
-Important database guarantees:
+Important guarantees:
 
-- unique agenda `position` per assembly;
-- one electorate entry identity/source combination per meeting;
-- one active/effective attendance representation per electorate entry at the service/database level where feasible;
-- one proxy principal per meeting;
-- indexed representative identity for proxy-count checks;
-- one effective formal vote per `(agenda_item_id, electorate_entry_id)`;
+- unique agenda position per assembly;
+- unique `(assembly_id, electorate_entry_id)` attendance row;
+- one effective proxy per principal via transaction/locking plus supporting indexes;
+- one effective vote per `(agenda_item_id, electorate_entry_id)`;
 - one resolution per agenda item;
-- one absentee declaration per `(assembly_id, electorate_entry_id)` unless an explicit correction model is used;
-- audit-sensitive FKs use `ON DELETE RESTRICT`;
-- no cascade-remove from General Assembly into legal-history rows;
-- no hard-delete controller/service flow.
+- one effective absentee window per meeting;
+- one declaration per `(window_id, electorate_entry_id)` unless explicitly replaced through an audited correction path;
+- audit-sensitive FKs `ON DELETE RESTRICT`;
+- no cascade-remove of legal-history rows;
+- no hard-delete service/controller flow.
 
-Where SQL cannot express a temporal/conditional uniqueness rule portably, the application service uses transaction + pessimistic locking and the schema provides the strongest practical supporting unique constraints.
+Where conditional uniqueness cannot be expressed portably in MariaDB/Doctrine, application services use transactions + pessimistic locks and the schema provides the strongest supporting indexes/unique constraints.
 
 ## Transactions and concurrency
 
-Formal transitions use database transactions and pessimistic locking on the `GeneralAssembly` or relevant agenda item.
+Pessimistic locking is required for formal race-sensitive operations:
 
-At minimum, locking is required for:
-
-- convening;
-- starting/closing the meeting;
-- proxy registration where representative-count limits could race;
-- quorum check creation against mutable attendance;
-- vote record/correction/agenda close;
-- opening/closing absentee voting;
+- convene;
+- start/close meeting;
+- proxy registration/revocation;
+- attendance correction when it affects representation;
+- quorum check persistence;
+- vote record/correction/item resolution;
+- absentee-window open/close and declarations;
 - minutes finalization.
 
-Double-submit behavior must be deterministic and must never duplicate snapshots, invitation documents, votes, resolutions or minutes.
+Double submits must never duplicate electorate snapshots, invitations, votes, resolutions, windows, declarations or minutes.
 
 ## Error handling
 
-Controlled errors include:
+Controlled validation errors include:
 
-- attempt to edit frozen ordinary agenda after convening;
-- attempt to convene without complete required metadata;
-- electorate data insufficient for automatic legal calculation;
-- duplicate attendance/representation;
-- proxy without evidence;
-- fourth represented principal for one proxy when the statutory maximum applies;
-- vote from a principal not effectively represented;
+- editing frozen agenda;
+- convening with missing metadata;
+- material electorate ambiguity;
+- duplicate representation;
+- proxy without governance evidence;
+- proxy-count violation;
+- vote from a non-effective representation;
 - duplicate vote;
-- arbitrary vote-weight mismatch;
-- vote after agenda item close;
+- vote-weight mismatch;
+- vote after item resolution;
 - absentee declaration outside window;
-- absentee vote for ineligible item;
-- finalization while vote windows remain open;
-- finalization with missing required minutes fields.
+- ineligible absentee item;
+- minutes finalization with open windows or incomplete items.
 
-Business validation errors render controlled 422 responses in management forms where appropriate. Authorization failures are 403 on management routes. Guessed resident-inaccessible IDs should use 404 when revealing existence would leak protected meeting/evidence data.
+Management validation errors normally render 422. Management authorization failures are 403. Guessed protected resident/evidence IDs use 404 where existence itself is sensitive.
 
-## HTTP/UI flows
-
-Exact route names may adapt to project conventions, but the intended surface is:
+## HTTP/UI surface
 
 ### Resident
 
-- `GET /assemblies` — convened/current/finalized meetings visible to residents;
-- `GET /assembly/{id}` — meeting detail, agenda, invitation, published outcomes;
-- `GET /assembly/{id}/minutes` — finalized minutes view;
-- authenticated document downloads through existing Phase 8 route.
+- `GET /assemblies`;
+- `GET /assembly/{id}`;
+- `GET /assembly/{id}/minutes` after finalization;
+- existing authenticated Phase 8 document download route.
 
-No resident POST vote route is introduced.
+No resident formal-vote POST route.
 
-### Management — preparation
+### Management preparation
 
-- `GET /management/assemblies`;
-- `GET|POST /management/assembly/new`;
-- `GET|POST /management/assembly/{id}/edit` while draft;
+- assembly list/new/edit;
 - agenda add/edit/reorder while draft;
-- `POST /management/assembly/{id}/convene`;
+- convene;
 - invitation preview/PDF;
-- posting evidence form.
+- posting evidence.
 
-### Management — conduct
+### Management conduct workbench
 
-- meeting workbench route;
-- attendance registration;
-- proxy registration;
+- attendance registration/correction;
+- proxy registration/revocation;
 - quorum check;
 - emergency agenda item;
-- agenda item open;
-- vote recording/correction;
-- agenda item close;
+- agenda open;
+- vote record/correction;
+- agenda resolve or defer to absentee window;
 - meeting close.
 
-### Management — post meeting
+### Post meeting
 
-- absentee declaration registration where enabled;
-- close absentee window;
+- open/register/close absentee workflow where allowed;
 - minutes draft/preview;
 - finalize minutes;
 - append correction/addendum.
 
-## UX design
+## UX rules
 
-The live meeting workbench must optimize accuracy over visual novelty.
+The live workbench prioritizes accuracy over novelty.
 
-Top area shows:
+Header:
 
 - meeting status;
 - scheduled/started time;
-- latest quorum state;
+- latest persisted quorum state;
 - represented ideal parts;
 - unresolved warnings.
 
-Attendance area shows searchable rows:
+Attendance:
 
-- unit;
-- principal;
-- ideal-parts weight;
-- present/online/proxy state;
+- searchable unit/principal rows;
+- exact weight;
+- in-person/online/proxy/statutory-user-authority state;
 - representative;
 - warning state.
 
-Agenda area shows one item at a time with:
+Agenda item:
 
-- exact resolution text;
-- majority rule summary;
-- legal basis snapshot;
-- live vote totals;
+- exact final resolution wording;
+- majority-rule and legal-basis snapshot;
+- live vote totals clearly marked provisional until resolution;
 - explicit `FOR`, `AGAINST`, `ABSTAIN` controls;
-- result only after close or as clearly labeled provisional data before close.
+- final result only after resolution.
 
-`REVIEW_REQUIRED` uses a warning treatment and never a green success treatment.
+`REVIEW_REQUIRED` is always warning-styled, never green/success-styled.
 
 Resident pages are read-only and visually distinct from Community polls.
 
 ## Audit and immutability
 
-Phase 9 is intentionally append-heavy.
-
-Important events retain actor/time:
+Actor/time is retained for:
 
 - convening;
 - posting evidence;
 - meeting start;
-- attendance/proxy registration;
+- attendance and corrections;
+- proxy registration/revocation;
 - quorum checks;
 - vote creation/correction;
-- agenda close;
+- agenda resolution;
 - meeting close;
-- absentee declaration registration;
-- absentee window close;
+- absentee window/declarations;
 - minutes finalization;
-- correction/addendum.
+- addenda.
 
-No normal UI deletes these rows.
+No normal UI deletes these records.
 
 ## Testing strategy
 
-### Entity/value tests
+### Domain/entity tests
 
-Cover:
-
-- lifecycle transitions and invalid transitions;
-- timestamp ordering;
+- valid/invalid lifecycle transitions;
+- timestamp order;
 - agenda freeze;
-- emergency-item reason requirement;
-- fixed-precision majority rule validation;
-- immutable snapshots;
-- minutes finalization immutability.
+- emergency reason required;
+- exact-decimal rule validation;
+- finalization immutability.
 
-### Electorate snapshot tests
+### Electorate tests
 
-Cover:
-
-- single owner/unit;
-- co-owners with ownership shares;
+- single owner;
+- co-owners and exact multiplication;
 - legal entity owner;
-- historical relation selection as of meeting date;
-- missing unit ideal parts;
-- missing co-owner shares;
+- historical owner selection by `referenceDate`;
+- missing ideal parts;
+- missing/invalid co-owner shares;
 - overlapping owner relations;
-- totals not silently normalized;
-- later `UnitRelation` edits do not alter meeting snapshot.
+- no silent normalization;
+- later source edits do not alter snapshots.
 
 ### Quorum tests
 
-Cover current baseline scenarios:
-
-- 51% first-call valid;
-- below 51% first-call invalid;
-- 26% delayed-call valid;
-- below 26% delayed-call invalid;
-- dominant owner >51% triggers special 75% requirement;
+- exactly 51% first call valid;
+- below 51% invalid;
+- exactly 26% delayed call valid;
+- below 26% invalid;
+- dominant owner >51% triggers 75%;
 - duplicate representation cannot inflate quorum;
-- incomplete material electorate data returns `REVIEW_REQUIRED`.
+- material incomplete data -> `REVIEW_REQUIRED`.
 
-Rules are tested through snapshot values rather than globally hard-coded expectations only, so historical/custom source versions remain testable.
+### Proxy/attendance tests
 
-### Proxy tests
-
-Cover:
-
-- evidence required;
-- one principal/one proxy;
-- same principal cannot be personally present and proxied;
-- maximum-three represented principals rule;
-- proxy representation weight equals electorate entry weight;
-- closing meeting freezes proxy state.
+- governance evidence required;
+- one effective representation per principal;
+- in-person + proxy conflict blocked;
+- maximum-three representation rule;
+- explicit revocation/correction audit;
+- close freezes changes.
 
 ### Voting tests
 
-Cover:
-
-- only represented principals can vote;
-- exact snapshot weight used;
+- only effective representation may vote;
+- exact electorate weight;
 - one effective vote per principal/item;
-- three choices;
-- explicit correction before close with audit row;
-- no correction after close;
+- three vote choices;
+- explicit correction before resolution;
+- no correction after resolution;
 - denominator variants;
-- `>` versus `>=` threshold semantics;
-- accepted/rejected/review-required results;
-- Community poll rows have no effect on formal result.
+- exact `>` vs `>=`;
+- accepted/rejected/review-required;
+- Community rows have zero effect.
 
-### Absentee-voting tests
+### Absentee tests
 
-Cover:
-
-- only explicitly eligible items;
-- window required;
+- explicit window required;
+- only eligible items;
 - deadline enforced;
-- evidence document required;
-- duplicate vote prevented;
-- closing window finalizes outcome availability;
-- login alone never creates a statutory vote.
+- governance evidence required;
+- duplicate effective vote prevented;
+- close resolves deferred items;
+- login alone cannot create statutory vote.
 
-### Functional tests
+### Functional/security tests
 
-Cover:
-
-- resident cannot access management routes;
-- cashier cannot manage assembly;
+- resident/cashier cannot manage;
 - manager/controller/admin can manage;
-- draft not visible to residents;
+- draft hidden from residents;
 - convened meeting visible;
-- ordinary agenda locked after convening;
-- invitation private/authenticated;
-- posting evidence separate from in-app receipt;
-- live attendance/proxy/quorum workflow;
-- vote workflow;
+- frozen agenda rejected;
+- invitation private;
+- posting evidence separate from app receipt;
+- attendance/proxy/quorum/vote workbench paths;
 - minutes generation/finalization;
-- finalized minutes resident view/download;
-- all POST routes require valid CSRF;
-- protected guessed IDs do not leak evidence.
+- governance evidence inaccessible to resident/cashier;
+- finalized invitation/minutes resident-visible;
+- every POST CSRF-protected;
+- guessed protected IDs do not leak.
 
 ### PDF tests
 
-Cover:
+- Cyrillic invitation/minutes;
+- valid `application/pdf` output/signature;
+- remote resources disabled;
+- safe filenames;
+- private document persistence.
 
-- Bulgarian/Cyrillic invitation and minutes;
-- `application/pdf`;
-- valid PDF signature;
-- no remote resource loading;
-- private document persistence/linking;
-- safe filenames.
+### CI gates
 
-### Schema/CI gates
-
-- Composer validation;
+- Composer validation, including `ext-bcmath` platform requirement if BCMath is selected by the implementation plan;
 - Symfony container lint;
 - Doctrine mapping validation;
-- MariaDB migrate → schema validate → rollback → migrate → schema validate;
-- focused Phase 9 PHPUnit suites;
+- MariaDB migrate -> validate -> rollback -> migrate -> validate;
+- focused Phase 9 tests;
 - full PHPUnit;
-- PHPStan with no Phase 9 ignore rules;
-- final PR diff review;
+- PHPStan with no Phase 9 ignores;
+- final diff review;
 - exact-head CI green before merge.
 
 ## Acceptance criteria
 
-Phase 9 is complete when all of the following are true:
+Phase 9 is complete when:
 
-1. manager/controller/admin can create a draft General Assembly;
-2. draft agenda and resolution text can be prepared before convening;
-3. convening creates an immutable electorate and legal-rule snapshot;
-4. invitation is generated/stored privately and resident-visible only after convening;
-5. physical posting evidence can be recorded separately from app read state;
-6. attendance supports in-person, online and proxy modes;
-7. duplicate representation is prevented;
-8. proxy evidence and maximum-representation checks are enforced;
-9. quorum checks are immutable and use fixed-precision snapshot rules;
-10. incomplete material ownership data produces `REVIEW_REQUIRED` rather than a fabricated valid result;
-11. formal votes are stored independently of Community polls;
-12. each vote uses the electorate snapshot weight and cannot be duplicated;
-13. majority/result calculation preserves denominator, threshold, comparison and legal-basis snapshot;
-14. optional absentee voting works only for explicitly eligible items and with evidence/deadline controls;
-15. closed meeting facts/votes cannot be silently edited;
-16. minutes can be generated in Bulgarian as print/PDF and stored privately;
-17. finalization freezes the meeting record;
-18. later corrections are append-only addenda;
-19. residents can view convened/finalized material but cannot cast a purported statutory vote through a simple app POST;
-20. all security, Doctrine, MariaDB, PHPUnit and PHPStan gates are green.
+1. manager/controller/admin can create and prepare a draft meeting;
+2. convening freezes ordinary agenda, electorate and legal-rule snapshots;
+3. invitation is private, generated and resident-visible after convening;
+4. physical posting evidence is recorded separately from app read state;
+5. ownership/co-ownership produces exact historical ideal-parts weights;
+6. incomplete material data yields `REVIEW_REQUIRED`;
+7. attendance supports in-person, online, proxy and explicit statutory-user-authority recording;
+8. duplicate representation is prevented and corrections are audited;
+9. proxy governance evidence and maximum-representation rules are enforced;
+10. quorum checks are immutable and use exact snapshotted rules;
+11. formal votes are independent of Community polls;
+12. vote weight is derived from electorate snapshot and cannot be duplicated;
+13. results preserve denominator, threshold, comparison and legal-basis snapshot;
+14. absentee voting exists only for explicit eligible items/windows with evidence/deadline controls;
+15. meeting close freezes in-meeting facts;
+16. minutes finalization is atomic with private PDF storage;
+17. final record is immutable and corrections are append-only;
+18. residents can read official meeting material but cannot cast a purported statutory vote through ordinary login;
+19. governance evidence remains hidden from residents/cashiers;
+20. all Doctrine/MariaDB/PHPUnit/PHPStan/security gates are green.
 
 ## Implementation sequencing guidance
 
-The implementation plan should split the phase into small TDD tasks, broadly in this order:
+The implementation plan should use small TDD tasks in this order:
 
-1. lifecycle/rule enums and core meeting/agenda domain;
-2. electorate snapshot model/service;
-3. legal fixed-precision quorum calculator;
+1. access-level/category extension, lifecycle/rule enums and core meeting/agenda domain;
+2. exact-decimal helper and electorate snapshot model/service;
+3. quorum rule snapshot and pure calculator;
 4. persistence migration/schema integrity;
-5. management draft/convening workflow and invitation;
-6. attendance/proxy model and services;
-7. live quorum workflow;
+5. management draft/convening + invitation/posting workflow;
+6. attendance/proxy/audit services;
+7. live quorum workbench;
 8. formal voting + result calculator;
-9. absentee-voting extension;
-10. minutes generation/finalization;
+9. absentee window/declaration workflow;
+10. minutes generation/finalization/addenda;
 11. resident views/navigation;
 12. final security/audit/CI hardening.
 
-The exact task boundaries are defined by the implementation plan after this design is approved.
+Exact task/file boundaries are defined in the implementation plan after this design is approved.
