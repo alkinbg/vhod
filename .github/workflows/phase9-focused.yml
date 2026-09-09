@@ -5,6 +5,10 @@ on:
     branches:
       - feat/phase9-general-assembly
 
+concurrency:
+  group: phase9-focused-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   focused:
     runs-on: ubuntu-24.04
