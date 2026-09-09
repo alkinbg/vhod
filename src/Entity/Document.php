@@ -6,12 +6,13 @@ namespace App\Entity;
 
 use App\Enum\DocumentAccessLevel;
 use App\Enum\DocumentCategory;
+use App\Repository\DocumentRepository;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\Mapping as ORM;
 use InvalidArgumentException;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: DocumentRepository::class)]
 #[ORM\Table(name: 'document')]
 class Document
 {
