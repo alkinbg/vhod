@@ -122,11 +122,12 @@ final class DocumentServiceTest extends KernelTestCase
 
     public function testStoredFileIsRemovedWhenPersistenceFails(): void
     {
+        $service = $this->service();
         $transientManager = new User(new Person('Нов', 'Управител', email: 'transient@example.com'), 'transient@example.com', 'hash');
         $transientManager->setRoles(['ROLE_MANAGER']);
 
         try {
-            $this->service()->upload(
+            $service->upload(
                 $transientManager,
                 DocumentCategory::OTHER,
                 DocumentAccessLevel::RESIDENTS,
