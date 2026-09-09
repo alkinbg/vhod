@@ -15,7 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class GeneralAssemblySchemaTest extends KernelTestCase
 {
-    public function testCorePhase9TablesAndNamedIndexesAreStable(): void
+    public function testCorePhase9TablesAndNamedConstraintsAreStable(): void
     {
         $assembly = $this->metadata(GeneralAssembly::class);
         $agenda = $this->metadata(AssemblyAgendaItem::class);
