@@ -28,7 +28,7 @@ jobs:
 
       - name: Refresh Composer lock metadata
         run: |
-          composer update --lock --no-interaction --no-scripts --no-progress
+          composer update --lock --no-install --no-interaction --no-scripts --no-progress
           composer validate --strict
 
       - name: Commit generated lock file
