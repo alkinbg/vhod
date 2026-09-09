@@ -8,6 +8,7 @@ enum DocumentCategory: string
 {
     case MEETING_INVITATION = 'meeting_invitation';
     case MEETING_MINUTES = 'meeting_minutes';
+    case MEETING_PROXY = 'meeting_proxy';
     case HOUSE_RULES = 'house_rules';
     case INVOICE_RECEIPT = 'invoice_receipt';
     case CONTRACT_OFFER = 'contract_offer';
@@ -22,6 +23,7 @@ enum DocumentCategory: string
         return match ($this) {
             self::MEETING_INVITATION => 'Покана за общо събрание',
             self::MEETING_MINUTES => 'Протокол от общо събрание',
+            self::MEETING_PROXY => 'Пълномощно за общо събрание',
             self::HOUSE_RULES => 'Правилник за вътрешния ред',
             self::INVOICE_RECEIPT => 'Фактура / касов документ',
             self::CONTRACT_OFFER => 'Договор / оферта',
