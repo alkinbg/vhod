@@ -122,6 +122,7 @@ final class MaintenanceControllerTest extends WebTestCase
         self::assertNotNull($signalId);
 
         $source = $this->pngFixture();
+        $originalName = basename($source);
         $this->client->loginUser($this->resident);
         $crawler = $this->client->request('GET', '/maintenance/signal/'.$signalId);
         self::assertResponseIsSuccessful();
@@ -140,7 +141,7 @@ final class MaintenanceControllerTest extends WebTestCase
         $this->client->request('GET', '/maintenance/attachment/'.$attachmentId.'/download');
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('content-type', 'image/png');
-        self::assertResponseHeaderSame('content-disposition', 'attachment; filename=photo.png');
+        self::assertResponseHeaderSame('content-disposition', 'attachment; filename='.$originalName);
     }
 
     public function testResidentCannotDownloadAnotherResidentsAttachment(): void
