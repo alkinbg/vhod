@@ -13,9 +13,13 @@ final class DocumentStorageTest extends TestCase
 {
     private string $directory;
 
+    /** @var list<string> */
+    private array $sourcePaths = [];
+
     protected function setUp(): void
     {
         $this->directory = sys_get_temp_dir().'/vhod-documents-'.bin2hex(random_bytes(8));
+        $this->sourcePaths = [];
     }
 
     protected function tearDown(): void
@@ -24,6 +28,10 @@ final class DocumentStorageTest extends TestCase
             @unlink($path);
         }
         @rmdir($this->directory);
+
+        foreach ($this->sourcePaths as $path) {
+            @unlink($path);
+        }
     }
 
     public function testStoresPdfWithRandomServerName(): void
@@ -112,12 +120,10 @@ final class DocumentStorageTest extends TestCase
 
     private function upload(string $content, string $originalName): UploadedFile
     {
-        if (!is_dir($this->directory)) {
-            self::assertTrue(mkdir($this->directory, 0700, true));
-        }
-
-        $path = $this->directory.'/source-'.bin2hex(random_bytes(6));
+        $path = tempnam(sys_get_temp_dir(), 'vhod-doc-source-');
+        self::assertIsString($path);
         file_put_contents($path, $content);
+        $this->sourcePaths[] = $path;
 
         return new UploadedFile($path, $originalName, null, null, true);
     }
