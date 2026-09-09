@@ -10,14 +10,12 @@ final class ExactDecimal
 {
     private const int MAX_SCALE = 18;
 
+    /** @return numeric-string */
     public static function normalize(string $value, int $scale = 8): string
     {
         self::assertScale($scale);
         $value = trim($value);
-
-        if (1 !== preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/', $value)) {
-            throw new InvalidArgumentException('Value must be a plain decimal number.');
-        }
+        self::assertPlainDecimal($value);
 
         $fraction = str_contains($value, '.') ? substr($value, strpos($value, '.') + 1) : '';
         if (strlen($fraction) > $scale) {
@@ -32,6 +30,7 @@ final class ExactDecimal
         return $normalized;
     }
 
+    /** @return numeric-string */
     public static function add(string $left, string $right, int $scale = 8): string
     {
         $left = self::normalize($left, $scale);
@@ -40,6 +39,7 @@ final class ExactDecimal
         return self::normalizeResult(bcadd($left, $right, $scale), $scale);
     }
 
+    /** @return numeric-string */
     public static function sub(string $left, string $right, int $scale = 8): string
     {
         $left = self::normalize($left, $scale);
@@ -48,6 +48,7 @@ final class ExactDecimal
         return self::normalizeResult(bcsub($left, $right, $scale), $scale);
     }
 
+    /** @return numeric-string */
     public static function mul(string $left, string $right, int $scale = 8): string
     {
         $left = self::normalize($left, $scale);
@@ -56,6 +57,7 @@ final class ExactDecimal
         return self::normalizeResult(bcmul($left, $right, $scale), $scale);
     }
 
+    /** @return numeric-string */
     public static function div(string $left, string $right, int $scale = 8): string
     {
         $left = self::normalize($left, $scale);
@@ -75,6 +77,7 @@ final class ExactDecimal
         return bccomp($left, $right, $scale);
     }
 
+    /** @return numeric-string */
     public static function percentOf(string $part, string $whole, int $scale = 8): string
     {
         self::assertScale($scale);
@@ -93,6 +96,11 @@ final class ExactDecimal
         return self::normalizeResult(bcmul($ratio, '100', $scale), $scale);
     }
 
+    /**
+     * @param numeric-string $value
+     *
+     * @return numeric-string
+     */
     private static function normalizeResult(string $value, int $scale): string
     {
         if (0 === bccomp($value, '0', $scale)) {
@@ -102,10 +110,19 @@ final class ExactDecimal
         return $value;
     }
 
+    /** @param numeric-string $value */
     private static function assertNonNegative(string $value, int $scale, string $label): void
     {
         if (bccomp($value, '0', $scale) < 0) {
             throw new InvalidArgumentException(sprintf('%s must be non-negative.', $label));
+        }
+    }
+
+    /** @phpstan-assert numeric-string $value */
+    private static function assertPlainDecimal(string $value): void
+    {
+        if (!is_numeric($value) || 1 !== preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/', $value)) {
+            throw new InvalidArgumentException('Value must be a plain decimal number.');
         }
     }
 
@@ -116,6 +133,7 @@ final class ExactDecimal
         }
     }
 
+    /** @return numeric-string */
     private static function zero(int $scale): string
     {
         return 0 === $scale ? '0' : '0.'.str_repeat('0', $scale);
