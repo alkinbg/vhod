@@ -1,0 +1,79 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Поддръжка · Управление · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Управление</p><h1>Поддръжка</h1><p class="muted">Сигнали, активи, доставчици, договори, събития и предстоящи проверки.</p></div><div class="actions"><a class="button" href="{{ path('app_management_maintenance_asset_new') }}">Нов актив</a> <a class="button" href="{{ path('app_management_maintenance_supplier_new') }}">Нов доставчик</a> <a class="button" href="{{ path('app_management_maintenance_contract_new') }}">Нов договор</a> <a class="button" href="{{ path('app_management_maintenance_event_new') }}">Ново събитие</a></div></section>
+
+<section class="panel">
+    <h2>Напомняния</h2>
+    {% if reminders is empty %}
+        <p class="muted">Няма изтекли или предстоящи гаранции и проверки в наблюдавания период.</p>
+    {% else %}
+        <div class="table-wrap"><table><thead><tr><th>Актив</th><th>Напомняне</th><th>Дата</th></tr></thead><tbody>
+        {% for reminder in reminders %}
+            <tr><td>{{ reminder.asset.name }}</td><td>{{ reminder.type.labelBg() }}</td><td>{{ reminder.dueAt|date('d.m.Y', 'Europe/Sofia') }}</td></tr>
+        {% endfor %}
+        </tbody></table></div>
+    {% endif %}
+</section>
+
+<section class="panel">
+    <h2>Сигнали</h2>
+    {% if signals is empty %}
+        <p class="muted">Няма подадени сигнали.</p>
+    {% else %}
+        {% for signal in signals %}
+            <article class="panel">
+                <h3>#{{ signal.id }} · {{ signal.title }}</h3>
+                <p class="muted">{{ signal.category.labelBg() }} · {{ signal.priority.labelBg() }} · {{ signal.status.labelBg() }} · {{ signal.location }}</p>
+                <p>{{ signal.description }}</p>
+                <div class="columns">
+                    <form method="post" action="{{ path('app_management_maintenance_signal_assign', {id: signal.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('maintenance_assign_' ~ signal.id) }}">
+                        <label for="assign-{{ signal.id }}">Отговорник</label>
+                        <select id="assign-{{ signal.id }}" name="assigned_to_id">
+                            <option value="">Без отговорник</option>
+                            {% for user in users %}
+                                <option value="{{ user.id }}"{% if signal.assignedTo and signal.assignedTo.id == user.id %} selected{% endif %}>{{ user.person.displayName }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" name="assign_submit">Запиши отговорник</button>
+                    </form>
+
+                    <form method="post" action="{{ path('app_management_maintenance_signal_status', {id: signal.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('maintenance_status_' ~ signal.id) }}">
+                        <label for="status-{{ signal.id }}">Статус</label>
+                        <select id="status-{{ signal.id }}" name="status">
+                            {% for status in statuses %}<option value="{{ status.value }}"{% if signal.status == status %} selected{% endif %}>{{ status.labelBg() }}</option>{% endfor %}
+                        </select>
+                        <label for="status-note-{{ signal.id }}">Бележка</label>
+                        <input id="status-note-{{ signal.id }}" name="note" maxlength="1000">
+                        <button type="submit" name="status_submit">Промени статус</button>
+                    </form>
+                </div>
+            </article>
+        {% endfor %}
+    {% endif %}
+</section>
+
+<section class="panel">
+    <h2>Активи</h2>
+    {% if assets is empty %}<p class="muted">Няма регистрирани активи.</p>{% else %}<div class="table-wrap"><table><thead><tr><th>Актив</th><th>Категория</th><th>Място</th><th>Следваща проверка</th></tr></thead><tbody>{% for asset in assets %}<tr><td>{{ asset.name }}</td><td>{{ asset.category.labelBg() }}</td><td>{{ asset.location }}</td><td>{{ asset.nextInspectionAt ? asset.nextInspectionAt|date('d.m.Y', 'Europe/Sofia') : '—' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
+
+<section class="panel">
+    <h2>Доставчици</h2>
+    {% if suppliers is empty %}<p class="muted">Няма регистрирани доставчици.</p>{% else %}<ul class="plain-list">{% for supplier in suppliers %}<li>{{ supplier.name }}{% if supplier.phone %} · {{ supplier.phone }}{% endif %}{% if supplier.email %} · {{ supplier.email }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+</section>
+
+<section class="panel">
+    <h2>Договори</h2>
+    {% if contracts is empty %}<p class="muted">Няма регистрирани договори.</p>{% else %}<ul class="plain-list">{% for contract in contracts %}<li>{{ contract.title }} · {{ contract.supplier.name }}{% if contract.reference %} · {{ contract.reference }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+</section>
+
+<section class="panel">
+    <h2>История на поддръжката</h2>
+    {% if events is empty %}<p class="muted">Няма записани събития.</p>{% else %}<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Актив</th><th>Тип</th><th>Описание</th></tr></thead><tbody>{% for event in events %}<tr><td>{{ event.performedAt|date('d.m.Y', 'Europe/Sofia') }}</td><td>{{ event.asset.name }}</td><td>{{ event.type.labelBg() }}</td><td>{{ event.summary }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
+{% endblock %}
