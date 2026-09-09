@@ -43,6 +43,15 @@ final readonly class AnnouncementReceiptService
         return $this->receiptRepository->findUnreadFor($user, $limit);
     }
 
+    /** @return array{total: int, read: int} */
+    public function countsFor(OfficialAnnouncement $announcement): array
+    {
+        return [
+            'total' => $this->receiptRepository->countForAnnouncement($announcement),
+            'read' => $this->receiptRepository->countReadForAnnouncement($announcement),
+        ];
+    }
+
     /** @return list<int> */
     public function unreadAnnouncementIds(User $user): array
     {
