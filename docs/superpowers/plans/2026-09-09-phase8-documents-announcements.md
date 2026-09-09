@@ -49,6 +49,7 @@
 **Interfaces:**
 
 ```php
+// Document
 public static function record(
     DocumentCategory $category,
     DocumentAccessLevel $accessLevel,
@@ -62,6 +63,7 @@ public static function record(
     DateTimeImmutable $uploadedAt,
 ): self;
 
+// OfficialAnnouncement
 /** @param iterable<Document> $documents */
 public static function draft(
     string $title,
@@ -78,6 +80,7 @@ public function isPublished(): bool;
 /** @return Collection<int, Document> */
 public function getDocuments(): Collection;
 
+// AnnouncementReceipt
 public static function record(
     OfficialAnnouncement $announcement,
     User $user,
@@ -86,8 +89,6 @@ public static function record(
 public function markRead(DateTimeImmutable $readAt): void;
 public function isRead(): bool;
 ```
-
-The first `record()` signature belongs to `Document`; the second belongs to `AnnouncementReceipt`.
 
 Enum persisted values:
 
@@ -104,36 +105,13 @@ OfficialAnnouncementStatus:
 draft, published
 ```
 
-`DocumentCategory` and `DocumentAccessLevel` expose `labelBg(): string`. `OfficialAnnouncementStatus` exposes `labelBg(): string` for management UI.
+`DocumentCategory`, `DocumentAccessLevel` and `OfficialAnnouncementStatus` expose `labelBg(): string`.
 
-**ORM metadata that must be present from the first implementation:**
-
-```text
-Document table: document
-UNIQUE uniq_document_storage_name(storage_name)
-INDEX idx_document_access_category_uploaded(access_level, category, uploaded_at)
-INDEX idx_document_uploaded_by(uploaded_by_id)
-uploadedBy -> app_user ON DELETE RESTRICT
-
-OfficialAnnouncement table: official_announcement
-INDEX idx_official_announcement_status_published(status, published_at)
-INDEX idx_official_announcement_created_by(created_by_id)
-INDEX idx_official_announcement_published_by(published_by_id)
-createdBy/publishedBy -> app_user ON DELETE RESTRICT
-ManyToMany join table: official_announcement_document
-join announcement_id -> official_announcement ON DELETE RESTRICT
-inverse document_id -> document ON DELETE RESTRICT
-
-AnnouncementReceipt table: announcement_receipt
-UNIQUE uniq_announcement_receipt_announcement_user(announcement_id, user_id)
-INDEX idx_announcement_receipt_user_read(user_id, read_at)
-INDEX idx_announcement_receipt_announcement(announcement_id)
-announcement/user -> referenced tables ON DELETE RESTRICT
-```
+Initial ORM associations in this task use fixed table/join-column names and `ON DELETE RESTRICT`, but named performance/unique metadata is deliberately added under Task 5 after its RED schema test. This keeps the schema-integrity task genuinely test-first rather than writing a test that already passes.
 
 - [ ] **Step 1: Write RED entity tests**
 
-Cover these behaviours explicitly:
+Cover:
 
 ```php
 public function testDocumentNormalizesMetadataAndStoresUtcTimestamp(): void;
@@ -141,6 +119,8 @@ public function testDocumentRejectsBlankTitleInvalidStorageNameOrNonPositiveSize
 public function testAnnouncementCreatesEditableDraftWithResidentDocuments(): void;
 public function testAnnouncementRejectsFinanceOrManagementDocumentLink(): void;
 public function testPublishedAnnouncementCannotBeRevisedOrPublishedAgain(): void;
+public function testAnnouncementRejectsPublicationBeforeCreation(): void;
+public function testReceiptRequiresPublishedAnnouncement(): void;
 public function testReceiptStoresUtcAvailabilityAndKeepsFirstReadTimestamp(): void;
 public function testReceiptRejectsFirstReadBeforeAvailability(): void;
 ```
@@ -163,9 +143,9 @@ Expected: FAIL because Phase 8 enums/entities do not exist.
 
 - [ ] **Step 3: Implement the domain minimally**
 
-Use Doctrine attributes, `strict_types=1`, private constructors/named factories and UTC conversion with `DateTimeZone('UTC')` for `uploadedAt`, `createdAt`, `publishedAt`, `availableAt` and `readAt`.
+Use Doctrine attributes, `strict_types=1`, private constructors/named factories and UTC conversion with `DateTimeZone('UTC')` for audit timestamps.
 
-`OfficialAnnouncement` owns a Doctrine `Collection<int, Document>` initialized with `ArrayCollection`. `draft()` and `revise()` validate every document before replacing the collection:
+`OfficialAnnouncement` owns `Collection<int, Document>` initialized with `ArrayCollection`. `draft()` and `revise()` validate every linked document:
 
 ```php
 foreach ($documents as $document) {
@@ -175,16 +155,14 @@ foreach ($documents as $document) {
 }
 ```
 
-`revise()` and `publish()` first assert `DRAFT`; after publication no title/body/document mutation method succeeds.
+`publish()` rejects a timestamp before `createdAt`. `AnnouncementReceipt::record()` requires a published announcement. `revise()` and `publish()` assert the aggregate is still `DRAFT`.
 
-- [ ] **Step 4: Run focused tests and PHPStan on the new domain**
+- [ ] **Step 4: Run focused tests and PHPStan**
 
 ```bash
 vendor/bin/phpunit tests/Entity/DocumentAnnouncementEntitiesTest.php
 vendor/bin/phpstan analyse src/Enum/DocumentCategory.php src/Enum/DocumentAccessLevel.php src/Enum/OfficialAnnouncementStatus.php src/Entity/Document.php src/Entity/OfficialAnnouncement.php src/Entity/AnnouncementReceipt.php --no-progress
 ```
-
-Expected: PASS / no PHPStan errors.
 
 - [ ] **Step 5: Commit**
 
@@ -247,7 +225,7 @@ final class AnnouncementReceiptRepository extends ServiceEntityRepository
 
 - [ ] **Step 1: Write RED access-policy tests**
 
-Assert the policy without Symfony role-hierarchy assumptions, because `User::getRoles()` stores direct domain roles plus `ROLE_USER`:
+Assert direct-role behaviour; do not assume Symfony role hierarchy has mutated `User::getRoles()`:
 
 ```text
 resident -> RESIDENTS
@@ -258,26 +236,26 @@ admin -> RESIDENTS + FINANCE + MANAGEMENT
 inactive user -> no levels
 ```
 
-Also assert only manager/admin return `true` from `canManageOfficialContent()`.
+Only manager/admin may manage official content.
 
-- [ ] **Step 2: Implement `DocumentAccessPolicy` following the existing policy style**
+- [ ] **Step 2: Implement `DocumentAccessPolicy` in the existing policy style**
 
-Use `array_intersect()` against `User::getRoles()` as `CondominiumBookAccessPolicy` already does. Do not introduce a Symfony voter solely for Phase 8.
+Use `array_intersect()` against `User::getRoles()` as `CondominiumBookAccessPolicy` does. Do not introduce a Symfony voter solely for Phase 8.
 
 - [ ] **Step 3: Write RED repository integration tests**
 
-Use `KernelTestCase` + `SchemaTool`. Persist documents at all three access levels and published/draft announcements. Assert:
+Use `KernelTestCase` + `SchemaTool`. Assert:
 
-- `DocumentRepository::findVisible()` returns only permitted levels;
-- optional category filtering is applied in SQL;
-- empty allowed-level list returns `[]` without issuing an invalid `IN ()` query;
-- `OfficialAnnouncementRepository::findPublished()` excludes drafts and orders `publishedAt DESC`;
-- unread receipt count/list are scoped to the requested user and `readAt IS NULL`;
+- `findVisible()` returns only allowed levels;
+- category filtering happens in SQL;
+- empty level list returns `[]` without invalid `IN ()`;
+- `findPublished()` excludes drafts and orders newest first;
+- unread count/list are user-scoped and `readAt IS NULL`;
 - per-announcement total/read counts are correct.
 
 - [ ] **Step 4: Implement repositories**
 
-For enum `IN` parameters map backed values explicitly and use DBAL string-array typing:
+For the enum `IN` query map backed values and type the array explicitly:
 
 ```php
 $values = array_map(
@@ -289,9 +267,9 @@ $qb->andWhere('d.accessLevel IN (:levels)')
    ->setParameter('levels', $values, ArrayParameterType::STRING);
 ```
 
-Sort documents by `uploadedAt DESC, id DESC`, published announcements by `publishedAt DESC, id DESC`, unread receipts by `availableAt DESC, id DESC`.
+Sort documents by `uploadedAt DESC, id DESC`, announcements by `publishedAt DESC, id DESC`, unread receipts by `availableAt DESC, id DESC`.
 
-- [ ] **Step 5: Verify focused tests**
+- [ ] **Step 5: Verify**
 
 ```bash
 vendor/bin/phpunit tests/Security/DocumentAccessPolicyTest.php tests/Repository/OfficialCommunicationRepositoryTest.php
@@ -358,25 +336,21 @@ final readonly class DocumentService
 
 - [ ] **Step 1: Write RED storage tests**
 
-Cover real temporary files and MIME detection:
+Cover:
 
 ```text
-PDF accepted -> random .pdf storage name
-PNG accepted -> random .png storage name
-JPEG accepted -> .jpg
-WebP accepted -> .webp
+PDF/JPEG/PNG/WebP accepted with fixed server extension
 text/PHP rejected
 empty file rejected
 file > 16 MiB rejected
+randomized 32-hex storage basename
 ../secret.pdf rejected by pathFor()
 remove() deletes a validated stored file
 ```
 
-Do not trust `UploadedFile` client MIME or extension; use `finfo(FILEINFO_MIME_TYPE)` on the file contents.
+MIME detection uses `finfo(FILEINFO_MIME_TYPE)` on file contents, not client MIME/extension.
 
-- [ ] **Step 2: Implement `DocumentStorage`**
-
-Use:
+- [ ] **Step 2: Implement storage**
 
 ```php
 private const MAX_SIZE = 16 * 1024 * 1024;
@@ -388,21 +362,13 @@ private const EXTENSIONS_BY_MIME = [
 ];
 ```
 
-Create the storage directory with mode `0700`. Generate server names with `bin2hex(random_bytes(16))`. Validate `pathFor()` names before joining them to the storage directory.
+Create the directory with `0700` and generate server names using `bin2hex(random_bytes(16))`.
 
-- [ ] **Step 3: Write RED `DocumentService` tests**
+- [ ] **Step 3: Write RED service tests**
 
-Using a manager and resident, assert:
+Assert manager/admin upload succeeds, resident/cashier/controller upload is rejected before filesystem work, persistence failure removes the just-stored file and original filename is metadata only.
 
-- manager upload persists exactly one document and one private file;
-- admin upload is accepted;
-- resident/cashier/controller upload is rejected with `DomainException`;
-- persistence failure removes the just-stored file;
-- metadata preserves the original filename but never uses it as the path.
-
-- [ ] **Step 4: Implement filesystem/database compensation**
-
-Use the established Phase 7 transaction/cleanup shape with the exact Phase 8 arguments:
+- [ ] **Step 4: Implement transaction/cleanup with exact arguments**
 
 ```php
 $stored = $this->storage->store($file);
@@ -441,17 +407,12 @@ try {
 }
 ```
 
-`DocumentService` checks `DocumentAccessPolicy::canManageOfficialContent()` before touching the filesystem.
+Check `DocumentAccessPolicy::canManageOfficialContent()` before `store()`.
 
-- [ ] **Step 5: Verify focused tests**
+- [ ] **Step 5: Verify and commit**
 
 ```bash
 vendor/bin/phpunit tests/Service/DocumentStorageTest.php tests/Service/DocumentServiceTest.php
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add src/Value/DocumentStoredFile.php src/Service/DocumentStorage.php src/Service/DocumentService.php tests/Service/DocumentStorageTest.php tests/Service/DocumentServiceTest.php
 git commit -m "feat: add private document storage"
 ```
@@ -498,49 +459,26 @@ final readonly class OfficialAnnouncementService
 
 final readonly class AnnouncementReceiptService
 {
-    public function markRead(
-        User $user,
-        OfficialAnnouncement $announcement,
-        DateTimeImmutable $readAt,
-    ): bool;
-
+    public function markRead(User $user, OfficialAnnouncement $announcement, DateTimeImmutable $readAt): bool;
     public function countUnread(User $user): int;
-
     /** @return list<AnnouncementReceipt> */
     public function findUnread(User $user, int $limit = 5): array;
-
     /** @return list<int> */
     public function unreadAnnouncementIds(User $user): array;
 }
 ```
 
-`markRead()` returns `false` when the user has no receipt for that historical announcement; it must not create a retroactive receipt. It returns `true` when a receipt exists, whether newly marked or already read.
+`markRead()` returns `false` when no receipt exists and must never backfill one; otherwise it returns `true` and preserves idempotency.
 
-- [ ] **Step 1: Write RED announcement-service integration tests**
+- [ ] **Step 1: Write RED service integration tests**
 
-Cover:
+Cover manager/admin authority, denial for other roles, draft revision, restricted-document rejection, publication metadata, active-only receipt fan-out, no retroactive receipts, immutable published state and double-publication safety.
 
-```text
-manager/admin can create a draft
-resident/cashier/controller cannot create or revise official content
-draft revision replaces title/body/document links
-restricted document link is rejected
-publication sets publisher/time and creates one receipt per active user
-inactive user receives no receipt
-publication does not create retroactive receipts later
-published announcement cannot be revised
-double publication cannot create duplicate receipts
-```
+- [ ] **Step 2: Implement draft/revise operations**
 
-Use `SchemaTool` and persist at least two active users plus one deactivated user.
-
-- [ ] **Step 2: Implement draft/create/revise operations**
-
-All management authority checks go through `DocumentAccessPolicy`. `createDraft()` persists the new aggregate. `revise()` delegates immutable-state/document-link validation to the entity.
+All authority checks use `DocumentAccessPolicy`; the entity enforces draft/document invariants.
 
 - [ ] **Step 3: Implement concurrency-safe publication**
-
-Use the project’s existing locking pattern:
 
 ```php
 $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $announcement, $publishedAt): void {
@@ -555,131 +493,93 @@ $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entity
 });
 ```
 
-The database unique constraint on `(announcement_id, user_id)` is the final duplicate safeguard.
+- [ ] **Step 4: Implement receipt service from RED tests**
 
-- [ ] **Step 4: Write and implement receipt-service tests**
+Use `AnnouncementReceiptRepository` for lookup/count/list. Build `unreadAnnouncementIds()` only from current user unread receipts.
 
-Assert count/list are user-scoped, `markRead()` is idempotent, the first timestamp remains unchanged and an old announcement with no receipt is not backfilled.
-
-- [ ] **Step 5: Verify focused tests**
+- [ ] **Step 5: Verify and commit**
 
 ```bash
 vendor/bin/phpunit tests/Service/OfficialAnnouncementServiceTest.php tests/Service/AnnouncementReceiptServiceTest.php
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add src/Service/OfficialAnnouncementService.php src/Service/AnnouncementReceiptService.php tests/Service/OfficialAnnouncementServiceTest.php tests/Service/AnnouncementReceiptServiceTest.php
 git commit -m "feat: add official announcement workflows"
 ```
 
 ---
 
-### Task 5: MariaDB migration and schema integrity
+### Task 5: MariaDB migration and named schema integrity
 
 **Files:**
+- Modify: `src/Entity/Document.php`
+- Modify: `src/Entity/OfficialAnnouncement.php`
+- Modify: `src/Entity/AnnouncementReceipt.php`
 - Create: `migrations/Version20260909070000.php`
 - Create: `tests/Doctrine/DocumentsAnnouncementsSchemaTest.php`
 
-**Tables:**
+**Final required metadata/schema:**
 
 ```text
-document
-official_announcement
-official_announcement_document
-announcement_receipt
-```
+document:
+UNIQUE uniq_document_storage_name(storage_name)
+INDEX idx_document_access_category_uploaded(access_level, category, uploaded_at)
+INDEX idx_document_uploaded_by(uploaded_by_id)
 
-**Required schema:**
+official_announcement:
+INDEX idx_official_announcement_status_published(status, published_at)
+INDEX idx_official_announcement_created_by(created_by_id)
+INDEX idx_official_announcement_published_by(published_by_id)
 
-`document`:
-
-```text
-id INT PK AUTO_INCREMENT
-category VARCHAR(32) NOT NULL
-access_level VARCHAR(24) NOT NULL
-title VARCHAR(180) NOT NULL
-description LONGTEXT NULL
-original_name VARCHAR(255) NOT NULL
-storage_name VARCHAR(40) NOT NULL
-mime_type VARCHAR(80) NOT NULL
-size_bytes INT NOT NULL
-uploaded_at DATETIME NOT NULL
-uploaded_by_id INT NOT NULL -> app_user(id) ON DELETE RESTRICT
-UNIQUE uniq_document_storage_name (storage_name)
-INDEX idx_document_access_category_uploaded (access_level, category, uploaded_at)
-INDEX idx_document_uploaded_by (uploaded_by_id)
-```
-
-`official_announcement`:
-
-```text
-id INT PK AUTO_INCREMENT
-status VARCHAR(24) NOT NULL
-title VARCHAR(180) NOT NULL
-body LONGTEXT NOT NULL
-created_at DATETIME NOT NULL
-published_at DATETIME NULL
-created_by_id INT NOT NULL -> app_user(id) ON DELETE RESTRICT
-published_by_id INT NULL -> app_user(id) ON DELETE RESTRICT
-INDEX idx_official_announcement_status_published (status, published_at)
-INDEX idx_official_announcement_created_by (created_by_id)
-INDEX idx_official_announcement_published_by (published_by_id)
-```
-
-`official_announcement_document`:
-
-```text
-announcement_id INT NOT NULL -> official_announcement(id) ON DELETE RESTRICT
-document_id INT NOT NULL -> document(id) ON DELETE RESTRICT
+official_announcement_document:
 PRIMARY KEY (announcement_id, document_id)
-INDEX idx_official_announcement_document_document (document_id)
+INDEX idx_official_announcement_document_document(document_id)
+FK announcement_id -> official_announcement ON DELETE RESTRICT
+FK document_id -> document ON DELETE RESTRICT
+
+announcement_receipt:
+UNIQUE uniq_announcement_receipt_announcement_user(announcement_id, user_id)
+INDEX idx_announcement_receipt_user_read(user_id, read_at)
+INDEX idx_announcement_receipt_announcement(announcement_id)
 ```
 
-`announcement_receipt`:
+Entity columns remain those defined in Task 1; migration uses MariaDB `utf8mb4_unicode_ci`, InnoDB and explicit FK/index names.
 
-```text
-id INT PK AUTO_INCREMENT
-available_at DATETIME NOT NULL
-read_at DATETIME NULL
-announcement_id INT NOT NULL -> official_announcement(id) ON DELETE RESTRICT
-user_id INT NOT NULL -> app_user(id) ON DELETE RESTRICT
-UNIQUE uniq_announcement_receipt_announcement_user (announcement_id, user_id)
-INDEX idx_announcement_receipt_user_read (user_id, read_at)
-INDEX idx_announcement_receipt_announcement (announcement_id)
-```
+- [ ] **Step 1: Write RED schema metadata tests before adding named metadata**
 
-- [ ] **Step 1: Write RED schema metadata tests**
+Assert the named unique constraints/indexes above, every Phase 8 FK/join FK `ON DELETE RESTRICT`, and absence of cascade-remove. Because Task 1 deliberately omitted named performance/unique metadata, these assertions must fail now.
 
-Assert:
-
-- exact four tables are represented by Phase 8 metadata;
-- all to-one/join-table foreign keys specify `RESTRICT`;
-- the two named unique constraints exist;
-- document visibility and receipt unread indexes exist with the expected columns;
-- no Phase 8 entity contains a cascade-remove association.
-
-- [ ] **Step 2: Run the schema test and confirm RED**
+- [ ] **Step 2: Run and confirm RED**
 
 ```bash
 vendor/bin/phpunit tests/Doctrine/DocumentsAnnouncementsSchemaTest.php
 ```
 
-Expected: FAIL because the migration/schema metadata is not yet complete.
+- [ ] **Step 3: Add exact ORM index/unique metadata and write migration**
 
-- [ ] **Step 3: Write the migration explicitly**
-
-Follow the existing MariaDB migration style: `utf8mb4_unicode_ci`, `ENGINE = InnoDB`, explicit index names, explicit foreign-key constraints, and `down()` dropping foreign keys before tables in dependency order:
+The migration creates:
 
 ```text
-announcement_receipt
-official_announcement_document
-official_announcement
 document
+official_announcement
+official_announcement_document
+announcement_receipt
 ```
 
-- [ ] **Step 4: Verify schema metadata and SQLite-based focused tests**
+Required columns:
+
+```text
+document: id, category VARCHAR(32), access_level VARCHAR(24), title VARCHAR(180), description LONGTEXT NULL,
+original_name VARCHAR(255), storage_name VARCHAR(40), mime_type VARCHAR(80), size_bytes INT,
+uploaded_at DATETIME, uploaded_by_id INT
+
+official_announcement: id, status VARCHAR(24), title VARCHAR(180), body LONGTEXT,
+created_at DATETIME, published_at DATETIME NULL, created_by_id INT, published_by_id INT NULL
+
+announcement_receipt: id, available_at DATETIME, read_at DATETIME NULL, announcement_id INT, user_id INT
+```
+
+All user/document/announcement foreign keys use `ON DELETE RESTRICT`. `down()` drops FKs first, then tables in dependency order: receipt, join table, announcement, document.
+
+- [ ] **Step 4: Run GREEN schema tests and mapping validation**
 
 ```bash
 vendor/bin/phpunit tests/Doctrine/DocumentsAnnouncementsSchemaTest.php
@@ -689,7 +589,7 @@ php bin/console doctrine:schema:validate --skip-sync --env=test
 - [ ] **Step 5: Commit**
 
 ```bash
-git add migrations/Version20260909070000.php tests/Doctrine/DocumentsAnnouncementsSchemaTest.php
+git add src/Entity/Document.php src/Entity/OfficialAnnouncement.php src/Entity/AnnouncementReceipt.php migrations/Version20260909070000.php tests/Doctrine/DocumentsAnnouncementsSchemaTest.php
 git commit -m "feat: add documents and announcements schema"
 ```
 
@@ -705,32 +605,17 @@ git commit -m "feat: add documents and announcements schema"
 **Routes:**
 
 ```text
-GET /documents                    -> app_documents_index
-GET /document/{id}/download       -> app_document_download
+GET /documents              -> app_documents_index
+GET /document/{id}/download -> app_document_download
 ```
 
 - [ ] **Step 1: Write RED functional tests**
 
-Cover:
+Cover anonymous redirect, SQL-level access filtering for resident/cashier/controller/manager/admin, category filter, successful private download, 404 for guessed restricted IDs, 404 for missing binary, persisted MIME and original filename disposition.
 
-```text
-anonymous /documents -> /login
-resident list contains RESIDENTS but not FINANCE/MANAGEMENT
-cashier/controller list includes FINANCE but not MANAGEMENT
-manager/admin list includes all three levels
-category query filters visible rows
-resident can download an allowed private file
-restricted guessed ID returns 404
-missing physical file returns 404
-response Content-Type equals persisted MIME
-Content-Disposition uses original filename
-```
+- [ ] **Step 2: Implement controller**
 
-Use a temporary real file in `%kernel.project_dir%/var/storage/documents` and clean it in `tearDown()`.
-
-- [ ] **Step 2: Implement `DocumentController`**
-
-Constructor dependencies:
+Dependencies:
 
 ```php
 EntityManagerInterface $entityManager,
@@ -739,9 +624,7 @@ DocumentAccessPolicy $accessPolicy,
 DocumentStorage $storage,
 ```
 
-`index()` obtains the current active `User`, parses optional `category` via `DocumentCategory::tryFrom()`, computes `allowedLevels()` and calls `findVisible()`. Unknown category returns 404.
-
-`download()` loads `Document` by ID; if absent or `!$accessPolicy->canView($user, $document)`, return 404 before resolving the filesystem path. Use `BinaryFileResponse`, persisted MIME and:
+Parse optional category with `DocumentCategory::tryFrom()`. Unknown category is 404. Load download entity, perform `canView()` before path resolution, then use `BinaryFileResponse` and:
 
 ```php
 $response->setContentDisposition(
@@ -750,17 +633,15 @@ $response->setContentDisposition(
 );
 ```
 
-- [ ] **Step 3: Build the resident template**
+- [ ] **Step 3: Build template and verify**
 
-Show title, Bulgarian category label, upload date, optional description and download action. Do not expose access-level details as a substitute for authorization. Include a category filter using only `DocumentCategory::cases()`.
-
-- [ ] **Step 4: Verify focused functional test**
+Show title, category label, upload date, optional description and download. Category filter uses `DocumentCategory::cases()`.
 
 ```bash
 vendor/bin/phpunit tests/Controller/DocumentControllerTest.php
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add src/Controller/DocumentController.php templates/documents/index.html.twig tests/Controller/DocumentControllerTest.php
@@ -780,21 +661,21 @@ git commit -m "feat: add resident document access"
 **Routes:**
 
 ```text
-GET /management/documents             -> app_management_documents
-GET|POST /management/document/new     -> app_management_document_new
+GET /management/documents         -> app_management_documents
+GET|POST /management/document/new -> app_management_document_new
 ```
 
 CSRF id: `document_create`.
 
-- [ ] **Step 1: Write RED management functional tests**
+- [ ] **Step 1: Write RED functional tests**
 
-Assert resident/cashier/controller receive 403, manager/admin can list all documents and manager can upload a PNG/PDF through the rendered form. Invalid CSRF must produce 403 and create no database/file state. Invalid enum/MIME/size returns 422 with a controlled message.
+Resident/cashier/controller get 403. Manager/admin can list and upload. Invalid CSRF leaves no DB/file state. Invalid enum/MIME/size returns 422.
 
-- [ ] **Step 2: Implement a thin management controller**
+- [ ] **Step 2: Implement thin controller**
 
-Use `DocumentAccessPolicy::canManageOfficialContent()` for authority. Parse `category` and `access_level` with `tryFrom()`. Require `UploadedFile` before calling `DocumentService::upload()`.
+Use `DocumentAccessPolicy::canManageOfficialContent()`, enum `tryFrom()`, require `UploadedFile`, then call `DocumentService::upload()`.
 
-The upload form fields are exactly:
+Form fields:
 
 ```text
 category
@@ -805,17 +686,15 @@ document_file
 _token
 ```
 
-- [ ] **Step 3: Build management templates**
+- [ ] **Step 3: Build templates and verify**
 
-The list shows title, category, access level, uploader and timestamp. The create form uses enum `labelBg()` values and `enctype="multipart/form-data"`. There is no edit/delete control.
-
-- [ ] **Step 4: Verify focused test**
+The form uses `multipart/form-data`; no edit/delete controls.
 
 ```bash
 vendor/bin/phpunit tests/Controller/DocumentManagementControllerTest.php
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add src/Controller/DocumentManagementController.php templates/management/documents tests/Controller/DocumentManagementControllerTest.php
@@ -834,48 +713,40 @@ git commit -m "feat: add document management UI"
 - Create: `templates/announcements/pdf.html.twig`
 - Test: `tests/Service/AnnouncementPdfServiceTest.php`
 
-- [ ] **Step 1: Verify DOM support and update Composer metadata in lock-safe order**
-
-First verify the local PHP CLI has DOM:
+- [ ] **Step 1: Verify DOM and update Composer in lock-safe order**
 
 ```bash
 php -m | grep -i '^dom$'
 ```
 
-The command must print `dom`. If the extension is absent, install/enable the PHP 8.4 DOM extension for the current development environment before continuing; do not bypass the platform requirement.
+The command must print `dom`; do not bypass the platform requirement if it is absent.
 
-Add this root requirement to `composer.json` next to the existing extensions:
+Add root requirement first:
 
 ```json
 "ext-dom": "*"
 ```
 
-Then update the dependency and lock file in one Composer operation:
+Then update dependency/lock:
 
 ```bash
 composer require dompdf/dompdf:^3.1 --no-interaction
 ```
 
-Keeping `ext-dom` in `composer.json` before the Composer update ensures the resulting `composer.lock` content hash includes it.
-
-Update GitHub Actions setup to:
+Update CI PHP extensions:
 
 ```yaml
 extensions: ctype, dom, iconv, mbstring, pdo_mysql, pdo_sqlite
 ```
 
-Do not add GD or remote-fetch support because Phase 8 PDF output does not embed remote images.
-
-- [ ] **Step 2: Validate Composer metadata before writing the PDF service**
+- [ ] **Step 2: Validate dependency state**
 
 ```bash
 composer validate --strict
 composer install --no-interaction --prefer-dist --no-progress
 ```
 
-- [ ] **Step 3: Write RED PDF service tests**
-
-Interface:
+- [ ] **Step 3: Write RED PDF service test**
 
 ```php
 final readonly class AnnouncementPdfService
@@ -885,7 +756,7 @@ final readonly class AnnouncementPdfService
 }
 ```
 
-Test a published announcement containing Bulgarian Cyrillic text and assert:
+Test Cyrillic content and:
 
 ```php
 $pdf = $service->render($announcement);
@@ -893,11 +764,9 @@ self::assertStringStartsWith('%PDF-', $pdf);
 self::assertGreaterThan(500, strlen($pdf));
 ```
 
-Render `templates/announcements/pdf.html.twig` directly through Twig in the test and assert the announcement title/body and linked document title appear escaped in HTML. The binary uploaded document itself must never be read or embedded by PDF generation.
+Render the PDF Twig template directly as HTML too and assert escaped announcement/document text is present. Uploaded binary contents are never read by the PDF service.
 
 - [ ] **Step 4: Implement controlled PDF generation**
-
-Use a new `Options` instance per render:
 
 ```php
 $options = new Options();
@@ -915,18 +784,13 @@ $dompdf->render();
 return $dompdf->output();
 ```
 
-The PDF Twig template uses plain escaped fields, `white-space: pre-wrap`, `font-family: 'DejaVu Sans', sans-serif`, and lists linked document titles only. It does not use `|raw`, remote CSS, remote images or uploaded file content.
+Template uses escaped plain fields, DejaVu Sans, no `|raw`, no remote resources and linked document titles only.
 
-- [ ] **Step 5: Verify PDF and static analysis**
+- [ ] **Step 5: Verify and commit**
 
 ```bash
 vendor/bin/phpunit tests/Service/AnnouncementPdfServiceTest.php
 vendor/bin/phpstan analyse src/Service/AnnouncementPdfService.php --no-progress
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add composer.json composer.lock .github/workflows/ci.yml src/Service/AnnouncementPdfService.php templates/announcements/pdf.html.twig tests/Service/AnnouncementPdfServiceTest.php
 git commit -m "feat: add announcement PDF output"
 ```
@@ -944,80 +808,46 @@ git commit -m "feat: add announcement PDF output"
 **Routes:**
 
 ```text
-GET /management/announcements                  -> app_management_announcements
-GET|POST /management/announcement/new          -> app_management_announcement_new
-GET|POST /management/announcement/{id}/edit    -> app_management_announcement_edit
-POST /management/announcement/{id}/publish     -> app_management_announcement_publish
+GET /management/announcements               -> app_management_announcements
+GET|POST /management/announcement/new       -> app_management_announcement_new
+GET|POST /management/announcement/{id}/edit -> app_management_announcement_edit
+POST /management/announcement/{id}/publish  -> app_management_announcement_publish
 ```
 
-CSRF ids:
+CSRF: `announcement_create`, `announcement_edit_{id}`, `announcement_publish_{id}`.
 
-```text
-announcement_create
-announcement_edit_{id}
-announcement_publish_{id}
-```
+- [ ] **Step 1: Write RED functional tests**
 
-- [ ] **Step 1: Write RED management functional tests**
+Cover role denial, draft create/edit, resident-only document links, publication/receipts, read/total stats, published edit rejection, second-publish rejection and invalid CSRF.
 
-Cover:
-
-```text
-resident/cashier/controller receive 403
-manager creates a draft
-manager edits title/body/resident-document links
-restricted document ID cannot be linked
-manager publishes a draft
-publication creates receipts for active users only
-published announcement shows read/total receipt statistics
-published announcement cannot be edited
-second publish is rejected without extra receipts
-invalid CSRF blocks create/edit/publish families
-```
-
-- [ ] **Step 2: Implement document-ID parsing without `getInt()` traps**
-
-Checkboxes use `document_ids[]`. Read with:
+- [ ] **Step 2: Parse document IDs without `getInt()` traps**
 
 ```php
 $values = $request->request->all('document_ids');
 ```
 
-For every value require a decimal positive integer using `/^[1-9]\d*$/`, load `Document`, reject missing IDs, and rely on `OfficialAnnouncement`/service validation to reject non-`RESIDENTS` documents. Never silently drop invalid/restricted selections.
+Require `/^[1-9]\d*$/` for each value, load every `Document`, reject missing IDs, never silently discard invalid/restricted selections.
 
-- [ ] **Step 3: Implement the thin controller**
+- [ ] **Step 3: Implement thin controller**
 
-Use `DocumentAccessPolicy` for management authority and `OfficialAnnouncementService` for all mutations. GET index may use repository `findBy([], ['createdAt' => 'DESC'])`. The edit route returns a controlled 422/domain validation response when the announcement is already published rather than mutating it.
-
-For each published row calculate informational statistics through:
+Use `DocumentAccessPolicy` for authority and `OfficialAnnouncementService` for mutations. Published edit returns controlled 422 validation. Read stats use:
 
 ```php
 $receiptRepository->countForAnnouncement($announcement);
 $receiptRepository->countReadForAnnouncement($announcement);
 ```
 
-Label these as application read state, not delivery proof.
+The UI explicitly labels this as application read state, not delivery proof.
 
-- [ ] **Step 4: Build management templates**
+- [ ] **Step 4: Build templates and verify**
 
-Draft forms contain:
-
-```text
-title
-body
-document_ids[]
-_token
-```
-
-Only resident-visible documents are offered as checkboxes. Published rows have no edit form and expose only view/status/statistics.
-
-- [ ] **Step 5: Verify focused tests**
+Fields: `title`, `body`, `document_ids[]`, `_token`. Offer only resident-visible documents.
 
 ```bash
 vendor/bin/phpunit tests/Controller/AnnouncementManagementControllerTest.php
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/Controller/AnnouncementManagementController.php templates/management/announcements tests/Controller/AnnouncementManagementControllerTest.php
@@ -1038,54 +868,30 @@ git commit -m "feat: add official announcement management"
 **Routes:**
 
 ```text
-GET  /announcements                 -> app_announcements_index
-GET  /announcement/{id}             -> app_announcement_show
-POST /announcement/{id}/read        -> app_announcement_read
-GET  /announcement/{id}/print       -> app_announcement_print
-GET  /announcement/{id}/pdf         -> app_announcement_pdf
+GET  /announcements           -> app_announcements_index
+GET  /announcement/{id}       -> app_announcement_show
+POST /announcement/{id}/read  -> app_announcement_read
+GET  /announcement/{id}/print -> app_announcement_print
+GET  /announcement/{id}/pdf   -> app_announcement_pdf
 ```
 
 CSRF id: `announcement_read_{id}`.
 
-- [ ] **Step 1: Write RED resident functional tests**
+- [ ] **Step 1: Write RED functional tests**
 
-Cover:
+Cover anonymous redirects, draft 404, published ordering, unread indicator, own-receipt idempotent POST, no historical backfill, invalid CSRF, print HTML, PDF headers/body, linked documents and conditional Viber action.
 
-```text
-anonymous routes redirect to login
-draft announcement is 404 to resident
-published announcement is listed newest first
-unread receipt produces an unread indicator
-POST /read changes only current user receipt
-second /read keeps first readAt timestamp
-user with no historical receipt does not get one created by /read
-invalid CSRF does not mark read
-print route renders authenticated print-friendly HTML
-PDF route returns application/pdf, attachment disposition and %PDF body
-linked resident documents are visible/downloadable
-Viber action exists only for published announcement with a shareable canonical URL
-```
+- [ ] **Step 2: Implement published-only lookup/read**
 
-- [ ] **Step 2: Implement published-only lookup and read action**
-
-Create one private helper that finds by ID and requires `OfficialAnnouncementStatus::PUBLISHED`; drafts/missing IDs return 404. `read()` calls `AnnouncementReceiptService::markRead()` after CSRF validation and redirects back to detail.
-
-GET routes must not implicitly mark an announcement read.
+Draft/missing IDs return 404. GET never marks read. POST delegates to `AnnouncementReceiptService` after CSRF.
 
 - [ ] **Step 3: Implement PDF response**
 
-Use `AnnouncementPdfService::render()` and return a normal `Response` with:
+Use fixed ASCII filename `announcement-{id}.pdf`, `application/pdf` and attachment disposition.
 
-```text
-Content-Type: application/pdf
-Content-Disposition: attachment; filename="announcement-{id}.pdf"
-```
+- [ ] **Step 4: Build bounded Viber deep link**
 
-Use a fixed ASCII filename based on numeric ID rather than deriving a filesystem/header filename from the title.
-
-- [ ] **Step 4: Implement the Viber deep link in the controller view model**
-
-Generate the canonical authenticated announcement URL with `UrlGeneratorInterface::ABSOLUTE_URL`. Never truncate the canonical URL. If the URL itself exceeds 200 characters, do not show a Viber action. Otherwise truncate only the title to fit the payload:
+Generate `UrlGeneratorInterface::ABSOLUTE_URL`. Never truncate the canonical URL. If it exceeds 200 characters, return no Viber action. Otherwise:
 
 ```php
 $viberShareUrl = null;
@@ -1104,23 +910,17 @@ if (mb_strlen($url) <= 200) {
 }
 ```
 
-The link is user-initiated only. There is no server-side Viber request and the shared Vhod URL remains authenticated.
+No server-side Viber request/token/delivery state.
 
-- [ ] **Step 5: Build resident templates**
+- [ ] **Step 5: Build templates and verify**
 
-`index.html.twig`: official label, publication timestamp, unread badge, title/summary.
-
-`show.html.twig`: title/body with escaped plain text and preserved line breaks, publisher/time, linked document download actions, explicit read button only when an unread receipt exists, print/PDF actions and conditional Viber action. No comments, reactions or Community styling semantics.
-
-`print.html.twig`: standalone print-friendly HTML without application navigation; use escaped fields and a normal browser print action. No state mutation.
-
-- [ ] **Step 6: Verify focused functional test**
+Official pages show official label, publication actor/time, escaped body, resident document links, explicit read button only with unread receipt, print/PDF and conditional Viber. No reactions/comments.
 
 ```bash
 vendor/bin/phpunit tests/Controller/AnnouncementControllerTest.php
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/Controller/AnnouncementController.php templates/announcements tests/Controller/AnnouncementControllerTest.php
@@ -1136,7 +936,7 @@ git commit -m "feat: add resident official announcements"
 - Modify: `templates/base.html.twig`
 - Modify: `templates/dashboard/index.html.twig`
 - Modify: `assets/styles/app.css`
-- Test: `tests/Controller/AnnouncementControllerTest.php` — extend navigation/badge assertions
+- Test: `tests/Controller/AnnouncementControllerTest.php` — extend navigation assertions
 
 **Interface:**
 
@@ -1154,44 +954,21 @@ final class AnnouncementExtension extends AbstractExtension
 }
 ```
 
-Use `Symfony\Bundle\SecurityBundle\Security`. Register Twig function name `announcement_unread_count`. Return `0` for anonymous/non-`User` contexts; otherwise delegate to `AnnouncementReceiptService::countUnread()`.
+Use `Symfony\Bundle\SecurityBundle\Security`; register Twig function `announcement_unread_count`. Return 0 without an authenticated `User`.
 
-- [ ] **Step 1: Add RED functional assertions for navigation**
+- [ ] **Step 1: Add RED navigation/badge assertions**
 
-In the announcement functional test, persist one unread receipt, request a normal authenticated page and assert navigation contains:
+Resident navigation contains `Обяви`, unread badge when non-zero and `Документи`; manager/admin additionally sees management links. Resident never sees management actions.
 
-```text
-Обяви
-Документи
-```
+- [ ] **Step 2: Implement extension/navigation/dashboard link**
 
-and an unread badge/count. Manager/admin navigation also exposes management links for official announcements/documents. A resident must not receive management links.
+Keep Community navigation intact. Replace the dashboard’s existing official placeholder with a link to the official announcement list and unread count; do not add another dashboard service.
 
-- [ ] **Step 2: Implement the Twig extension and navigation**
+- [ ] **Step 3: Add focused CSS**
 
-Add resident links in `base.html.twig`:
+Add only `.official-*`, `.document-*` and unread-badge rules that fit the existing CSS system. Official cards must be visibly separate from Community reaction/comment UI.
 
-```text
-Обяви [badge only when count > 0]
-Документи
-```
-
-Add manager/admin links:
-
-```text
-Официални обяви
-Документи (управление)
-```
-
-Keep the existing Community navigation intact and visually distinct.
-
-Update the dashboard’s existing `Официално / Съобщения и решения` placeholder to link to the real announcement list and show the unread count. Do not add a new dashboard query service.
-
-- [ ] **Step 3: Add focused CSS only**
-
-Add small `.official-*`, `.document-*` and unread-badge rules using the existing visual system. Do not redesign the global layout. Ensure official cards have a visible `Официално` label and do not reuse Community reaction/comment presentation.
-
-- [ ] **Step 4: Run all focused Phase 8 tests**
+- [ ] **Step 4: Run focused Phase 8 suite**
 
 ```bash
 vendor/bin/phpunit \
@@ -1210,9 +987,7 @@ vendor/bin/phpunit \
   tests/Controller/AnnouncementControllerTest.php
 ```
 
-Expected: all PASS.
-
-- [ ] **Step 5: Run the complete local verification gate**
+- [ ] **Step 5: Run complete local verification**
 
 ```bash
 composer validate --strict
@@ -1222,11 +997,9 @@ vendor/bin/phpunit
 vendor/bin/phpstan analyse --no-progress
 ```
 
-Do not claim Phase 8 complete from focused tests alone.
-
 - [ ] **Step 6: Verify MariaDB migration round-trip**
 
-Against MariaDB 10.11 test configuration run exactly the CI sequence:
+Run the CI sequence against MariaDB 10.11:
 
 ```bash
 php bin/console doctrine:migrations:migrate --no-interaction --env=test
@@ -1253,7 +1026,7 @@ all restricted download decisions are server-side
 published announcement mutation is impossible through public methods/routes
 ```
 
-- [ ] **Step 8: Commit final integration changes**
+- [ ] **Step 8: Commit integration changes**
 
 ```bash
 git add src/Twig/AnnouncementExtension.php templates/base.html.twig templates/dashboard/index.html.twig assets/styles/app.css tests/Controller/AnnouncementControllerTest.php
@@ -1262,25 +1035,23 @@ git commit -m "feat: integrate phase 8 official communication"
 
 - [ ] **Step 9: Final PR/CI merge gate**
 
-Push the exact final head, wait for the pull-request CI run on that SHA, and verify every job step is green: Composer metadata, install, container lint, Doctrine mapping, MariaDB migration round-trip, full PHPUnit and PHPStan. Only then mark the PR ready and merge.
+Push the exact final head and verify the PR CI on that SHA: Composer metadata/install, container lint, Doctrine mapping, MariaDB migration round-trip, full PHPUnit and PHPStan. Only then mark ready and merge.
 
-## Phase 8 acceptance checklist
+## Phase 8 Acceptance Checklist
 
-Before merge, verify every item against code/tests rather than inferred intent:
-
-1. Management can upload private categorized documents at `RESIDENTS`, `FINANCE` or `MANAGEMENT` access levels.
-2. Private file binaries remain outside `public/` and require server-side authorization to download.
-3. Residents cannot discover or download finance/management documents by guessed IDs.
-4. Cashier/controller can read finance documents but cannot manage official content.
-5. Manager/admin can create and revise drafts and publish them exactly once.
-6. Published title/body/document links cannot be silently changed.
-7. Announcements can link only resident-visible documents.
-8. Publication creates exactly one receipt per currently active user and none for inactive users.
-9. Later users are not retroactively given unread receipts for old announcements.
-10. Read mutation is explicit POST + CSRF, user-scoped and idempotent.
-11. Print HTML and a valid Cyrillic-capable PDF are available only for published authenticated announcements.
-12. Viber sharing is user-initiated and shares only an authenticated canonical URL plus bounded title text.
-13. Official announcements remain technically and visually separate from Community posts/polls.
+1. Management uploads private categorized documents at all three access levels.
+2. Files remain outside `public/` and download requires authorization.
+3. Residents cannot infer/download finance or management documents by ID.
+4. Cashier/controller read finance documents but cannot manage official content.
+5. Manager/admin create/revise drafts and publish exactly once.
+6. Published title/body/document links are immutable.
+7. Announcements link only resident-visible documents.
+8. Publication creates one receipt per currently active user and none for inactive users.
+9. Later users receive no retroactive unread receipts.
+10. Read mutation is POST + CSRF, user-scoped and idempotent.
+11. Print HTML and valid Cyrillic-capable PDF are published/authenticated only.
+12. Viber sharing is user-initiated and never bypasses authentication.
+13. Official announcements remain technically/visually separate from Community.
 14. UI/read statistics never claim legal proof of service.
-15. Composer, Symfony container, Doctrine mapping, MariaDB migration round-trip, full PHPUnit and PHPStan are green on the exact final PR head.
+15. Composer, container, Doctrine, MariaDB migration round-trip, full PHPUnit and PHPStan are green on the exact final PR head.
 16. Final PR contains only Phase 8 scope.
