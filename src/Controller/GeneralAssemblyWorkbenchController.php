@@ -18,6 +18,7 @@ use App\Repository\AssemblyVoteRepository;
 use App\Security\GeneralAssemblyAccessPolicy;
 use App\Service\AssemblyQuorumService;
 use App\Service\AssemblyVotingService;
+use App\Service\GeneralAssemblyLifecycleService;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,6 +42,7 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
         private readonly AssemblyElectorateEntryRepository $electorateRepository,
         private readonly AssemblyVoteRepository $voteRepository,
         private readonly AssemblyVotingService $votingService,
+        private readonly GeneralAssemblyLifecycleService $lifecycleService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -74,6 +76,38 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
             'resolutions_by_item' => $resolutionsByItem,
             'vote_choices' => AssemblyVoteChoice::cases(),
         ]);
+    }
+
+    #[Route('/{id<\d+>}/start', name: 'app_management_assembly_start', methods: ['POST'])]
+    public function start(GeneralAssembly $assembly, Request $request): RedirectResponse
+    {
+        $actor = $this->denyUnlessManager();
+        $this->requireCsrf('assembly_start_'.$assembly->getId(), $request);
+
+        try {
+            $this->lifecycleService->start($actor, $assembly, $this->nowUtc());
+            $this->addFlash('success', 'Общото събрание е започнато.');
+        } catch (DomainException|InvalidArgumentException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectWorkbench($assembly);
+    }
+
+    #[Route('/{id<\d+>}/close', name: 'app_management_assembly_close', methods: ['POST'])]
+    public function close(GeneralAssembly $assembly, Request $request): RedirectResponse
+    {
+        $actor = $this->denyUnlessManager();
+        $this->requireCsrf('assembly_close_'.$assembly->getId(), $request);
+
+        try {
+            $this->lifecycleService->close($actor, $assembly, $this->nowUtc());
+            $this->addFlash('success', 'Общото събрание е приключено.');
+        } catch (DomainException|InvalidArgumentException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectWorkbench($assembly);
     }
 
     #[Route('/{id<\d+>}/quorum-check', name: 'app_management_assembly_quorum_check', methods: ['POST'])]
