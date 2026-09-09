@@ -1,0 +1,26 @@
+name: Phase 9 Focused
+
+on:
+  push:
+    branches:
+      - feat/phase9-general-assembly
+
+concurrency:
+  group: phase9-focused-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, ctype, dom, iconv, mbstring, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/phpunit tests/Service/DocumentStorageTest.php tests/Service/DocumentServiceTest.php tests/Service/AssemblyInvitationServiceTest.php tests/Controller/GeneralAssemblyManagementControllerTest.php tests/Service/AssemblyAttendanceProxyServiceTest.php tests/Controller/GeneralAssemblyWorkbenchControllerTest.php tests/Controller/GeneralAssemblyLifecycleControllerTest.php tests/Controller/GeneralAssemblyAbsenteeControllerTest.php tests/Service/AssemblyResolutionCalculatorTest.php tests/Service/AssemblyVotingServiceTest.php tests/Service/AssemblyAbsenteeVotingServiceTest.php
+      - run: php bin/console doctrine:schema:validate --skip-sync --env=test
+      - run: vendor/bin/phpstan analyse --no-progress

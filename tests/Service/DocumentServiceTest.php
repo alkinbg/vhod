@@ -26,6 +26,7 @@ final class DocumentServiceTest extends KernelTestCase
     private string $directory;
     private User $manager;
     private User $admin;
+    private User $controller;
     private User $resident;
 
     protected function setUp(): void
@@ -42,6 +43,7 @@ final class DocumentServiceTest extends KernelTestCase
 
         $this->manager = $this->persistUser('manager@example.com', ['ROLE_MANAGER']);
         $this->admin = $this->persistUser('admin@example.com', ['ROLE_ADMIN']);
+        $this->controller = $this->persistUser('controller@example.com', ['ROLE_CONTROLLER']);
         $this->resident = $this->persistUser('resident@example.com');
         $this->entityManager->flush();
 
@@ -101,7 +103,7 @@ final class DocumentServiceTest extends KernelTestCase
         foreach ([
             $this->resident,
             $this->persistRoleUser('cashier@example.com', 'ROLE_CASHIER'),
-            $this->persistRoleUser('controller@example.com', 'ROLE_CONTROLLER'),
+            $this->controller,
         ] as $actor) {
             try {
                 $this->service()->upload(
@@ -118,6 +120,77 @@ final class DocumentServiceTest extends KernelTestCase
                 self::assertSame([], glob($this->directory.'/*.pdf') ?: []);
             }
         }
+    }
+
+    public function testControllerMayRecordOnlySafeGeneratedGovernanceDocumentsWhenExplicitlyAllowed(): void
+    {
+        self::assertTrue(method_exists(DocumentService::class, 'recordGenerated'), 'Generated document API has not been implemented yet.');
+
+        $document = $this->service()->recordGenerated(
+            $this->controller,
+            DocumentCategory::MEETING_INVITATION,
+            DocumentAccessLevel::RESIDENTS,
+            'Покана за общо събрание',
+            null,
+            'meeting-invitation.pdf',
+            "%PDF-1.4\n%%EOF",
+            new DateTimeImmutable('2026-09-09T12:00:00Z'),
+            true,
+        );
+
+        self::assertSame(DocumentCategory::MEETING_INVITATION, $document->getCategory());
+        self::assertSame(DocumentAccessLevel::RESIDENTS, $document->getAccessLevel());
+        self::assertFileExists($this->directory.'/'.$document->getStorageName());
+
+        foreach ([
+            [false, DocumentCategory::MEETING_INVITATION, DocumentAccessLevel::RESIDENTS],
+            [true, DocumentCategory::HOUSE_RULES, DocumentAccessLevel::RESIDENTS],
+            [true, DocumentCategory::MEETING_INVITATION, DocumentAccessLevel::GOVERNANCE],
+        ] as [$allowGovernanceManager, $category, $accessLevel]) {
+            try {
+                $this->service()->recordGenerated(
+                    $this->controller,
+                    $category,
+                    $accessLevel,
+                    'Невалиден generated документ',
+                    null,
+                    'invalid.pdf',
+                    "%PDF-1.4\n%%EOF",
+                    new DateTimeImmutable('2026-09-09T12:05:00Z'),
+                    $allowGovernanceManager,
+                );
+                self::fail('Controller must be limited to explicitly safe governance document combinations.');
+            } catch (DomainException) {
+                self::assertCount(1, $this->entityManager->getRepository(Document::class)->findAll());
+            }
+        }
+    }
+
+    public function testGovernanceEvidenceUploadForcesPrivateGovernanceAccess(): void
+    {
+        self::assertTrue(method_exists(DocumentService::class, 'uploadGovernanceEvidence'), 'Governance evidence upload API has not been implemented yet.');
+
+        $document = $this->service()->uploadGovernanceEvidence(
+            $this->controller,
+            DocumentCategory::MEETING_PROXY,
+            'Пълномощно',
+            'Доказателство за представителство',
+            $this->pdfUpload('proxy.pdf'),
+            new DateTimeImmutable('2026-09-09T12:10:00Z'),
+        );
+
+        self::assertSame(DocumentAccessLevel::GOVERNANCE, $document->getAccessLevel());
+        self::assertSame(DocumentCategory::MEETING_PROXY, $document->getCategory());
+
+        $this->expectException(DomainException::class);
+        $this->service()->uploadGovernanceEvidence(
+            $this->resident,
+            DocumentCategory::MEETING_PROXY,
+            'Невалидно пълномощно',
+            null,
+            $this->pdfUpload('resident-proxy.pdf'),
+            new DateTimeImmutable('2026-09-09T12:11:00Z'),
+        );
     }
 
     public function testStoredFileIsRemovedWhenPersistenceFails(): void

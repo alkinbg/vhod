@@ -1,0 +1,72 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Управление на общите събрания{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">Общи събрания</h1>
+            <p class="text-secondary mb-0">Официални събрания, дневен ред и покани.</p>
+        </div>
+        <a class="btn btn-primary" href="{{ path('app_management_assembly_new') }}">Ново общо събрание</a>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                <tr>
+                    <th>Събрание</th>
+                    <th>Дата</th>
+                    <th>Статус</th>
+                    <th>Покана</th>
+                    <th class="text-end">Действия</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for assembly in assemblies %}
+                    <tr>
+                        <td>
+                            <strong>{{ assembly.title }}</strong>
+                            <div class="text-secondary small">{{ assembly.place }}</div>
+                        </td>
+                        <td>{{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</td>
+                        <td>{{ assembly.status.value }}</td>
+                        <td>
+                            {% if assembly.invitationDocument %}
+                                <span class="badge bg-success-lt">Създадена</span>
+                            {% else %}
+                                <span class="badge bg-secondary-lt">Няма</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if assembly.status.value == 'draft' %}
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_management_assembly_edit', {id: assembly.id}) }}">Редакция</a>
+                                <form method="post" action="{{ path('app_management_assembly_convene', {id: assembly.id}) }}" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_convene_' ~ assembly.id) }}">
+                                    <button type="submit" name="assembly_convene_{{ assembly.id }}" class="btn btn-sm btn-primary">Свикай и създай покана</button>
+                                </form>
+                            {% else %}
+                                <form method="post" action="{{ path('app_management_assembly_posting', {id: assembly.id}) }}" enctype="multipart/form-data" class="d-inline-flex gap-1 align-items-center">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_posting_' ~ assembly.id) }}">
+                                    <input type="hidden" name="posted_at" value="{{ 'now'|date('Y-m-d\\TH:i', assembly.timezoneSnapshot) }}">
+                                    <input class="form-control form-control-sm" style="max-width: 180px" type="text" name="posting_place" value="До входната врата" aria-label="Място на поставяне">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Запиши поставяне</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="text-center text-secondary py-4">Все още няма общи събрания.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

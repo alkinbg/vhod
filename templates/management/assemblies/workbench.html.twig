@@ -1,0 +1,320 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Работно табло — {{ assembly.title }}{% endblock %}
+
+{% block body %}
+<div class="container py-4 assembly-workbench">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <div class="text-secondary small text-uppercase fw-bold mb-1">Официално общо събрание</div>
+            <h1 class="h2 mb-1">{{ assembly.title }}</h1>
+            <p class="text-secondary mb-0">
+                {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }} · {{ assembly.status.value }}
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if assembly.status.value == 'convened' %}
+                <form method="post" action="{{ path('app_management_assembly_start', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_start_' ~ assembly.id) }}">
+                    <button type="submit" id="assembly_start_{{ assembly.id }}" name="assembly_start_{{ assembly.id }}" class="btn btn-primary">Започни събранието</button>
+                </form>
+            {% elseif assembly.status.value == 'in_progress' %}
+                <form method="post" action="{{ path('app_management_assembly_close', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_close_' ~ assembly.id) }}">
+                    <button type="submit" id="assembly_close_{{ assembly.id }}" name="assembly_close_{{ assembly.id }}" class="btn btn-primary">Приключи събранието</button>
+                </form>
+            {% endif %}
+            <a class="btn btn-outline-secondary" href="{{ path('app_management_assemblies') }}">Към събранията</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small mb-1">Представени идеални части</div>
+                <div class="h2 mb-0">{{ representation.representedIdealPartsPercent }}%</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small mb-1">Представителство</div>
+                <div class="h3 mb-0">{{ representation.representedCount }} от {{ representation.electorateCount }}</div>
+                <div class="text-secondary small mt-1">
+                    {{ representation.unrepresentedCount }} {{ representation.unrepresentedCount == 1 ? 'непредставен' : 'непредставени' }}
+                </div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-secondary small mb-1">Данни за проверка</div>
+                {% if representation.unresolvedCount > 0 %}
+                    <div class="assembly-quorum-warning">
+                        {{ representation.unresolvedCount }} {{ representation.unresolvedCount == 1 ? 'запис изисква преглед' : 'записа изискват преглед' }}
+                    </div>
+                {% else %}
+                    <div class="text-success fw-semibold">Няма нерешени предупреждения</div>
+                {% endif %}
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Проверка на кворума</h2></div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                <form method="post" action="{{ path('app_management_assembly_quorum_check', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_quorum_' ~ assembly.id) }}">
+                    <input type="hidden" name="kind" value="first_call">
+                    <button type="submit" id="assembly_quorum_first_{{ assembly.id }}" name="assembly_quorum_first_{{ assembly.id }}" class="btn btn-primary">Първо свикване</button>
+                </form>
+                <form method="post" action="{{ path('app_management_assembly_quorum_check', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_quorum_' ~ assembly.id) }}">
+                    <input type="hidden" name="kind" value="delayed_call">
+                    <button type="submit" id="assembly_quorum_delayed_{{ assembly.id }}" name="assembly_quorum_delayed_{{ assembly.id }}" class="btn btn-outline-primary">Отложено свикване</button>
+                </form>
+            </div>
+
+            {% if latest_check %}
+                <div class="mt-4">
+                    {% if latest_check.result.value == 'valid' %}
+                        <div class="assembly-quorum-success">Кворумът е валиден: {{ latest_check.representedIdealPartsPercent }}% представени при изисквани {{ latest_check.requiredIdealPartsPercent }}%.</div>
+                    {% elseif latest_check.result.value == 'review_required' %}
+                        <div class="assembly-quorum-warning">Последната проверка изисква преглед. {{ latest_check.explanation }}</div>
+                    {% else %}
+                        <div class="assembly-quorum-warning">Кворумът не е достигнат: {{ latest_check.representedIdealPartsPercent }}% представени при изисквани {{ latest_check.requiredIdealPartsPercent }}%.</div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4 assembly-formal-voting">
+        <div class="card-header"><h2 class="card-title">Официално гласуване</h2></div>
+        <div class="card-body">
+            <div class="notice notice-info">Това е формалният вот на Общото събрание. Той е отделен от неформалните анкети в Общността и се записва с идеалните части от замразения електорат.</div>
+
+            {% for item in assembly.agendaItems %}
+                {% set item_votes = votes_by_item[item.id]|default([]) %}
+                {% set resolution = resolutions_by_item[item.id]|default(null) %}
+                <section class="assembly-agenda-vote mb-4">
+                    <div class="d-flex justify-content-between gap-3 align-items-start">
+                        <div>
+                            <div class="text-secondary small">Точка {{ item.position }} · {{ item.status.value }}</div>
+                            <h3 class="h4">{{ item.title }}</h3>
+                            <p>{{ item.finalResolutionText ?: item.draftResolutionText }}</p>
+                        </div>
+                        {% if resolution %}
+                            <span class="badge">{{ resolution.result.value }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if item.status.value == 'planned' and assembly.status.value == 'in_progress' %}
+                        <form method="post" action="{{ path('app_management_assembly_item_open', {id: assembly.id, itemId: item.id}) }}" class="mb-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('assembly_item_open_' ~ item.id) }}">
+                            <label for="final_resolution_{{ item.id }}">Финален текст на решението</label>
+                            <textarea id="final_resolution_{{ item.id }}" name="final_resolution_text" rows="3" required>{{ item.draftResolutionText }}</textarea>
+                            <button type="submit" class="btn btn-primary">Отвори официалното гласуване</button>
+                        </form>
+                    {% endif %}
+
+                    {% if item.status.value == 'open' %}
+                        <div class="table-responsive mb-3">
+                            <table class="table table-vcenter">
+                                <thead><tr><th>Правоимащ</th><th>Тегло</th><th>Нов вот</th></tr></thead>
+                                <tbody>
+                                {% for entry in electorate %}
+                                    <tr>
+                                        <td>{{ entry.principalNameSnapshot }} · {{ entry.unitDesignationSnapshot }}</td>
+                                        <td>{{ entry.representedIdealPartsPercentSnapshot ?: 'изисква преглед' }}{% if entry.representedIdealPartsPercentSnapshot %}%{% endif %}</td>
+                                        <td>
+                                            <form method="post" action="{{ path('app_management_assembly_vote', {id: assembly.id, itemId: item.id, entryId: entry.id}) }}" class="d-flex gap-2 align-items-center">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('assembly_vote_' ~ item.id ~ '_' ~ entry.id) }}">
+                                                <select name="choice" aria-label="Избор на официален вот">
+                                                    {% for choice in vote_choices %}<option value="{{ choice.value }}">{{ choice.value }}</option>{% endfor %}
+                                                </select>
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">Запиши</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% if item_votes %}
+                            <h4 class="h5">Записани гласове</h4>
+                            {% for vote in item_votes %}
+                                <div class="panel mb-2">
+                                    <strong>{{ vote.electorateEntry.principalNameSnapshot }}</strong> — {{ vote.choice.value }} · {{ vote.weightIdealPartsPercent }}%
+                                    <form method="post" action="{{ path('app_management_assembly_vote_correct', {id: assembly.id, voteId: vote.id}) }}" class="mt-2">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_vote_correct_' ~ vote.id) }}">
+                                        <select name="choice">{% for choice in vote_choices %}<option value="{{ choice.value }}" {{ choice == vote.choice ? 'selected' : '' }}>{{ choice.value }}</option>{% endfor %}</select>
+                                        <input type="text" name="reason" required placeholder="Причина за корекцията">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Коригирай с одитен запис</button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <form method="post" action="{{ path('app_management_assembly_item_resolve', {id: assembly.id, itemId: item.id}) }}" class="mt-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('assembly_item_resolve_' ~ item.id) }}">
+                            <button type="submit" class="btn btn-primary">Изчисли и замрази резултата</button>
+                        </form>
+                    {% endif %}
+
+                    {% if resolution %}
+                        <div class="notice {{ resolution.result.value == 'review_required' ? 'assembly-quorum-warning' : 'notice-soft' }} mt-3">
+                            За {{ resolution.forIdealPartsPercent }}% · Против {{ resolution.againstIdealPartsPercent }}% · Въздържали се {{ resolution.abstainIdealPartsPercent }}% · Резултат: {{ resolution.result.value }}
+                        </div>
+                    {% endif %}
+                </section>
+            {% else %}
+                <p class="text-secondary">Няма точки в дневния ред.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card mb-4 assembly-absentee-voting">
+        <div class="card-header"><h2 class="card-title">Неприсъствено гласуване</h2></div>
+        <div class="card-body">
+            <div class="notice notice-info mb-3">Неприсъствените декларации се регистрират само от управлението, задължително с GOVERNANCE доказателство. Тук няма resident self-service гласуване.</div>
+
+            {% if absentee_window %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4"><strong>Отворен:</strong> {{ absentee_window.openedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</div>
+                    <div class="col-md-4"><strong>Краен срок:</strong> {{ absentee_window.deadlineAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</div>
+                    <div class="col-md-4"><strong>Статус:</strong> {{ absentee_window.closedAt ? 'приключен' : 'активен' }}</div>
+                </div>
+                <p class="text-secondary">Правно основание: {{ absentee_window.legalBasis }}</p>
+
+                {% if not absentee_window.closedAt %}
+                    <form method="post" action="{{ path('app_management_assembly_absentee_declaration', {id: assembly.id, windowId: absentee_window.id}) }}" class="mb-4">
+                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_absentee_declaration_' ~ absentee_window.id) }}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="absentee_entry_{{ absentee_window.id }}">Правоимащ</label>
+                                <select id="absentee_entry_{{ absentee_window.id }}" name="electorate_entry_id" required>
+                                    <option value="">Изберете...</option>
+                                    {% for entry in electorate %}
+                                        <option value="{{ entry.id }}">{{ entry.principalNameSnapshot }} · {{ entry.unitDesignationSnapshot }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="absentee_evidence_{{ absentee_window.id }}">GOVERNANCE доказателство</label>
+                                <select id="absentee_evidence_{{ absentee_window.id }}" name="evidence_document_id" required>
+                                    <option value="">Изберете документ...</option>
+                                    {% for document in governance_documents %}
+                                        <option value="{{ document.id }}">{{ document.title }} · {{ document.originalName }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="absentee_signature_{{ absentee_window.id }}">Начин на подписване</label>
+                                <select id="absentee_signature_{{ absentee_window.id }}" name="signature_mode" required>
+                                    {% for mode in absentee_signature_modes %}<option value="{{ mode.value }}">{{ mode.value }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="absentee_notes_{{ absentee_window.id }}">Бележки</label>
+                                <input id="absentee_notes_{{ absentee_window.id }}" type="text" name="notes" maxlength="4000">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive mt-3">
+                            <table class="table table-vcenter">
+                                <thead><tr><th>Точка</th><th>Официален вот</th></tr></thead>
+                                <tbody>
+                                {% for item in absentee_window.agendaItems %}
+                                    <tr>
+                                        <td>{{ item.position }}. {{ item.title }}</td>
+                                        <td>
+                                            <select name="choices[{{ item.id }}]" required>
+                                                {% for choice in vote_choices %}<option value="{{ choice.value }}">{{ choice.value }}</option>{% endfor %}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <button type="submit" id="assembly_absentee_declaration_{{ absentee_window.id }}" name="assembly_absentee_declaration_{{ absentee_window.id }}" class="btn btn-primary" {{ governance_documents is empty ? 'disabled' : '' }}>Запиши неприсъствена декларация</button>
+                    </form>
+
+                    <form method="post" action="{{ path('app_management_assembly_absentee_close', {id: assembly.id, windowId: absentee_window.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_absentee_close_' ~ absentee_window.id) }}">
+                        <button type="submit" id="assembly_absentee_close_{{ absentee_window.id }}" name="assembly_absentee_close_{{ absentee_window.id }}" class="btn btn-outline-primary">Приключи неприсъственото гласуване</button>
+                    </form>
+                {% endif %}
+
+                {% if absentee_declarations %}
+                    <h3 class="h5 mt-4">Регистрирани декларации</h3>
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>Правоимащ</th><th>Подпис</th><th>Доказателство</th><th>Подадена</th></tr></thead>
+                            <tbody>
+                            {% for declaration in absentee_declarations %}
+                                <tr>
+                                    <td>{{ declaration.electorateEntry.principalNameSnapshot }} · {{ declaration.electorateEntry.unitDesignationSnapshot }}</td>
+                                    <td>{{ declaration.signatureModeSnapshot.value }}</td>
+                                    <td>{{ declaration.evidenceDocument.title }}</td>
+                                    <td>{{ declaration.submittedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            {% elseif assembly.status.value == 'closed' %}
+                {% if absentee_eligible_items %}
+                    <form method="post" action="{{ path('app_management_assembly_absentee_open', {id: assembly.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_absentee_open_' ~ assembly.id) }}">
+                        <div class="mb-3">
+                            <label for="absentee_deadline_{{ assembly.id }}">Краен срок</label>
+                            <input id="absentee_deadline_{{ assembly.id }}" type="datetime-local" name="deadline_at" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="absentee_basis_{{ assembly.id }}">Правно основание</label>
+                            <textarea id="absentee_basis_{{ assembly.id }}" name="legal_basis" rows="2" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <div class="fw-semibold mb-2">Допустими точки</div>
+                            {% for item in absentee_eligible_items %}
+                                <label class="d-block mb-1"><input type="checkbox" name="agenda_item_ids[]" value="{{ item.id }}"> {{ item.position }}. {{ item.title }}</label>
+                            {% endfor %}
+                        </div>
+                        <button type="submit" id="assembly_absentee_open_{{ assembly.id }}" name="assembly_absentee_open_{{ assembly.id }}" class="btn btn-primary">Отвори неприсъствено гласуване</button>
+                    </form>
+                {% else %}
+                    <p class="text-secondary mb-0">Няма отворени точки с изрично допустим знаменател за неприсъствено гласуване.</p>
+                {% endif %}
+            {% else %}
+                <p class="text-secondary mb-0">Прозорец за неприсъствено гласуване може да се отвори само след приключване на Общото събрание.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2 class="card-title">История на проверките</h2></div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead><tr><th>Време</th><th>Вид</th><th>Представени</th><th>Изисквани</th><th>Резултат</th></tr></thead>
+                <tbody>
+                {% for check in quorum_checks %}
+                    <tr>
+                        <td>{{ check.checkedAt|date('d.m.Y H:i:s', assembly.timezoneSnapshot) }}</td>
+                        <td>{{ check.kind.value }}</td>
+                        <td>{{ check.representedIdealPartsPercent }}%</td>
+                        <td>{{ check.requiredIdealPartsPercent }}%</td>
+                        <td>{{ check.result.value }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="text-center text-secondary py-4">Все още няма записана проверка на кворума.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

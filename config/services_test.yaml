@@ -1,0 +1,8 @@
+services:
+    App\Service\AssemblyAttendanceService:
+        autowire: true
+        public: true
+
+    App\Service\AssemblyProxyService:
+        autowire: true
+        public: true

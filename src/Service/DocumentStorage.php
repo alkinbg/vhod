@@ -43,11 +43,7 @@ final readonly class DocumentStorage
             throw new InvalidArgumentException('Only PDF, JPEG, PNG and WebP documents are allowed.');
         }
 
-        $directory = rtrim($this->storageDirectory, DIRECTORY_SEPARATOR);
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-            throw new RuntimeException('Cannot create document storage directory.');
-        }
-
+        $directory = $this->ensureDirectory();
         $originalName = $file->getClientOriginalName();
         $storageName = bin2hex(random_bytes(16)).'.'.self::EXTENSIONS_BY_MIME[$mimeType];
         $moved = $file->move($directory, $storageName);
@@ -58,6 +54,41 @@ final readonly class DocumentStorage
             $mimeType,
             (int) $size,
             $moved->getPathname(),
+        );
+    }
+
+    public function storeGeneratedPdf(string $originalName, string $pdfBytes): DocumentStoredFile
+    {
+        $originalName = trim($originalName);
+        if ('' === $originalName || mb_strlen($originalName) > 255) {
+            throw new InvalidArgumentException('Generated PDF original name must contain between 1 and 255 characters.');
+        }
+
+        $size = strlen($pdfBytes);
+        if ($size <= 0 || $size > self::MAX_SIZE) {
+            throw new InvalidArgumentException('Generated PDF must be between 1 byte and 16 MiB.');
+        }
+        if (!str_starts_with($pdfBytes, '%PDF-')) {
+            throw new InvalidArgumentException('Generated document is not a PDF.');
+        }
+
+        $directory = $this->ensureDirectory();
+        $storageName = bin2hex(random_bytes(16)).'.pdf';
+        $path = $directory.DIRECTORY_SEPARATOR.$storageName;
+
+        $written = @file_put_contents($path, $pdfBytes, LOCK_EX);
+        if ($written !== $size) {
+            @unlink($path);
+            throw new RuntimeException('Cannot store generated PDF.');
+        }
+        @chmod($path, 0600);
+
+        return new DocumentStoredFile(
+            $originalName,
+            $storageName,
+            'application/pdf',
+            $size,
+            $path,
         );
     }
 
@@ -88,6 +119,16 @@ final readonly class DocumentStorage
         }
 
         return $mimeType;
+    }
+
+    private function ensureDirectory(): string
+    {
+        $directory = rtrim($this->storageDirectory, DIRECTORY_SEPARATOR);
+        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+            throw new RuntimeException('Cannot create document storage directory.');
+        }
+
+        return $directory;
     }
 
     private function assertStorageName(string $storageName): void
