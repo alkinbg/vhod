@@ -7,6 +7,7 @@ namespace App\Entity;
 use App\Enum\AssemblyLegalResult;
 use App\Enum\AssemblyQuorumCheckKind;
 use App\Repository\AssemblyQuorumCheckRepository;
+use App\Util\ExactDecimal;
 use App\Value\AssemblyQuorumCalculation;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -63,8 +64,8 @@ class AssemblyQuorumCheck
         $this->assembly = $assembly;
         $this->kind = $kind;
         $this->checkedAt = $checkedAt->setTimezone(new DateTimeZone('UTC'));
-        $this->representedIdealPartsPercent = $calculation->representedIdealPartsPercent;
-        $this->requiredIdealPartsPercent = $calculation->requiredIdealPartsPercent;
+        $this->representedIdealPartsPercent = ExactDecimal::normalize($calculation->representedIdealPartsPercent);
+        $this->requiredIdealPartsPercent = ExactDecimal::normalize($calculation->requiredIdealPartsPercent);
         $this->ruleCode = $calculation->ruleCode;
         $this->result = $calculation->result;
         $this->explanation = $calculation->explanation;
@@ -85,8 +86,8 @@ class AssemblyQuorumCheck
     public function getAssembly(): GeneralAssembly { return $this->assembly; }
     public function getKind(): AssemblyQuorumCheckKind { return $this->kind; }
     public function getCheckedAt(): DateTimeImmutable { return $this->checkedAt; }
-    public function getRepresentedIdealPartsPercent(): string { return $this->representedIdealPartsPercent; }
-    public function getRequiredIdealPartsPercent(): string { return $this->requiredIdealPartsPercent; }
+    public function getRepresentedIdealPartsPercent(): string { return ExactDecimal::normalize($this->representedIdealPartsPercent); }
+    public function getRequiredIdealPartsPercent(): string { return ExactDecimal::normalize($this->requiredIdealPartsPercent); }
     public function getRuleCode(): string { return $this->ruleCode; }
     public function getResult(): AssemblyLegalResult { return $this->result; }
     public function getExplanation(): string { return $this->explanation; }
