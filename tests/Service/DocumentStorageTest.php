@@ -44,6 +44,34 @@ final class DocumentStorageTest extends TestCase
         self::assertFileExists($stored->absolutePath);
     }
 
+    public function testStoresGeneratedPdfBytesPrivately(): void
+    {
+        self::assertTrue(method_exists(DocumentStorage::class, 'storeGeneratedPdf'), 'Generated PDF storage API has not been implemented yet.');
+
+        $stored = $this->storage()->storeGeneratedPdf('meeting-invitation.pdf', "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+
+        self::assertSame('meeting-invitation.pdf', $stored->originalName);
+        self::assertSame('application/pdf', $stored->mimeType);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{32}\.pdf$/', $stored->storageName);
+        self::assertFileExists($stored->absolutePath);
+        self::assertSame("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF", file_get_contents($stored->absolutePath));
+    }
+
+    public function testGeneratedPdfRejectsInvalidHeaderEmptyAndOversizedBytes(): void
+    {
+        self::assertTrue(method_exists(DocumentStorage::class, 'storeGeneratedPdf'), 'Generated PDF storage API has not been implemented yet.');
+        $storage = $this->storage();
+
+        foreach (['', 'not-a-pdf', str_repeat('A', 16 * 1024 * 1024 + 1)] as $bytes) {
+            try {
+                $storage->storeGeneratedPdf('generated.pdf', $bytes);
+                self::fail('Invalid generated PDF bytes must be rejected.');
+            } catch (InvalidArgumentException) {
+                self::assertSame([], glob($this->directory.'/*') ?: []);
+            }
+        }
+    }
+
     public function testStoresPngWithFixedExtension(): void
     {
         $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true);
