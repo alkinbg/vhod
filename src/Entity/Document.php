@@ -14,6 +14,9 @@ use InvalidArgumentException;
 
 #[ORM\Entity(repositoryClass: DocumentRepository::class)]
 #[ORM\Table(name: 'document')]
+#[ORM\Index(name: 'idx_document_access_category_uploaded', columns: ['access_level', 'category', 'uploaded_at'])]
+#[ORM\Index(name: 'idx_document_uploaded_by', columns: ['uploaded_by_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_document_storage_name', columns: ['storage_name'])]
 class Document
 {
     private const MAX_SIZE = 16 * 1024 * 1024;
@@ -56,7 +59,7 @@ class Document
     private int $sizeBytes;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(name: 'uploaded_by_id', nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(name: 'uploaded_by_id', nullable: false, onDelete: 'RESTRICT', foreignKeyName: 'fk_document_uploaded_by')]
     private User $uploadedBy;
 
     #[ORM\Column(type: 'datetime_immutable')]
