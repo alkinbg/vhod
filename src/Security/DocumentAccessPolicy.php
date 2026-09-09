@@ -21,6 +21,9 @@ final class DocumentAccessPolicy
         if ($this->hasAnyRole($user, ['ROLE_CASHIER', 'ROLE_CONTROLLER', 'ROLE_MANAGER', 'ROLE_ADMIN'])) {
             $levels[] = DocumentAccessLevel::FINANCE;
         }
+        if ($this->hasAnyRole($user, ['ROLE_CONTROLLER', 'ROLE_MANAGER', 'ROLE_ADMIN'])) {
+            $levels[] = DocumentAccessLevel::GOVERNANCE;
+        }
         if ($this->hasAnyRole($user, ['ROLE_MANAGER', 'ROLE_ADMIN'])) {
             $levels[] = DocumentAccessLevel::MANAGEMENT;
         }
@@ -36,6 +39,11 @@ final class DocumentAccessPolicy
     public function canManageOfficialContent(User $user): bool
     {
         return $user->isActive() && $this->hasAnyRole($user, ['ROLE_MANAGER', 'ROLE_ADMIN']);
+    }
+
+    public function canManageGovernanceEvidence(User $user): bool
+    {
+        return $user->isActive() && $this->hasAnyRole($user, ['ROLE_CONTROLLER', 'ROLE_MANAGER', 'ROLE_ADMIN']);
     }
 
     /** @param list<string> $roles */
