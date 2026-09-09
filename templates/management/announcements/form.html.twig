@@ -20,7 +20,7 @@
         <input type="hidden" name="_token" value="{{ csrf_token(csrf_token_id) }}">
 
         <label for="announcement_title">Заглавие</label>
-        <input id="announcement_title" name="title" required maxlength="255" value="{{ app.request.request.get('title') ?: (announcement ? announcement.title : '') }}">
+        <input id="announcement_title" name="title" required maxlength="180" value="{{ app.request.request.get('title') ?: (announcement ? announcement.title : '') }}">
 
         <label for="announcement_body">Текст</label>
         <textarea id="announcement_body" name="body" rows="12" required>{{ app.request.request.get('body') ?: (announcement ? announcement.body : '') }}</textarea>
