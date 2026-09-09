@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { margin: 24mm 20mm; }
+        body { font-family: "DejaVu Sans", sans-serif; font-size: 12px; line-height: 1.5; color: #111; }
+        h1 { font-size: 22px; text-align: center; margin: 0 0 20px; }
+        h2 { font-size: 15px; margin: 24px 0 8px; }
+        .meta { margin: 0 0 6px; }
+        .label { font-weight: 700; }
+        ol { padding-left: 22px; }
+        li { margin-bottom: 12px; }
+        .resolution { margin-top: 4px; font-style: italic; }
+        .footer { margin-top: 30px; font-size: 10px; color: #555; }
+    </style>
+</head>
+<body>
+<h1>Покана за общо събрание</h1>
+
+<p class="meta"><span class="label">Събрание:</span> {{ assembly.title }}</p>
+<p class="meta"><span class="label">Дата и час:</span> {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</p>
+<p class="meta"><span class="label">Място:</span> {{ assembly.place }}</p>
+<p class="meta"><span class="label">Свикващ:</span> {{ assembly.initiatorDisplayName }}</p>
+<p class="meta"><span class="label">Основание:</span> {{ assembly.conveningBasis.value }}</p>
+{% if assembly.conveningBasisNote %}
+    <p class="meta"><span class="label">Бележка към основанието:</span> {{ assembly.conveningBasisNote }}</p>
+{% endif %}
+{% if assembly.onlineMeetingReference %}
+    <p class="meta"><span class="label">Онлайн участие:</span> {{ assembly.onlineMeetingReference }}</p>
+{% endif %}
+
+<h2>Дневен ред</h2>
+<ol>
+    {% for item in assembly.agendaItems %}
+        <li>
+            <strong>{{ item.title }}</strong>
+            {% if item.description %}<div>{{ item.description }}</div>{% endif %}
+            <div class="resolution">Проекторешение: {{ item.draftResolutionText }}</div>
+        </li>
+    {% else %}
+        <li>Няма въведени точки в дневния ред.</li>
+    {% endfor %}
+</ol>
+
+<p class="footer">Документът е генериран от частната система за управление на входа. Физическото поставяне на поканата се удостоверява отделно.</p>
+</body>
+</html>
