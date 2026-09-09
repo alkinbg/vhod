@@ -60,9 +60,6 @@ final readonly class AssemblyAbsenteeVotingService
 
             $window = AssemblyAbsenteeWindow::open($assembly, $actor, $openedAt, $deadlineAt, $legalBasis);
             foreach ($agendaItems as $item) {
-                if (!$item instanceof AssemblyAgendaItem) {
-                    throw new InvalidArgumentException('Absentee voting window received an invalid agenda item.');
-                }
                 $this->entityManager->lock($item, LockMode::PESSIMISTIC_WRITE);
                 $window->addAgendaItem($item);
                 $item->deferToAbsenteeWindow($openedAt);
@@ -136,9 +133,6 @@ final readonly class AssemblyAbsenteeVotingService
             $this->entityManager->persist($declaration);
 
             foreach ($choices as $itemId => $choice) {
-                if (!$choice instanceof AssemblyVoteChoice) {
-                    throw new InvalidArgumentException('Absentee declaration contains an invalid vote choice.');
-                }
                 $item = $itemsById[$itemId] ?? null;
                 if (!$item instanceof AssemblyAgendaItem) {
                     throw new DomainException('Absentee declaration references an agenda item outside the effective window.');
