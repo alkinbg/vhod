@@ -22,7 +22,7 @@ final class AssemblyResolution
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\OneToOne]
+    #[ORM\ManyToOne]
     #[ORM\JoinColumn(name: 'agenda_item_id', nullable: false, onDelete: 'RESTRICT', foreignKeyName: 'fk_assembly_resolution_item')]
     private AssemblyAgendaItem $agendaItem;
 
