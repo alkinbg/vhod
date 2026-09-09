@@ -29,7 +29,7 @@
 - No Messenger, Mercure, push, email, SMS or Viber bot/API integration is introduced.
 - Do not change Community entities/routes to represent official content.
 - Do not add arbitrary ACL, tenant, household-targeting, document-versioning, OCR or full-text subsystems.
-- Use explicit Doctrine index names and `ON DELETE RESTRICT` for audit-sensitive foreign keys.
+- Use explicit Doctrine index/unique names and `ON DELETE RESTRICT` for audit-sensitive foreign keys.
 - Do not weaken PHPStan or add Phase 8 ignore rules.
 - After the first implementation commit, open a draft Phase 8 PR so the existing pull-request CI can be used as the continuous RED/GREEN harness.
 
@@ -49,7 +49,7 @@
 **Interfaces:**
 
 ```php
-Document::record(
+public static function record(
     DocumentCategory $category,
     DocumentAccessLevel $accessLevel,
     string $title,
@@ -63,7 +63,7 @@ Document::record(
 ): self;
 
 /** @param iterable<Document> $documents */
-OfficialAnnouncement::draft(
+public static function draft(
     string $title,
     string $body,
     User $createdBy,
@@ -78,7 +78,7 @@ public function isPublished(): bool;
 /** @return Collection<int, Document> */
 public function getDocuments(): Collection;
 
-AnnouncementReceipt::record(
+public static function record(
     OfficialAnnouncement $announcement,
     User $user,
     DateTimeImmutable $availableAt,
@@ -86,6 +86,8 @@ AnnouncementReceipt::record(
 public function markRead(DateTimeImmutable $readAt): void;
 public function isRead(): bool;
 ```
+
+The first `record()` signature belongs to `Document`; the second belongs to `AnnouncementReceipt`.
 
 Enum persisted values:
 
@@ -103,6 +105,31 @@ draft, published
 ```
 
 `DocumentCategory` and `DocumentAccessLevel` expose `labelBg(): string`. `OfficialAnnouncementStatus` exposes `labelBg(): string` for management UI.
+
+**ORM metadata that must be present from the first implementation:**
+
+```text
+Document table: document
+UNIQUE uniq_document_storage_name(storage_name)
+INDEX idx_document_access_category_uploaded(access_level, category, uploaded_at)
+INDEX idx_document_uploaded_by(uploaded_by_id)
+uploadedBy -> app_user ON DELETE RESTRICT
+
+OfficialAnnouncement table: official_announcement
+INDEX idx_official_announcement_status_published(status, published_at)
+INDEX idx_official_announcement_created_by(created_by_id)
+INDEX idx_official_announcement_published_by(published_by_id)
+createdBy/publishedBy -> app_user ON DELETE RESTRICT
+ManyToMany join table: official_announcement_document
+join announcement_id -> official_announcement ON DELETE RESTRICT
+inverse document_id -> document ON DELETE RESTRICT
+
+AnnouncementReceipt table: announcement_receipt
+UNIQUE uniq_announcement_receipt_announcement_user(announcement_id, user_id)
+INDEX idx_announcement_receipt_user_read(user_id, read_at)
+INDEX idx_announcement_receipt_announcement(announcement_id)
+announcement/user -> referenced tables ON DELETE RESTRICT
+```
 
 - [ ] **Step 1: Write RED entity tests**
 
@@ -213,6 +240,8 @@ final class AnnouncementReceiptRepository extends ServiceEntityRepository
     public function countUnreadFor(User $user): int;
     /** @return list<AnnouncementReceipt> */
     public function findUnreadFor(User $user, int $limit = 5): array;
+    public function countForAnnouncement(OfficialAnnouncement $announcement): int;
+    public function countReadForAnnouncement(OfficialAnnouncement $announcement): int;
 }
 ```
 
@@ -243,7 +272,8 @@ Use `KernelTestCase` + `SchemaTool`. Persist documents at all three access level
 - optional category filtering is applied in SQL;
 - empty allowed-level list returns `[]` without issuing an invalid `IN ()` query;
 - `OfficialAnnouncementRepository::findPublished()` excludes drafts and orders `publishedAt DESC`;
-- unread receipt count/list are scoped to the requested user and `readAt IS NULL`.
+- unread receipt count/list are scoped to the requested user and `readAt IS NULL`;
+- per-announcement total/read counts are correct.
 
 - [ ] **Step 4: Implement repositories**
 
@@ -372,18 +402,39 @@ Using a manager and resident, assert:
 
 - [ ] **Step 4: Implement filesystem/database compensation**
 
-Follow the established Phase 7 pattern:
+Use the established Phase 7 transaction/cleanup shape with the exact Phase 8 arguments:
 
 ```php
 $stored = $this->storage->store($file);
 
 try {
-    return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use (...) {
-        $document = Document::record(...);
-        $entityManager->persist($document);
+    return $this->entityManager->wrapInTransaction(
+        function (EntityManagerInterface $entityManager) use (
+            $actor,
+            $category,
+            $accessLevel,
+            $title,
+            $description,
+            $stored,
+            $uploadedAt,
+        ): Document {
+            $document = Document::record(
+                $category,
+                $accessLevel,
+                $title,
+                $description,
+                $stored->originalName,
+                $stored->storageName,
+                $stored->mimeType,
+                $stored->sizeBytes,
+                $actor,
+                $uploadedAt,
+            );
+            $entityManager->persist($document);
 
-        return $document;
-    });
+            return $document;
+        },
+    );
 } catch (Throwable $exception) {
     $this->storage->remove($stored->storageName);
     throw $exception;
@@ -504,7 +555,7 @@ $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entity
 });
 ```
 
-The later database unique constraint on `(announcement_id, user_id)` is the final duplicate safeguard.
+The database unique constraint on `(announcement_id, user_id)` is the final duplicate safeguard.
 
 - [ ] **Step 4: Write and implement receipt-service tests**
 
@@ -551,11 +602,12 @@ access_level VARCHAR(24) NOT NULL
 title VARCHAR(180) NOT NULL
 description LONGTEXT NULL
 original_name VARCHAR(255) NOT NULL
-storage_name VARCHAR(40) NOT NULL UNIQUE
+storage_name VARCHAR(40) NOT NULL
 mime_type VARCHAR(80) NOT NULL
 size_bytes INT NOT NULL
 uploaded_at DATETIME NOT NULL
 uploaded_by_id INT NOT NULL -> app_user(id) ON DELETE RESTRICT
+UNIQUE uniq_document_storage_name (storage_name)
 INDEX idx_document_access_category_uploaded (access_level, category, uploaded_at)
 INDEX idx_document_uploaded_by (uploaded_by_id)
 ```
@@ -604,9 +656,8 @@ Assert:
 
 - exact four tables are represented by Phase 8 metadata;
 - all to-one/join-table foreign keys specify `RESTRICT`;
-- the receipt unique constraint exists;
+- the two named unique constraints exist;
 - document visibility and receipt unread indexes exist with the expected columns;
-- `storageName` is unique;
 - no Phase 8 entity contains a cascade-remove association.
 
 - [ ] **Step 2: Run the schema test and confirm RED**
@@ -665,7 +716,7 @@ Cover:
 ```text
 anonymous /documents -> /login
 resident list contains RESIDENTS but not FINANCE/MANAGEMENT
-a cashier/controller list includes FINANCE but not MANAGEMENT
+cashier/controller list includes FINANCE but not MANAGEMENT
 manager/admin list includes all three levels
 category query filters visible rows
 resident can download an allowed private file
@@ -688,7 +739,7 @@ DocumentAccessPolicy $accessPolicy,
 DocumentStorage $storage,
 ```
 
-`index()` obtains current active `User`, parses optional `category` via `DocumentCategory::tryFrom()`, computes `allowedLevels()` and calls `findVisible()`. Unknown category returns 404.
+`index()` obtains the current active `User`, parses optional `category` via `DocumentCategory::tryFrom()`, computes `allowedLevels()` and calls `findVisible()`. Unknown category returns 404.
 
 `download()` loads `Document` by ID; if absent or `!$accessPolicy->canView($user, $document)`, return 404 before resolving the filesystem path. Use `BinaryFileResponse`, persisted MIME and:
 
@@ -783,21 +834,31 @@ git commit -m "feat: add document management UI"
 - Create: `templates/announcements/pdf.html.twig`
 - Test: `tests/Service/AnnouncementPdfServiceTest.php`
 
-- [ ] **Step 1: Add the required runtime extension and dependency**
+- [ ] **Step 1: Verify DOM support and update Composer metadata in lock-safe order**
 
-Run:
+First verify the local PHP CLI has DOM:
 
 ```bash
-composer require dompdf/dompdf:^3.1 --no-interaction
+php -m | grep -i '^dom$'
 ```
 
-Add explicit platform requirement to `composer.json`:
+The command must print `dom`. If the extension is absent, install/enable the PHP 8.4 DOM extension for the current development environment before continuing; do not bypass the platform requirement.
+
+Add this root requirement to `composer.json` next to the existing extensions:
 
 ```json
 "ext-dom": "*"
 ```
 
-Keep existing `ext-mbstring`. Update GitHub Actions setup to:
+Then update the dependency and lock file in one Composer operation:
+
+```bash
+composer require dompdf/dompdf:^3.1 --no-interaction
+```
+
+Keeping `ext-dom` in `composer.json` before the Composer update ensures the resulting `composer.lock` content hash includes it.
+
+Update GitHub Actions setup to:
 
 ```yaml
 extensions: ctype, dom, iconv, mbstring, pdo_mysql, pdo_sqlite
@@ -832,7 +893,7 @@ self::assertStringStartsWith('%PDF-', $pdf);
 self::assertGreaterThan(500, strlen($pdf));
 ```
 
-Also assert a linked document appears by title in the rendered input path without embedding the uploaded binary.
+Render `templates/announcements/pdf.html.twig` directly through Twig in the test and assert the announcement title/body and linked document title appear escaped in HTML. The binary uploaded document itself must never be read or embedded by PDF generation.
 
 - [ ] **Step 4: Implement controlled PDF generation**
 
@@ -926,9 +987,16 @@ For every value require a decimal positive integer using `/^[1-9]\d*$/`, load `D
 
 - [ ] **Step 3: Implement the thin controller**
 
-Use `DocumentAccessPolicy` for management authority and `OfficialAnnouncementService` for all mutations. GET index may use repository `findBy([], ['createdAt' => 'DESC'])`. The edit route returns 422/domain error if the announcement is already published rather than mutating it.
+Use `DocumentAccessPolicy` for management authority and `OfficialAnnouncementService` for all mutations. GET index may use repository `findBy([], ['createdAt' => 'DESC'])`. The edit route returns a controlled 422/domain validation response when the announcement is already published rather than mutating it.
 
-For published rows calculate informational read statistics from `AnnouncementReceipt` counts. Label them as application read state, not delivery proof.
+For each published row calculate informational statistics through:
+
+```php
+$receiptRepository->countForAnnouncement($announcement);
+$receiptRepository->countReadForAnnouncement($announcement);
+```
+
+Label these as application read state, not delivery proof.
 
 - [ ] **Step 4: Build management templates**
 
@@ -995,7 +1063,7 @@ invalid CSRF does not mark read
 print route renders authenticated print-friendly HTML
 PDF route returns application/pdf, attachment disposition and %PDF body
 linked resident documents are visible/downloadable
-Viber action exists only for published announcement
+Viber action exists only for published announcement with a shareable canonical URL
 ```
 
 - [ ] **Step 2: Implement published-only lookup and read action**
@@ -1017,19 +1085,23 @@ Use a fixed ASCII filename based on numeric ID rather than deriving a filesystem
 
 - [ ] **Step 4: Implement the Viber deep link in the controller view model**
 
-Generate the canonical authenticated announcement URL with `UrlGeneratorInterface::ABSOLUTE_URL`. Keep the share payload within 200 characters by truncating only the title, never the URL:
+Generate the canonical authenticated announcement URL with `UrlGeneratorInterface::ABSOLUTE_URL`. Never truncate the canonical URL. If the URL itself exceeds 200 characters, do not show a Viber action. Otherwise truncate only the title to fit the payload:
 
 ```php
-$separator = ' — ';
+$viberShareUrl = null;
 $url = $this->generateUrl(
     'app_announcement_show',
     ['id' => $announcement->getId()],
     UrlGeneratorInterface::ABSOLUTE_URL,
 );
-$budget = max(0, 200 - mb_strlen($separator) - mb_strlen($url));
-$title = mb_substr($announcement->getTitle(), 0, $budget);
-$text = '' === $title ? $url : $title.$separator.$url;
-$viberShareUrl = 'viber://forward?text='.rawurlencode($text);
+
+if (mb_strlen($url) <= 200) {
+    $separator = ' — ';
+    $budget = max(0, 200 - mb_strlen($separator) - mb_strlen($url));
+    $title = mb_substr($announcement->getTitle(), 0, $budget);
+    $text = '' === $title ? $url : $title.$separator.$url;
+    $viberShareUrl = 'viber://forward?text='.rawurlencode($text);
+}
 ```
 
 The link is user-initiated only. There is no server-side Viber request and the shared Vhod URL remains authenticated.
@@ -1038,9 +1110,9 @@ The link is user-initiated only. There is no server-side Viber request and the s
 
 `index.html.twig`: official label, publication timestamp, unread badge, title/summary.
 
-`show.html.twig`: title/body with escaped plain text and preserved line breaks, publisher/time, linked document download actions, explicit read button only when an unread receipt exists, print/PDF actions and Viber action. No comments, reactions or Community styling semantics.
+`show.html.twig`: title/body with escaped plain text and preserved line breaks, publisher/time, linked document download actions, explicit read button only when an unread receipt exists, print/PDF actions and conditional Viber action. No comments, reactions or Community styling semantics.
 
-`print.html.twig`: standalone print-friendly HTML without application navigation; use escaped fields and `window.print()` only if a visible print button is desired. No state mutation.
+`print.html.twig`: standalone print-friendly HTML without application navigation; use escaped fields and a normal browser print action. No state mutation.
 
 - [ ] **Step 6: Verify focused functional test**
 
@@ -1082,7 +1154,7 @@ final class AnnouncementExtension extends AbstractExtension
 }
 ```
 
-Register Twig function name `announcement_unread_count`. Return `0` for anonymous/non-`User` contexts; otherwise delegate to `AnnouncementReceiptService::countUnread()`.
+Use `Symfony\Bundle\SecurityBundle\Security`. Register Twig function name `announcement_unread_count`. Return `0` for anonymous/non-`User` contexts; otherwise delegate to `AnnouncementReceiptService::countUnread()`.
 
 - [ ] **Step 1: Add RED functional assertions for navigation**
 
