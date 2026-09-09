@@ -106,7 +106,7 @@
     {% set resolution = row.resolution %}
     <h3>Точка {{ item.position }}. {{ item.title }}</h3>
     {% if item.description %}<p>{{ item.description }}</p>{% endif %}
-    {% if item.emergency %}<div class="warning"><strong>Извънредна точка.</strong> Причина: {{ item.emergencyReason }}</div>{% endif %}
+    {% if item.isEmergency() %}<div class="warning"><strong>Извънредна точка.</strong> Причина: {{ item.emergencyReason }}</div>{% endif %}
     <p><strong>Финален текст на решението:</strong> {{ item.finalResolutionText ?: item.draftResolutionText }}</p>
     <p class="muted">Правило: {{ item.majorityRule.ruleCode }} · {{ item.majorityRule.denominator.value }} · {{ item.majorityRule.comparison.value }} {{ item.majorityRule.thresholdPercent }}% · {{ item.majorityRule.legalBasis }}</p>
 
