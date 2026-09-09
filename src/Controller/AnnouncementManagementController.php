@@ -244,7 +244,9 @@ final class AnnouncementManagementController extends AbstractController
         if (!$user instanceof User) {
             throw $this->createAccessDeniedException('Authentication is required.');
         }
-        $this->documentAccessPolicy->assertManager($user);
+        if (!$this->documentAccessPolicy->canManageOfficialContent($user)) {
+            throw $this->createAccessDeniedException('Management access is required.');
+        }
 
         return $user;
     }
