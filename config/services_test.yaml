@@ -1,0 +1,6 @@
+services:
+    App\Service\AssemblyAttendanceService:
+        public: true
+
+    App\Service\AssemblyProxyService:
+        public: true
