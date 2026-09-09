@@ -18,6 +18,7 @@ use InvalidArgumentException;
 #[ORM\Index(name: 'idx_assembly_proxy_representative_person', columns: ['representative_person_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_registered_by', columns: ['registered_by_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_evidence_document', columns: ['evidence_document_id'])]
+#[ORM\Index(name: 'idx_assembly_proxy_revoked_by', columns: ['revoked_by_id'])]
 final class AssemblyProxy
 {
     #[ORM\Id]
