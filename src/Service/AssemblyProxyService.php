@@ -18,6 +18,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
+use Throwable;
 
 final readonly class AssemblyProxyService
 {
@@ -41,8 +42,10 @@ final readonly class AssemblyProxyService
     ): AssemblyProxy {
         $this->assertManager($actor);
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $assembly, $principal, $representativePerson, $representativeName, $authorityKind, $evidenceDocument, $registeredAt, $notes): AssemblyProxy {
-            $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+        try {
+            $this->entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $this->assertMutable($assembly);
 
             if ($principal->getAssembly() !== $assembly) {
@@ -69,22 +72,38 @@ final readonly class AssemblyProxyService
                 $registeredAt,
                 $notes,
             );
-            $entityManager->persist($proxy);
+            $this->entityManager->persist($proxy);
+            $this->entityManager->flush();
+            $connection->commit();
 
             return $proxy;
-        });
+        } catch (Throwable $exception) {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function revoke(User $actor, AssemblyProxy $proxy, string $reason, DateTimeImmutable $revokedAt): void
     {
         $this->assertManager($actor);
 
-        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $proxy, $reason, $revokedAt): void {
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+        try {
             $assembly = $proxy->getAssembly();
-            $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
+            $this->entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $this->assertMutable($assembly);
             $proxy->revoke($actor, $reason, $revokedAt);
-        });
+            $this->entityManager->flush();
+            $connection->commit();
+        } catch (Throwable $exception) {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function effectiveForPrincipal(AssemblyElectorateEntry $principal): ?AssemblyProxy
