@@ -270,7 +270,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
         self::assertSame(AgendaItemStatus::RESOLVED, $item->getStatus());
         $resolutions = $this->em->getRepository(AssemblyResolution::class)->findAll();
         self::assertCount(1, $resolutions);
-        self::assertSame(AssemblyResolutionResult::ACCEPTED, $resolutions[0]->getResult());
+        self::assertSame(AssemblyResolutionResult::REVIEW_REQUIRED, $resolutions[0]->getResult());
 
         $this->expectException(DomainException::class);
         $this->service->registerDeclaration(
