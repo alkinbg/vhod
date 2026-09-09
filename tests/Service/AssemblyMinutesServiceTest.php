@@ -141,6 +141,8 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
     public function testFinalizationRequiresClosedMeetingAndCompleteMinutesMetadata(): void
     {
         $assembly = $this->draftAssembly();
+        $this->em->persist($assembly);
+        $this->em->flush();
 
         $this->expectException(DomainException::class);
         $this->service->finalize($this->manager, $assembly, new DateTimeImmutable('2026-09-10T19:00:00Z'));
