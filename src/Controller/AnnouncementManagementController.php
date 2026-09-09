@@ -56,11 +56,11 @@ final class AnnouncementManagementController extends AbstractController
 
             try {
                 $this->announcementService->createDraft(
+                    $manager,
                     $request->request->getString('title'),
                     $request->request->getString('body'),
-                    $this->residentDocumentsByIds($selectedDocumentIds),
-                    $manager,
                     $this->nowUtc(),
+                    $this->residentDocumentsByIds($selectedDocumentIds),
                 );
                 $this->addFlash('success', 'Официалната обява е записана като чернова.');
 
@@ -83,7 +83,7 @@ final class AnnouncementManagementController extends AbstractController
     #[Route('/management/announcement/{id}/edit', name: 'app_management_announcement_edit', requirements: ['id' => '\\d+'], methods: ['GET', 'POST'])]
     public function edit(int $id, Request $request): Response
     {
-        $this->requireManager();
+        $manager = $this->requireManager();
         $announcement = $this->requireAnnouncement($id);
 
         if ($announcement->isPublished()) {
@@ -106,6 +106,7 @@ final class AnnouncementManagementController extends AbstractController
 
             try {
                 $this->announcementService->revise(
+                    $manager,
                     $announcement,
                     $request->request->getString('title'),
                     $request->request->getString('body'),
@@ -137,7 +138,7 @@ final class AnnouncementManagementController extends AbstractController
         $announcement = $this->requireAnnouncement($id);
 
         try {
-            $this->announcementService->publish($announcement, $manager, $this->nowUtc());
+            $this->announcementService->publish($manager, $announcement, $this->nowUtc());
             $this->addFlash('success', 'Официалната обява е публикувана.');
 
             return $this->redirectToRoute('app_management_announcements');
