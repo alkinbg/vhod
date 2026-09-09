@@ -100,7 +100,10 @@ class OfficialAnnouncement
 
         $this->title = $title;
         $this->body = $body;
-        $this->documents = $documents;
+        $this->documents->clear();
+        foreach ($documents as $document) {
+            $this->documents->add($document);
+        }
     }
 
     public function publish(User $publishedBy, DateTimeImmutable $publishedAt): void
