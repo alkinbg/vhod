@@ -49,7 +49,7 @@ final readonly class AssemblyQuorumService
             $this->entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $this->assertCheckable($assembly);
 
-            $rule = $assembly->quorumRuleSnapshot();
+            $rule = $assembly->getQuorumRuleSnapshot();
             if (null === $rule) {
                 throw new DomainException('General Assembly quorum rule snapshot is missing.');
             }
@@ -130,7 +130,7 @@ final readonly class AssemblyQuorumService
 
             $entry = $attendance->getElectorateEntry();
             if (AssemblyAttendanceMode::BY_PROXY === $attendance->getMode()
-                && null === $this->proxyRepository->findEffectiveForPrincipal($assembly, $entry)) {
+                && null === $this->proxyRepository->findEffectiveForPrincipal($entry)) {
                 continue;
             }
 
