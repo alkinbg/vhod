@@ -24,7 +24,7 @@ class OfficialAnnouncement
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(enumType: OfficialAnnouncementStatus::class)]
+    #[ORM\Column(length: 24, enumType: OfficialAnnouncementStatus::class)]
     private OfficialAnnouncementStatus $status;
 
     #[ORM\Column(length: 180)]
