@@ -103,8 +103,8 @@ final class GeneralAssemblyWorkbenchControllerTest extends WebTestCase
         $checks = $em->getRepository(AssemblyQuorumCheck::class)->findBy(['assembly' => $em->find(GeneralAssembly::class, $id)], ['checkedAt' => 'ASC', 'id' => 'ASC']);
         self::assertCount(1, $checks);
         self::assertSame('60.00000000', $checks[0]->getRepresentedIdealPartsPercent());
-        self::assertSame('51.00000000', $checks[0]->getRequiredIdealPartsPercent());
-        self::assertSame(AssemblyLegalResult::VALID, $checks[0]->getResult());
+        self::assertSame('75.00000000', $checks[0]->getRequiredIdealPartsPercent());
+        self::assertSame(AssemblyLegalResult::INVALID, $checks[0]->getResult());
 
         $reloadedAssembly = $em->find(GeneralAssembly::class, $id);
         $reloadedSecond = $em->find(AssemblyElectorateEntry::class, $secondEntry->getId());
