@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DoctrineMigrations;
+
+use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\AbstractMigration;
+
+final class Version20260909150000 extends AbstractMigration
+{
+    public function getDescription(): string
+    {
+        return 'Add Phase 9 General Assembly core meeting and agenda domain.';
+    }
+
+    public function up(Schema $schema): void
+    {
+        $this->addSql("CREATE TABLE general_assembly (id INT AUTO_INCREMENT NOT NULL, initiator_user_id INT DEFAULT NULL, created_by_id INT NOT NULL, convened_by_id INT DEFAULT NULL, started_by_id INT DEFAULT NULL, closed_by_id INT DEFAULT NULL, status VARCHAR(32) NOT NULL, title VARCHAR(180) NOT NULL, scheduled_at DATETIME NOT NULL, timezone_snapshot VARCHAR(64) NOT NULL, reference_date DATE NOT NULL, place VARCHAR(255) NOT NULL, online_meeting_reference VARCHAR(1000) DEFAULT NULL, convening_basis VARCHAR(64) NOT NULL, convening_basis_note LONGTEXT DEFAULT NULL, initiator_display_name VARCHAR(255) NOT NULL, created_at DATETIME NOT NULL, convened_at DATETIME DEFAULT NULL, started_at DATETIME DEFAULT NULL, closed_at DATETIME DEFAULT NULL, INDEX idx_general_assembly_initiator_user (initiator_user_id), INDEX idx_general_assembly_created_by (created_by_id), INDEX idx_general_assembly_convened_by (convened_by_id), INDEX idx_general_assembly_started_by (started_by_id), INDEX idx_general_assembly_closed_by (closed_by_id), PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB");
+        $this->addSql("CREATE TABLE assembly_agenda_item (id INT AUTO_INCREMENT NOT NULL, assembly_id INT NOT NULL, position INT NOT NULL, title VARCHAR(180) NOT NULL, description LONGTEXT DEFAULT NULL, draft_resolution_text LONGTEXT NOT NULL, final_resolution_text LONGTEXT DEFAULT NULL, kind VARCHAR(64) NOT NULL, majority_rule_code VARCHAR(80) NOT NULL, majority_denominator VARCHAR(48) NOT NULL, majority_threshold_percent NUMERIC(14, 8) NOT NULL, majority_comparison VARCHAR(24) NOT NULL, majority_legal_basis LONGTEXT NOT NULL, majority_source_version VARCHAR(120) NOT NULL, majority_requires_legal_review TINYINT(1) DEFAULT 0 NOT NULL, is_emergency TINYINT(1) DEFAULT 0 NOT NULL, emergency_reason LONGTEXT DEFAULT NULL, status VARCHAR(32) NOT NULL, opened_at DATETIME DEFAULT NULL, closed_at DATETIME DEFAULT NULL, INDEX idx_assembly_agenda_item_assembly (assembly_id), PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB");
+
+        $this->addSql('ALTER TABLE general_assembly ADD CONSTRAINT fk_general_assembly_initiator_user FOREIGN KEY (initiator_user_id) REFERENCES app_user (id) ON DELETE RESTRICT');
+        $this->addSql('ALTER TABLE general_assembly ADD CONSTRAINT fk_general_assembly_created_by FOREIGN KEY (created_by_id) REFERENCES app_user (id) ON DELETE RESTRICT');
+        $this->addSql('ALTER TABLE general_assembly ADD CONSTRAINT fk_general_assembly_convened_by FOREIGN KEY (convened_by_id) REFERENCES app_user (id) ON DELETE RESTRICT');
+        $this->addSql('ALTER TABLE general_assembly ADD CONSTRAINT fk_general_assembly_started_by FOREIGN KEY (started_by_id) REFERENCES app_user (id) ON DELETE RESTRICT');
+        $this->addSql('ALTER TABLE general_assembly ADD CONSTRAINT fk_general_assembly_closed_by FOREIGN KEY (closed_by_id) REFERENCES app_user (id) ON DELETE RESTRICT');
+        $this->addSql('ALTER TABLE assembly_agenda_item ADD CONSTRAINT fk_assembly_agenda_item_assembly FOREIGN KEY (assembly_id) REFERENCES general_assembly (id) ON DELETE RESTRICT');
+    }
+
+    public function down(Schema $schema): void
+    {
+        $this->addSql('ALTER TABLE assembly_agenda_item DROP FOREIGN KEY fk_assembly_agenda_item_assembly');
+        $this->addSql('ALTER TABLE general_assembly DROP FOREIGN KEY fk_general_assembly_initiator_user');
+        $this->addSql('ALTER TABLE general_assembly DROP FOREIGN KEY fk_general_assembly_created_by');
+        $this->addSql('ALTER TABLE general_assembly DROP FOREIGN KEY fk_general_assembly_convened_by');
+        $this->addSql('ALTER TABLE general_assembly DROP FOREIGN KEY fk_general_assembly_started_by');
+        $this->addSql('ALTER TABLE general_assembly DROP FOREIGN KEY fk_general_assembly_closed_by');
+
+        $this->addSql('DROP TABLE assembly_agenda_item');
+        $this->addSql('DROP TABLE general_assembly');
+    }
+}
