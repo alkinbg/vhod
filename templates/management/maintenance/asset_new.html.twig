@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Нов актив · Поддръжка · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Управление · Поддръжка</p><h1>Нов актив</h1><p class="muted">Регистрирай общ актив и данните за гаранция и периодични проверки.</p></div></section>
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+<div class="panel form-panel"><form method="post" action="{{ path('app_management_maintenance_asset_new') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('maintenance_asset_create') }}">
+    <label for="asset-name">Име</label><input id="asset-name" name="name" maxlength="160" required value="{{ app.request.request.get('name') }}">
+    <label for="asset-category">Категория</label><select id="asset-category" name="category" required>{% for category in categories %}<option value="{{ category.value }}"{% if app.request.request.get('category') == category.value %} selected{% endif %}>{{ category.labelBg() }}</option>{% endfor %}</select>
+    <label for="asset-location">Място</label><input id="asset-location" name="location" maxlength="180" required value="{{ app.request.request.get('location') }}">
+    <label for="asset-manufacturer">Производител</label><input id="asset-manufacturer" name="manufacturer" maxlength="160" value="{{ app.request.request.get('manufacturer') }}">
+    <label for="asset-model">Модел</label><input id="asset-model" name="model" maxlength="160" value="{{ app.request.request.get('model') }}">
+    <label for="asset-serial">Сериен номер</label><input id="asset-serial" name="serial_number" maxlength="160" value="{{ app.request.request.get('serial_number') }}">
+    <label for="asset-installed">Дата на монтаж</label><input id="asset-installed" type="date" name="installed_at" value="{{ app.request.request.get('installed_at') }}">
+    <label for="asset-warranty">Гаранция до</label><input id="asset-warranty" type="date" name="warranty_until" value="{{ app.request.request.get('warranty_until') }}">
+    <label for="asset-interval">Интервал за проверка (месеци)</label><input id="asset-interval" type="number" min="1" name="inspection_interval_months" value="{{ app.request.request.get('inspection_interval_months') }}">
+    <label for="asset-next-inspection">Следваща проверка</label><input id="asset-next-inspection" type="date" name="next_inspection_at" value="{{ app.request.request.get('next_inspection_at') }}">
+    <button type="submit" name="asset_submit">Запиши актив</button>
+</form></div>
+{% endblock %}

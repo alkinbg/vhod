@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ signal.title }} · Поддръжка · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Сигнал #{{ signal.id }}</p><h1>{{ signal.title }}</h1><p class="muted">{{ signal.category.labelBg() }} · {{ signal.priority.labelBg() }} · {{ signal.status.labelBg() }}</p></div><div><a class="button secondary" href="{{ path('app_maintenance_index') }}">Към сигналите</a></div></section>
+
+<div class="columns">
+    <section class="panel">
+        <h2>Подробности</h2>
+        <dl class="details">
+            <dt>Място</dt><dd>{{ signal.location }}</dd>
+            <dt>Описание</dt><dd>{{ signal.description|nl2br }}</dd>
+            <dt>Подаден от</dt><dd>{{ signal.submittedBy.person.displayName }}</dd>
+            <dt>Подаден на</dt><dd>{{ signal.createdAt|date('d.m.Y H:i', 'Europe/Sofia') }}</dd>
+            <dt>Свързан актив</dt><dd>{{ signal.asset ? signal.asset.name : 'Няма' }}</dd>
+            <dt>Отговорник</dt><dd>{{ signal.assignedTo ? signal.assignedTo.person.displayName : 'Не е назначен' }}</dd>
+        </dl>
+    </section>
+
+    <section class="panel">
+        <h2>Прикачени файлове</h2>
+        {% if attachments is empty %}
+            <p class="muted">Няма прикачени файлове.</p>
+        {% else %}
+            <ul class="plain-list">
+                {% for attachment in attachments %}
+                    <li><a href="{{ path('app_maintenance_attachment_download', {id: attachment.id}) }}">{{ attachment.originalName }}</a> <small class="muted">{{ (attachment.sizeBytes / 1024)|number_format(1, '.', ' ') }} KiB</small></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" action="{{ path('app_maintenance_attachment_add', {id: signal.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('maintenance_attachment_' ~ signal.id) }}">
+            <label for="maintenance-attachment">Добави снимка или PDF</label>
+            <input id="maintenance-attachment" type="file" name="attachment" accept="image/jpeg,image/png,image/webp,application/pdf" required>
+            <small class="muted">JPEG, PNG, WebP или PDF, максимум 8 MiB.</small>
+            <button type="submit" name="attachment_submit">Прикачи</button>
+        </form>
+    </section>
+</div>
+
+<section class="panel">
+    <h2>История на статуса</h2>
+    {% if history is empty %}
+        <p class="muted">Все още няма записана история.</p>
+    {% else %}
+        <div class="table-wrap"><table><thead><tr><th>Кога</th><th>Промяна</th><th>От</th><th>Бележка</th></tr></thead><tbody>
+        {% for change in history %}
+            <tr>
+                <td>{{ change.changedAt|date('d.m.Y H:i', 'Europe/Sofia') }}</td>
+                <td>{{ change.fromStatus ? change.fromStatus.labelBg() ~ ' → ' : '' }}{{ change.toStatus.labelBg() }}</td>
+                <td>{{ change.changedBy.person.displayName }}</td>
+                <td>{{ change.note ?: '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody></table></div>
+    {% endif %}
+</section>
+{% endblock %}

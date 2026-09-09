@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Нов договор · Поддръжка · Vhod{% endblock %}
+
+{% block body %}
+<section class="hero"><div><p class="eyebrow">Управление · Поддръжка</p><h1>Нов договор</h1><p class="muted">Свържи доставчик с договор за поддръжка и по избор с конкретен общ актив.</p></div></section>
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+<div class="panel form-panel"><form method="post" action="{{ path('app_management_maintenance_contract_new') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('maintenance_contract_create') }}">
+    <label for="contract-supplier">Доставчик</label><select id="contract-supplier" name="supplier_id" required><option value="">Избери доставчик</option>{% for supplier in suppliers %}<option value="{{ supplier.id }}"{% if app.request.request.get('supplier_id') == (supplier.id ~ '') %} selected{% endif %}>{{ supplier.name }}</option>{% endfor %}</select>
+    <label for="contract-asset">Актив <span class="muted">(по избор)</span></label><select id="contract-asset" name="asset_id"><option value="">Без конкретен актив</option>{% for asset in assets %}<option value="{{ asset.id }}"{% if app.request.request.get('asset_id') == (asset.id ~ '') %} selected{% endif %}>{{ asset.name }} · {{ asset.location }}</option>{% endfor %}</select>
+    <label for="contract-title">Заглавие</label><input id="contract-title" name="title" maxlength="180" required value="{{ app.request.request.get('title') }}">
+    <label for="contract-reference">Референция / номер</label><input id="contract-reference" name="reference" maxlength="120" value="{{ app.request.request.get('reference') }}">
+    <label for="contract-starts">Начална дата</label><input id="contract-starts" type="date" name="starts_at" required value="{{ app.request.request.get('starts_at') }}">
+    <label for="contract-ends">Крайна дата</label><input id="contract-ends" type="date" name="ends_at" value="{{ app.request.request.get('ends_at') }}">
+    <label for="contract-note">Бележка</label><textarea id="contract-note" name="note" rows="5">{{ app.request.request.get('note') }}</textarea>
+    <button type="submit" name="contract_submit">Запиши договор</button>
+</form></div>
+{% endblock %}
