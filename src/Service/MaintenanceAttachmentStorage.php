@@ -38,8 +38,8 @@ final readonly class MaintenanceAttachmentStorage
             throw new InvalidArgumentException('Maintenance attachment must be between 1 byte and 8 MiB.');
         }
 
-        $mimeType = $file->getMimeType();
-        if (null === $mimeType || !isset(self::EXTENSIONS_BY_MIME[$mimeType])) {
+        $mimeType = $this->detectMimeType($file);
+        if (!isset(self::EXTENSIONS_BY_MIME[$mimeType])) {
             throw new InvalidArgumentException('Only JPEG, PNG, WebP and PDF attachments are allowed.');
         }
 
@@ -73,6 +73,20 @@ final readonly class MaintenanceAttachmentStorage
         if (is_file($path) && !unlink($path)) {
             throw new RuntimeException('Cannot remove maintenance attachment file.');
         }
+    }
+
+    private function detectMimeType(UploadedFile $file): string
+    {
+        if (!class_exists(\finfo::class)) {
+            throw new RuntimeException('PHP fileinfo extension is required for maintenance attachments.');
+        }
+
+        $mimeType = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getPathname());
+        if (false === $mimeType || '' === $mimeType) {
+            throw new InvalidArgumentException('Cannot determine maintenance attachment MIME type.');
+        }
+
+        return $mimeType;
     }
 
     private function assertStorageName(string $storageName): void
