@@ -136,6 +136,6 @@ final class ExactDecimal
     /** @return numeric-string */
     private static function zero(int $scale): string
     {
-        return 0 === $scale ? '0' : '0.'.str_repeat('0', $scale);
+        return bcadd('0', '0', $scale);
     }
 }
