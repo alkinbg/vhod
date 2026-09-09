@@ -28,14 +28,14 @@ final class AnnouncementPdfServiceTest extends KernelTestCase
         );
         $announcement->publish($manager, new DateTimeImmutable('2026-09-09 09:05:00+00:00'));
 
-        $service = self::getContainer()->get(AnnouncementPdfService::class);
-        self::assertInstanceOf(AnnouncementPdfService::class, $service);
+        $twig = self::getContainer()->get(Environment::class);
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $service = new AnnouncementPdfService($twig);
         $pdf = $service->render($announcement);
         self::assertStringStartsWith('%PDF-', $pdf);
         self::assertGreaterThan(500, strlen($pdf));
 
-        $twig = self::getContainer()->get(Environment::class);
-        self::assertInstanceOf(Environment::class, $twig);
         $html = $twig->render('announcements/pdf.html.twig', ['announcement' => $announcement]);
         self::assertStringContainsString('Важно съобщение', $html);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
