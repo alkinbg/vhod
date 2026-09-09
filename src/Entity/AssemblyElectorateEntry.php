@@ -189,9 +189,9 @@ class AssemblyElectorateEntry
     public function getPrincipalNameSnapshot(): string { return $this->principalNameSnapshot; }
     public function getPrincipalIdentifierSnapshot(): ?string { return $this->principalIdentifierSnapshot; }
     public function getRelationTypeSnapshot(): string { return $this->relationTypeSnapshot; }
-    public function getOwnershipSharePercentSnapshot(): ?string { return $this->ownershipSharePercentSnapshot; }
-    public function getUnitIdealPartsPercentSnapshot(): ?string { return $this->unitIdealPartsPercentSnapshot; }
-    public function getRepresentedIdealPartsPercentSnapshot(): ?string { return $this->representedIdealPartsPercentSnapshot; }
+    public function getOwnershipSharePercentSnapshot(): ?string { return self::canonicalDecimal($this->ownershipSharePercentSnapshot); }
+    public function getUnitIdealPartsPercentSnapshot(): ?string { return self::canonicalDecimal($this->unitIdealPartsPercentSnapshot); }
+    public function getRepresentedIdealPartsPercentSnapshot(): ?string { return self::canonicalDecimal($this->representedIdealPartsPercentSnapshot); }
     public function isQuorumEligible(): bool { return $this->quorumEligible; }
     public function getReviewReason(): ?string { return $this->reviewReason; }
     public function getCreatedAt(): DateTimeImmutable { return $this->createdAt; }
@@ -208,6 +208,11 @@ class AssemblyElectorateEntry
         }
 
         return $normalized;
+    }
+
+    private static function canonicalDecimal(?string $value): ?string
+    {
+        return null === $value ? null : ExactDecimal::normalize($value);
     }
 
     private static function nullableTrim(?string $value): ?string
