@@ -13,15 +13,25 @@
     <header class="topbar">
         <a class="brand" href="{{ path('app_dashboard') }}">Vhod</a>
         {% if app.user %}
+            {% set announcementUnreadCount = announcement_unread_count() %}
             <nav>
                 <a href="{{ path('app_dashboard') }}">Начало</a>
                 <a href="{{ path('app_community_index') }}">Общност</a>
+                <a class="nav-official-link" href="{{ path('app_announcements_index') }}">
+                    Обяви
+                    {% if announcementUnreadCount > 0 %}
+                        <span class="badge unread-badge nav-unread-badge">{{ announcementUnreadCount }}</span>
+                    {% endif %}
+                </a>
+                <a class="nav-official-link" href="{{ path('app_documents_index') }}">Документи</a>
                 <a href="{{ path('app_book') }}">Моята книга</a>
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_CONTROLLER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_management_finance') }}">Финанси</a>
                 {% endif %}
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_community_moderation') }}">Модерация</a>
+                    <a class="nav-management-link" href="{{ path('app_management_announcements') }}">Официални обяви</a>
+                    <a class="nav-management-link" href="{{ path('app_management_documents') }}">Управление документи</a>
                 {% endif %}
                 <a href="{{ path('app_logout') }}">Изход</a>
             </nav>
