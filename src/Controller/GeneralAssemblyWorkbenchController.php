@@ -4,18 +4,27 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\AssemblyAbsenteeDeclaration;
+use App\Entity\AssemblyAbsenteeWindow;
 use App\Entity\AssemblyAgendaItem;
 use App\Entity\AssemblyElectorateEntry;
 use App\Entity\AssemblyResolution;
 use App\Entity\AssemblyVote;
+use App\Entity\Document;
 use App\Entity\GeneralAssembly;
 use App\Entity\User;
+use App\Enum\AgendaItemStatus;
+use App\Enum\AssemblyAbsenteeSignatureMode;
 use App\Enum\AssemblyQuorumCheckKind;
 use App\Enum\AssemblyVoteChoice;
+use App\Enum\AssemblyVoteDenominator;
+use App\Enum\DocumentAccessLevel;
 use App\Repository\AssemblyElectorateEntryRepository;
 use App\Repository\AssemblyQuorumCheckRepository;
 use App\Repository\AssemblyVoteRepository;
+use App\Repository\DocumentRepository;
 use App\Security\GeneralAssemblyAccessPolicy;
+use App\Service\AssemblyAbsenteeVotingService;
 use App\Service\AssemblyQuorumService;
 use App\Service\AssemblyVotingService;
 use App\Service\GeneralAssemblyLifecycleService;
@@ -31,6 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Throwable;
 
 #[Route('/management/assembly')]
 final class GeneralAssemblyWorkbenchController extends AbstractController
@@ -42,6 +52,8 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
         private readonly AssemblyElectorateEntryRepository $electorateRepository,
         private readonly AssemblyVoteRepository $voteRepository,
         private readonly AssemblyVotingService $votingService,
+        private readonly AssemblyAbsenteeVotingService $absenteeVotingService,
+        private readonly DocumentRepository $documentRepository,
         private readonly GeneralAssemblyLifecycleService $lifecycleService,
         private readonly EntityManagerInterface $entityManager,
     ) {
@@ -54,6 +66,7 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
 
         $votesByItem = [];
         $resolutionsByItem = [];
+        $absenteeEligibleItems = [];
         foreach ($assembly->getAgendaItems() as $item) {
             $itemId = $item->getId();
             if (null === $itemId) {
@@ -64,7 +77,17 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
             if ($resolution instanceof AssemblyResolution) {
                 $resolutionsByItem[$itemId] = $resolution;
             }
+            if (
+                AgendaItemStatus::OPEN === $item->getStatus()
+                && AssemblyVoteDenominator::ELIGIBLE_ABSENTEE_UNIVERSE === $item->getMajorityRule()->getDenominator()
+            ) {
+                $absenteeEligibleItems[] = $item;
+            }
         }
+
+        $absenteeWindow = $this->entityManager
+            ->getRepository(AssemblyAbsenteeWindow::class)
+            ->findOneBy(['assembly' => $assembly]);
 
         return $this->render('management/assemblies/workbench.html.twig', [
             'assembly' => $assembly,
@@ -75,6 +98,13 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
             'votes_by_item' => $votesByItem,
             'resolutions_by_item' => $resolutionsByItem,
             'vote_choices' => AssemblyVoteChoice::cases(),
+            'absentee_window' => $absenteeWindow,
+            'absentee_eligible_items' => $absenteeEligibleItems,
+            'absentee_declarations' => $this->entityManager
+                ->getRepository(AssemblyAbsenteeDeclaration::class)
+                ->findBy(['assembly' => $assembly], ['submittedAt' => 'ASC', 'id' => 'ASC']),
+            'absentee_signature_modes' => AssemblyAbsenteeSignatureMode::cases(),
+            'governance_documents' => $this->documentRepository->findVisible([DocumentAccessLevel::GOVERNANCE]),
         ]);
     }
 
@@ -220,6 +250,112 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
         return $this->redirectWorkbench($assembly);
     }
 
+    #[Route('/{id<\d+>}/absentee/open', name: 'app_management_assembly_absentee_open', methods: ['POST'])]
+    public function openAbsenteeWindow(GeneralAssembly $assembly, Request $request): RedirectResponse
+    {
+        $actor = $this->denyUnlessManager();
+        $this->requireCsrf('assembly_absentee_open_'.$assembly->getId(), $request);
+
+        $itemIds = $request->request->all('agenda_item_ids');
+        if ([] === $itemIds) {
+            throw new BadRequestHttpException('At least one absentee agenda item is required.');
+        }
+
+        $items = [];
+        foreach ($itemIds as $itemId) {
+            if (!is_scalar($itemId) || !ctype_digit((string) $itemId)) {
+                throw new BadRequestHttpException('Invalid absentee agenda item.');
+            }
+            $items[] = $this->requireItem($assembly, (int) $itemId);
+        }
+
+        try {
+            $this->absenteeVotingService->openWindow(
+                $actor,
+                $assembly,
+                $items,
+                $this->nowUtc(),
+                $this->parseAssemblyLocalDateTime($assembly, $request->request->getString('deadline_at')),
+                $request->request->getString('legal_basis'),
+            );
+            $this->addFlash('success', 'Прозорецът за неприсъствено гласуване е отворен.');
+        } catch (DomainException|InvalidArgumentException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectWorkbench($assembly);
+    }
+
+    #[Route('/{id<\d+>}/absentee/{windowId<\d+>}/declaration', name: 'app_management_assembly_absentee_declaration', methods: ['POST'])]
+    public function registerAbsenteeDeclaration(
+        GeneralAssembly $assembly,
+        int $windowId,
+        Request $request,
+    ): RedirectResponse {
+        $actor = $this->denyUnlessManager();
+        $window = $this->requireAbsenteeWindow($assembly, $windowId);
+        $this->requireCsrf('assembly_absentee_declaration_'.$windowId, $request);
+
+        $entryId = $request->request->getString('electorate_entry_id');
+        $evidenceId = $request->request->getString('evidence_document_id');
+        if (!ctype_digit($entryId) || !ctype_digit($evidenceId)) {
+            throw new BadRequestHttpException('Invalid absentee declaration reference.');
+        }
+
+        $signatureMode = AssemblyAbsenteeSignatureMode::tryFrom($request->request->getString('signature_mode'));
+        if (!$signatureMode instanceof AssemblyAbsenteeSignatureMode) {
+            throw new BadRequestHttpException('Invalid absentee declaration signature mode.');
+        }
+
+        $choices = [];
+        foreach ($request->request->all('choices') as $itemId => $choiceValue) {
+            if (!ctype_digit((string) $itemId) || !is_scalar($choiceValue)) {
+                throw new BadRequestHttpException('Invalid absentee vote choice.');
+            }
+
+            $choice = AssemblyVoteChoice::tryFrom((string) $choiceValue);
+            if (!$choice instanceof AssemblyVoteChoice) {
+                throw new BadRequestHttpException('Invalid absentee vote choice.');
+            }
+            $choices[(int) $itemId] = $choice;
+        }
+
+        try {
+            $this->absenteeVotingService->registerDeclaration(
+                $actor,
+                $window,
+                $this->requireEntry($assembly, (int) $entryId),
+                $this->requireDocument((int) $evidenceId),
+                $signatureMode,
+                $choices,
+                $this->nowUtc(),
+                $request->request->getString('notes'),
+            );
+            $this->addFlash('success', 'Неприсъствената декларация и официалните гласове са записани.');
+        } catch (DomainException|InvalidArgumentException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectWorkbench($assembly);
+    }
+
+    #[Route('/{id<\d+>}/absentee/{windowId<\d+>}/close', name: 'app_management_assembly_absentee_close', methods: ['POST'])]
+    public function closeAbsenteeWindow(GeneralAssembly $assembly, int $windowId, Request $request): RedirectResponse
+    {
+        $actor = $this->denyUnlessManager();
+        $window = $this->requireAbsenteeWindow($assembly, $windowId);
+        $this->requireCsrf('assembly_absentee_close_'.$windowId, $request);
+
+        try {
+            $this->absenteeVotingService->closeWindow($actor, $window, $this->nowUtc());
+            $this->addFlash('success', 'Прозорецът за неприсъствено гласуване е приключен.');
+        } catch (DomainException|InvalidArgumentException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectWorkbench($assembly);
+    }
+
     private function denyUnlessManager(): User
     {
         $user = $this->getUser();
@@ -260,10 +396,45 @@ final class GeneralAssemblyWorkbenchController extends AbstractController
         return $vote;
     }
 
+    private function requireAbsenteeWindow(GeneralAssembly $assembly, int $windowId): AssemblyAbsenteeWindow
+    {
+        $window = $this->entityManager->find(AssemblyAbsenteeWindow::class, $windowId);
+        if (!$window instanceof AssemblyAbsenteeWindow || $window->getAssembly() !== $assembly) {
+            throw $this->createNotFoundException('General Assembly absentee voting window not found.');
+        }
+
+        return $window;
+    }
+
+    private function requireDocument(int $documentId): Document
+    {
+        $document = $this->entityManager->find(Document::class, $documentId);
+        if (!$document instanceof Document) {
+            throw $this->createNotFoundException('Absentee declaration evidence document not found.');
+        }
+
+        return $document;
+    }
+
     private function requireCsrf(string $tokenId, Request $request): void
     {
         if (!$this->isCsrfTokenValid($tokenId, $request->request->getString('_token'))) {
             throw new AccessDeniedHttpException('Invalid CSRF token.');
+        }
+    }
+
+    private function parseAssemblyLocalDateTime(GeneralAssembly $assembly, string $value): DateTimeImmutable
+    {
+        $value = trim($value);
+        if ('' === $value) {
+            throw new BadRequestHttpException('Absentee voting deadline is required.');
+        }
+
+        try {
+            return (new DateTimeImmutable($value, new DateTimeZone($assembly->getTimezoneSnapshot())))
+                ->setTimezone(new DateTimeZone('UTC'));
+        } catch (Throwable $exception) {
+            throw new BadRequestHttpException('Invalid absentee voting deadline.', $exception);
         }
     }
 
