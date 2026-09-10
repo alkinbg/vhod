@@ -12,9 +12,27 @@
 </section>
 
 <section class="grid">
-    <article class="card highlight"><span>Моето задължение</span><strong>—</strong><small>Финансовият модул е следващият етап.</small></article>
-    <article class="card"><span>Фонд „Ремонт и обновяване“</span><strong>—</strong></article>
-    <article class="card"><span>Активни сигнали</span><strong>0</strong></article>
+    <article class="card highlight">
+        <span>Моето салдо</span>
+        <strong>{{ (total_balance_cents / 100)|number_format(2, '.', '') }} €</strong>
+        <small>Общо за активните обекти, свързани с профила ви.</small>
+        <a class="button-link secondary-button" href="{{ path('app_book') }}">Моята книга</a>
+    </article>
+    <article class="card">
+        <span>Моите обекти</span>
+        <strong>{{ unit_balances|length }}</strong>
+        {% if unit_balances %}
+            <small>{% for row in unit_balances %}{% if not loop.first %}, {% endif %}{{ row.unit.designation }}{% endfor %}</small>
+        {% else %}
+            <small>Няма активен собственик/ползвател, свързан с профила.</small>
+        {% endif %}
+    </article>
+    <article class="card">
+        <span>Активни сигнали</span>
+        <strong data-testid="active-maintenance-count">{{ active_signal_count }}</strong>
+        <small>Отворени, в работа или изчакващи сигнали, подадени от вас.</small>
+        <a class="button-link secondary-button" href="{{ path('app_maintenance_index') }}">Поддръжка</a>
+    </article>
     <article class="card official-card general-assembly-dashboard-card">
         <span>Официално</span>
         <strong>Общи събрания</strong>
@@ -25,8 +43,9 @@
 
 <section class="columns">
     <article class="panel">
-        <div class="panel-title"><div><p class="eyebrow">Общност</p><h2>Какво обсъждат съседите</h2></div><span class="badge">Скоро</span></div>
-        <p class="muted">Публикации, идеи, взаимопомощ, анкети и събития — само за хората от входа.</p>
+        <div class="panel-title"><div><p class="eyebrow">Общност</p><h2>Какво обсъждат съседите</h2></div><span class="badge">Активно</span></div>
+        <p class="muted">Публикации, идеи и взаимопомощ между хората от входа.</p>
+        <a class="button-link secondary-button" href="{{ path('app_community_index') }}">Към общността</a>
     </article>
     {% set unreadCount = announcement_unread_count() %}
     <article class="panel official-dashboard-card official-card">
