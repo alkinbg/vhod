@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ново плащане · Финанси{% endblock %}
+
+{% block body %}
+<section class="page-header"><div><p class="eyebrow">Финансови операции</p><h1>Ново касово плащане</h1></div></section>
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('finance_payment_new') }}">
+    <label for="unit_id">Обект</label>
+    <select id="unit_id" name="unit_id" required>{% for unit in units %}<option value="{{ unit.id }}">{{ unit.designation }}</option>{% endfor %}</select>
+    <label for="amount">Сума (€)</label>
+    <input id="amount" name="amount" type="text" inputmode="decimal" value="{{ app.request.request.get('amount') }}" required>
+    <label for="received_at">Получено на</label>
+    <input id="received_at" name="received_at" type="date" value="{{ app.request.request.get('received_at') }}" required>
+    <label for="reference">Основание</label>
+    <input id="reference" name="reference" type="text" value="{{ app.request.request.get('reference') }}">
+    <label for="note">Бележка</label>
+    <textarea id="note" name="note">{{ app.request.request.get('note') }}</textarea>
+    <div class="actions"><button type="submit">Запиши плащане</button><a href="{{ path('app_management_finance_operations') }}">Отказ</a></div>
+</form>
+{% endblock %}
