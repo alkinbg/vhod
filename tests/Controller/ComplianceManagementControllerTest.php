@@ -62,7 +62,7 @@ final class ComplianceManagementControllerTest extends WebTestCase
         self::assertCount(0, $this->entityManager()->getRepository(CondominiumProfile::class)->findAll());
     }
 
-    public function testManagerCanCreateAndUpdateExternalRegistryProfile(): void
+    public function testManagerCanCreateAndUpdateRegistryMetadataWithoutReplacingExternalIdentifier(): void
     {
         $this->client->loginUser($this->user('manager'));
         $crawler = $this->client->request('GET', '/management/compliance');
@@ -84,8 +84,9 @@ final class ComplianceManagementControllerTest extends WebTestCase
         self::assertSame($this->userIds['manager'], $profiles[0]->getCreatedBy()->getId());
 
         $crawler = $this->client->request('GET', '/management/compliance');
+        self::assertSelectorExists('input[name="registry_identifier"][readonly]');
         $this->client->submit($crawler->selectButton('registry_submit')->form([
-            'registry_identifier' => 'EISES-RUSE-000999',
+            'registry_identifier' => 'EISES-RUSE-000123',
             'registry_parcel_number' => '',
             'registry_registered_at' => '2026-09-02',
         ]));
@@ -95,8 +96,27 @@ final class ComplianceManagementControllerTest extends WebTestCase
         /** @var list<CondominiumProfile> $profiles */
         $profiles = $entityManager->getRepository(CondominiumProfile::class)->findAll();
         self::assertCount(1, $profiles);
-        self::assertSame('EISES-RUSE-000999', $profiles[0]->getRegistryIdentifier());
+        self::assertSame('EISES-RUSE-000123', $profiles[0]->getRegistryIdentifier());
         self::assertNull($profiles[0]->getRegistryParcelNumber());
+        self::assertSame('2026-09-02', $profiles[0]->getRegistryRegisteredAt()?->format('Y-m-d'));
+
+        $crawler = $this->client->request('GET', '/management/compliance');
+        $form = $crawler->selectButton('registry_submit')->form();
+        $this->client->request('POST', '/management/compliance/registry', [
+            '_token' => $form->get('_token')->getValue(),
+            'registry_identifier' => 'EISES-RUSE-000999',
+            'registry_parcel_number' => 'FORBIDDEN-MUTATION',
+            'registry_registered_at' => '2026-09-03',
+        ]);
+        self::assertResponseStatusCodeSame(422);
+
+        $entityManager->clear();
+        /** @var list<CondominiumProfile> $profiles */
+        $profiles = $entityManager->getRepository(CondominiumProfile::class)->findAll();
+        self::assertCount(1, $profiles);
+        self::assertSame('EISES-RUSE-000123', $profiles[0]->getRegistryIdentifier());
+        self::assertNull($profiles[0]->getRegistryParcelNumber());
+        self::assertSame('2026-09-02', $profiles[0]->getRegistryRegisteredAt()?->format('Y-m-d'));
     }
 
     public function testManagerCanAppendMandateAndMonthlyCompletion(): void
