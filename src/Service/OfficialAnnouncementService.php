@@ -19,6 +19,7 @@ final readonly class OfficialAnnouncementService
     public function __construct(
         private EntityManagerInterface $entityManager,
         private DocumentAccessPolicy $accessPolicy,
+        private ?AuditLogService $auditLog = null,
     ) {}
 
     /** @param iterable<Document> $documents */
@@ -69,6 +70,15 @@ final readonly class OfficialAnnouncementService
                 foreach ($users as $user) {
                     $entityManager->persist(AnnouncementReceipt::record($announcement, $user, $publishedAt));
                 }
+
+                $this->auditLog?->record(
+                    $actor,
+                    'announcement.published',
+                    'OfficialAnnouncement',
+                    $announcement->getId(),
+                    $publishedAt,
+                    ['recipient_count' => count($users)],
+                );
             },
         );
     }
