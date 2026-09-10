@@ -155,27 +155,29 @@ final class AssemblyQuorumTimingServiceTest extends KernelTestCase
         self::assertSame(AssemblyLegalResult::VALID, $check->getResult());
     }
 
-    public function testNextEligibleDaySkipsOfficialHolidayAndFollowingNonWorkingDays(): void
+    public function testNextEligibleDaySkipsOfficialHolidayAndSubstituteNonWorkingDay(): void
     {
         self::assertTrue(defined(AssemblyQuorumCheckKind::class.'::NEXT_DAY_CALL'));
         $assembly = $this->convenedAssembly('2026-12-23T15:00:00Z');
 
-        try {
-            $this->service->check(
-                $this->manager,
-                $assembly,
-                AssemblyQuorumCheckKind::NEXT_DAY_CALL,
-                new DateTimeImmutable('2026-12-24T15:00:00Z'),
-            );
-            self::fail('A next-day quorum check must not be accepted on an official holiday.');
-        } catch (DomainException) {
+        foreach (['2026-12-24T15:00:00Z', '2026-12-28T15:00:00Z'] as $tooEarly) {
+            try {
+                $this->service->check(
+                    $this->manager,
+                    $assembly,
+                    AssemblyQuorumCheckKind::NEXT_DAY_CALL,
+                    new DateTimeImmutable($tooEarly),
+                );
+                self::fail('A next-day quorum check must not be accepted on a statutory non-working day.');
+            } catch (DomainException) {
+            }
         }
 
         $check = $this->service->check(
             $this->manager,
             $assembly,
             AssemblyQuorumCheckKind::NEXT_DAY_CALL,
-            new DateTimeImmutable('2026-12-28T15:00:00Z'),
+            new DateTimeImmutable('2026-12-29T15:00:00Z'),
         );
 
         self::assertSame(AssemblyLegalResult::VALID, $check->getResult());
