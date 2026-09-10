@@ -42,6 +42,7 @@ final readonly class BookChangeApplicationService
             match ($declaration->getType()) {
                 BookChangeType::CONTACT_UPDATE => $this->applyContactUpdate($declaration),
                 BookChangeType::HOUSEHOLD_MEMBER_ADD => $this->applyHouseholdMember($declaration, $entityManager),
+                BookChangeType::HOUSEHOLD_MEMBER_END => $this->applyHouseholdMemberEnd($declaration),
                 BookChangeType::ABSENCE => $this->applyAbsence($declaration, $entityManager),
                 BookChangeType::ANIMAL => $this->applyAnimal($declaration, $entityManager),
             };
@@ -95,6 +96,26 @@ final readonly class BookChangeApplicationService
         $entityManager->persist(new HouseholdMember($person, $relation, $validFrom));
     }
 
+    private function applyHouseholdMemberEnd(BookChangeDeclaration $declaration): void
+    {
+        $payload = $declaration->getPayload();
+        $memberId = self::requiredPositiveInt($payload, 'memberId');
+        $validUntil = self::requiredDate($payload, 'validUntil');
+        $member = $this->entityManager->find(HouseholdMember::class, $memberId);
+
+        if (!$member instanceof HouseholdMember || !self::sameUnit($member->getRelation()->getUnit(), $declaration->getUnit())) {
+            throw new DomainException('Household member is not available for the selected unit.');
+        }
+        if (null !== $member->getValidUntil()) {
+            throw new DomainException('Household membership has already ended.');
+        }
+        if ($validUntil < $member->getValidFrom()) {
+            throw new DomainException('Household membership cannot end before it starts.');
+        }
+
+        $member->endAt($validUntil);
+    }
+
     private function applyAbsence(BookChangeDeclaration $declaration, EntityManagerInterface $entityManager): void
     {
         $payload = $declaration->getPayload();
@@ -110,12 +131,22 @@ final readonly class BookChangeApplicationService
     private function applyAnimal(BookChangeDeclaration $declaration, EntityManagerInterface $entityManager): void
     {
         $payload = $declaration->getPayload();
+        $validFrom = array_key_exists('validFrom', $payload)
+            ? self::requiredDate($payload, 'validFrom')
+            : self::dateOnly($declaration->getSubmittedAt());
+        $validUntil = self::optionalDate($payload, 'validUntil');
+
+        if (null !== $validUntil && $validUntil < $validFrom) {
+            throw new DomainException('Animal registration cannot end before it starts.');
+        }
 
         $entityManager->persist(new AnimalRegistration(
             $declaration->getUnit(),
             self::requiredString($payload, 'species'),
             self::requiredPositiveInt($payload, 'count'),
             self::optionalString($payload, 'passport'),
+            $validFrom,
+            $validUntil,
         ));
     }
 
@@ -217,5 +248,17 @@ final readonly class BookChangeApplicationService
     private static function dateOnly(DateTimeImmutable $date): DateTimeImmutable
     {
         return $date->setTime(0, 0);
+    }
+
+    private static function sameUnit(Unit $left, Unit $right): bool
+    {
+        if ($left === $right) {
+            return true;
+        }
+
+        $leftId = $left->getId();
+        $rightId = $right->getId();
+
+        return null !== $leftId && null !== $rightId && $leftId === $rightId;
     }
 }
