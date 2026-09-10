@@ -18,6 +18,7 @@ use App\Enum\FundType;
 use App\Enum\UnitRelationType;
 use App\Service\MonthlyChargeGenerator;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -46,7 +47,7 @@ final class MonthlyChargeHistoricalOccupancyTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function testMonthlyChargesUseOccupancyAndAnimalsEffectiveForBillingMonth(): void
+    public function testMonthlyChargesUseOccupancyAndAnimalsEffectiveForBillingMonthAcrossTimezones(): void
     {
         $fund = new Fund('operating-history', 'Текуща поддръжка', FundType::OPERATING);
         $policy = FeePolicy::create(
@@ -56,7 +57,7 @@ final class MonthlyChargeHistoricalOccupancyTest extends KernelTestCase
             FeeCategory::MANAGEMENT_MAINTENANCE,
             FeeDistribution::PER_PERSON,
             300,
-            new DateTimeImmutable('2026-01-01'),
+            new DateTimeImmutable('2026-08-01T00:00:00Z'),
             'ОС 01/2026, т. 7',
             includeAnimalEquivalents: true,
         );
@@ -67,17 +68,17 @@ final class MonthlyChargeHistoricalOccupancyTest extends KernelTestCase
             $owner,
             $unit,
             UnitRelationType::OWNER,
-            new DateTimeImmutable('2026-01-01'),
+            new DateTimeImmutable('2026-08-01T00:00:00Z'),
             '100.0000',
         );
-        $member = new HouseholdMember($memberPerson, $ownerRelation, new DateTimeImmutable('2026-01-01'));
-        $member->endAt(new DateTimeImmutable('2026-08-31'));
+        $member = new HouseholdMember($memberPerson, $ownerRelation, new DateTimeImmutable('2026-08-01T00:00:00Z'));
+        $member->endAt(new DateTimeImmutable('2026-08-31T00:00:00Z'));
         $animals = new AnimalRegistration(
             $unit,
             'котки',
             2,
             null,
-            new DateTimeImmutable('2026-09-01'),
+            new DateTimeImmutable('2026-09-01T00:00:00Z'),
         );
 
         foreach ([$fund, $policy, $unit, $owner, $memberPerson, $ownerRelation, $member, $animals] as $entity) {
@@ -85,9 +86,10 @@ final class MonthlyChargeHistoricalOccupancyTest extends KernelTestCase
         }
         $this->entityManager->flush();
 
+        $sofia = new DateTimeZone('Europe/Sofia');
         $generator = new MonthlyChargeGenerator($this->entityManager);
-        $generator->generate(new DateTimeImmutable('2026-08-15'), new DateTimeImmutable('2026-08-15T08:00:00Z'));
-        $generator->generate(new DateTimeImmutable('2026-09-15'), new DateTimeImmutable('2026-09-15T08:00:00Z'));
+        $generator->generate(new DateTimeImmutable('2026-08-15', $sofia), new DateTimeImmutable('2026-08-15T08:00:00Z'));
+        $generator->generate(new DateTimeImmutable('2026-09-15', $sofia), new DateTimeImmutable('2026-09-15T08:00:00Z'));
 
         $august = $this->entityManager->getRepository(Charge::class)->findOneBy([
             'policy' => $policy,
