@@ -12,10 +12,12 @@ use App\Enum\GeneralAssemblyStatus;
 use App\Repository\GeneralAssemblyRepository;
 use App\Security\GeneralAssemblyAccessPolicy;
 use App\Service\AssemblyInvitationService;
+use App\Service\AssemblyMinutesService;
 use App\Service\DocumentService;
 use App\Service\GeneralAssemblyService;
 use DateTimeImmutable;
 use DateTimeZone;
+use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 use InvalidArgumentException;
 use LogicException;
@@ -36,6 +38,8 @@ final class GeneralAssemblyManagementController extends AbstractController
         private readonly GeneralAssemblyService $assemblyService,
         private readonly AssemblyInvitationService $invitationService,
         private readonly DocumentService $documentService,
+        private readonly AssemblyMinutesService $minutesService,
+        private readonly EntityManagerInterface $entityManager,
     ) {}
 
     #[Route('/management/assemblies', name: 'app_management_assemblies', methods: ['GET'])]
@@ -83,7 +87,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         return $this->renderForm(null, 'assembly_create', $error, $status, $request);
     }
 
-    #[Route('/management/assembly/{id}/edit', name: 'app_management_assembly_edit', requirements: ['id' => '\\d+'], methods: ['GET', 'POST'])]
+    #[Route('/management/assembly/{id}/edit', name: 'app_management_assembly_edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -130,7 +134,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         return $this->renderForm($assembly, 'assembly_edit_'.$id, $error, $status, $request);
     }
 
-    #[Route('/management/assembly/{id}/convene', name: 'app_management_assembly_convene', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    #[Route('/management/assembly/{id}/convene', name: 'app_management_assembly_convene', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function convene(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -147,7 +151,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         }
     }
 
-    #[Route('/management/assembly/{id}/posting', name: 'app_management_assembly_posting', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    #[Route('/management/assembly/{id}/posting', name: 'app_management_assembly_posting', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function posting(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -184,6 +188,57 @@ final class GeneralAssemblyManagementController extends AbstractController
         } catch (InvalidArgumentException|DomainException|LogicException $exception) {
             return $this->renderIndex($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+    }
+
+    #[Route('/management/assembly/{id}/minutes', name: 'app_management_assembly_minutes', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function minutes(int $id): Response
+    {
+        $this->requireManager();
+        $assembly = $this->requireAssembly($id);
+
+        return $this->render(
+            'management/assemblies/minutes_preview.html.twig',
+            $this->minutesService->buildViewModel($assembly),
+        );
+    }
+
+    #[Route('/management/assembly/{id}/minutes/metadata', name: 'app_management_assembly_minutes_metadata', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function minutesMetadata(int $id, Request $request): Response
+    {
+        $this->requireManager();
+        $this->requireCsrf('assembly_minutes_metadata_'.$id, $request);
+        $assembly = $this->requireAssembly($id);
+
+        try {
+            $assembly->setMinutesMetadata(
+                $request->request->getString('chairperson_name'),
+                $request->request->getString('secretary_name'),
+                $request->request->getString('formal_notes'),
+            );
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Данните за протокола са обновени.');
+        } catch (InvalidArgumentException|DomainException|LogicException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectToRoute('app_management_assembly_minutes', ['id' => $id]);
+    }
+
+    #[Route('/management/assembly/{id}/minutes/finalize', name: 'app_management_assembly_minutes_finalize', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function finalizeMinutes(int $id, Request $request): Response
+    {
+        $actor = $this->requireManager();
+        $this->requireCsrf('assembly_minutes_finalize_'.$id, $request);
+        $assembly = $this->requireAssembly($id);
+
+        try {
+            $this->minutesService->finalize($actor, $assembly, $this->nowUtc());
+            $this->addFlash('success', 'Протоколът е финализиран и публикуван за живущите.');
+        } catch (InvalidArgumentException|DomainException|LogicException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+
+        return $this->redirectToRoute('app_management_assembly_minutes', ['id' => $id]);
     }
 
     private function renderIndex(?string $error = null, int $status = Response::HTTP_OK): Response
@@ -254,7 +309,7 @@ final class GeneralAssemblyManagementController extends AbstractController
     private function parseLocalDateTime(string $value): DateTimeImmutable
     {
         $timezone = new DateTimeZone(self::LOCAL_TIMEZONE);
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i', $value, $timezone);
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, $timezone);
         $errors = DateTimeImmutable::getLastErrors();
         if (!$date instanceof DateTimeImmutable || (false !== $errors && (0 < $errors['warning_count'] || 0 < $errors['error_count']))) {
             throw new InvalidArgumentException('Невалидни дата и час.');
