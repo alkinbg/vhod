@@ -24,9 +24,6 @@ server {
     limit_req_status 429;
 
     # Enforce transport/browser protections at the edge as well as in Symfony.
-    # Hide any upstream copy first so clients receive one deterministic value.
-    proxy_hide_header Strict-Transport-Security;
-    proxy_hide_header X-Content-Type-Options;
     add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Content-Type-Options "nosniff" always;
 
@@ -51,6 +48,11 @@ server {
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         fastcgi_param DOCUMENT_ROOT $realpath_root;
+
+        # Symfony emits these too; suppress its FastCGI copies so the edge values
+        # above remain deterministic instead of being duplicated.
+        fastcgi_hide_header Strict-Transport-Security;
+        fastcgi_hide_header X-Content-Type-Options;
         internal;
     }
 
