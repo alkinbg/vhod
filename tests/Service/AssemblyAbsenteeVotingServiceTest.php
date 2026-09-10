@@ -7,6 +7,7 @@ namespace App\Tests\Service;
 use App\Entity\AssemblyAbsenteeDeclaration;
 use App\Entity\AssemblyAbsenteeWindow;
 use App\Entity\AssemblyElectorateEntry;
+use App\Entity\AssemblyQuorumCheck;
 use App\Entity\AssemblyResolution;
 use App\Entity\AssemblyVote;
 use App\Entity\Document;
@@ -18,7 +19,9 @@ use App\Enum\AgendaItemStatus;
 use App\Enum\AssemblyAbsenteeSignatureMode;
 use App\Enum\AssemblyConveningBasis;
 use App\Enum\AssemblyDecisionKind;
+use App\Enum\AssemblyLegalResult;
 use App\Enum\AssemblyPrincipalType;
+use App\Enum\AssemblyQuorumCheckKind;
 use App\Enum\AssemblyResolutionResult;
 use App\Enum\AssemblyVoteCastMode;
 use App\Enum\AssemblyVoteChoice;
@@ -30,6 +33,7 @@ use App\Security\GeneralAssemblyAccessPolicy;
 use App\Service\AssemblyAbsenteeVotingService;
 use App\Service\AssemblyVotingService;
 use App\Value\AssemblyMajorityRuleSnapshot;
+use App\Value\AssemblyQuorumCalculation;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -268,6 +272,7 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
             [$item->getId() => AssemblyVoteChoice::FOR],
             new DateTimeImmutable('2026-09-09T16:15:00Z'),
         );
+        $this->persistValidQuorum();
         $this->service->closeWindow($this->manager, $window, new DateTimeImmutable('2026-09-09T16:30:00Z'));
 
         self::assertNotNull($window->getClosedAt());
@@ -332,5 +337,24 @@ final class AssemblyAbsenteeVotingServiceTest extends KernelTestCase
                 '2026-09-09',
             ),
         );
+    }
+
+    private function persistValidQuorum(): void
+    {
+        $check = AssemblyQuorumCheck::record(
+            $this->assembly,
+            AssemblyQuorumCheckKind::FIRST_CALL,
+            new DateTimeImmutable('2026-09-09T14:00:30Z'),
+            new AssemblyQuorumCalculation(
+                '100',
+                '51',
+                'absentee-test-valid-quorum',
+                AssemblyLegalResult::VALID,
+                'Valid meeting quorum prerequisite for absentee resolution.',
+            ),
+            $this->manager,
+        );
+        $this->em->persist($check);
+        $this->em->flush();
     }
 }
