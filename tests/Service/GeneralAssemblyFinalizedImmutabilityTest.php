@@ -90,7 +90,7 @@ final class GeneralAssemblyFinalizedImmutabilityTest extends KernelTestCase
             '2026-09-09',
             false,
         ));
-        $this->assembly->addAgendaItem(
+        $agendaItem = $this->assembly->addAgendaItem(
             1,
             'Запазена точка',
             null,
@@ -167,6 +167,7 @@ final class GeneralAssemblyFinalizedImmutabilityTest extends KernelTestCase
             $firstUnit,
             $secondUnit,
             $this->assembly,
+            $agendaItem,
             $this->attendanceEntry,
             $this->proxyEntry,
             $this->proxyEvidence,
