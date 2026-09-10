@@ -7,6 +7,7 @@ namespace App\Service;
 use App\Entity\Payment;
 use App\Entity\PaymentAllocation;
 use App\Entity\PaymentReversal;
+use App\Entity\User;
 use App\Value\PaymentReversalResult;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,20 +15,23 @@ use DomainException;
 
 final readonly class PaymentReversalService
 {
-    public function __construct(private EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private ?AuditLogService $auditLog = null,
+    ) {
     }
 
     public function reverse(
         Payment $payment,
         string $reason,
         DateTimeImmutable $reversedAt,
+        ?User $actor = null,
     ): PaymentReversalResult {
         if (null === $payment->getId()) {
             throw new DomainException('Only a persisted payment can be reversed.');
         }
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($payment, $reason, $reversedAt): PaymentReversalResult {
+        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($payment, $reason, $reversedAt, $actor): PaymentReversalResult {
             $existing = $entityManager->getRepository(PaymentReversal::class)->findOneBy(['payment' => $payment]);
             if ($existing instanceof PaymentReversal) {
                 throw new DomainException('Payment has already been reversed.');
@@ -47,6 +51,18 @@ final readonly class PaymentReversalService
             );
             $entityManager->persist($reversal);
             $entityManager->flush();
+            $this->auditLog?->record(
+                $actor,
+                'finance.payment.reversed',
+                'Payment',
+                $payment->getId(),
+                $reversedAt,
+                [
+                    'reversal_id' => $reversal->getId(),
+                    'amount_cents' => $payment->getAmountCents(),
+                    'allocated_cents' => $allocatedCents,
+                ],
+            );
 
             return new PaymentReversalResult(
                 $reversal,
