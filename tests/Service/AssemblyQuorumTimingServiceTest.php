@@ -108,7 +108,7 @@ final class AssemblyQuorumTimingServiceTest extends KernelTestCase
             $this->manager,
             $assembly,
             AssemblyQuorumCheckKind::NEXT_DAY_CALL,
-            new DateTimeImmutable('2026-09-22T14:59:59Z'),
+            new DateTimeImmutable('2026-09-23T14:59:59Z'),
         );
     }
 
@@ -117,11 +117,12 @@ final class AssemblyQuorumTimingServiceTest extends KernelTestCase
         self::assertTrue(defined(AssemblyQuorumCheckKind::class.'::NEXT_DAY_CALL'));
         $assembly = $this->convenedAssembly('2026-09-21T15:00:00Z');
 
+        // 22 September is an official Bulgarian holiday, so the next eligible day is 23 September.
         $check = $this->service->check(
             $this->manager,
             $assembly,
             AssemblyQuorumCheckKind::NEXT_DAY_CALL,
-            new DateTimeImmutable('2026-09-22T15:00:00Z'),
+            new DateTimeImmutable('2026-09-23T15:00:00Z'),
         );
 
         self::assertSame('0.00000000', $check->getRequiredIdealPartsPercent());
