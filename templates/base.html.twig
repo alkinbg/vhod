@@ -31,6 +31,7 @@
                 {% endif %}
                 {% if is_granted('ROLE_CONTROLLER') or is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
                     <a class="nav-management-link" href="{{ path('app_management_assemblies') }}">Управление на ОС</a>
+                    <a class="nav-management-link" href="{{ path('app_management_compliance') }}">Съответствие</a>
                 {% endif %}
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_community_moderation') }}">Модерация</a>
