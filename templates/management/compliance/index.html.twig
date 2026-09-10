@@ -55,7 +55,10 @@
                 <form method="post" action="{{ path('app_management_compliance_registry') }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('compliance_registry') }}">
                     <label for="registry_identifier">ЕИСС идентификатор</label>
-                    <input id="registry_identifier" name="registry_identifier" maxlength="120" value="{{ profile ? profile.registryIdentifier : '' }}">
+                    <input id="registry_identifier" name="registry_identifier" maxlength="120" value="{{ profile ? profile.registryIdentifier : '' }}"{% if profile and profile.registryIdentifier %} readonly aria-readonly="true"{% endif %}>
+                    {% if profile and profile.registryIdentifier %}
+                        <p class="muted">Външно присвоеният идентификатор е фиксиран след записването му.</p>
+                    {% endif %}
                     <label for="registry_parcel_number">Партида / референция</label>
                     <input id="registry_parcel_number" name="registry_parcel_number" maxlength="120" value="{{ profile ? profile.registryParcelNumber : '' }}">
                     <label for="registry_registered_at">Дата на вписване</label>
