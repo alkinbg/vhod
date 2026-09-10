@@ -101,7 +101,7 @@ class FeePolicyUnitRule
         if ($effectiveUntil->format('Y-m-d') !== $effectiveUntil->format('Y-m-t')) {
             throw new InvalidArgumentException('Rule effective-until date must be the last day of a month.');
         }
-        if ($effectiveUntil < $this->effectiveFrom) {
+        if ($effectiveUntil->format('Y-m-d') < $this->effectiveFrom->format('Y-m-d')) {
             throw new InvalidArgumentException('Rule cannot end before it starts.');
         }
 
@@ -110,8 +110,10 @@ class FeePolicyUnitRule
 
     public function isEffectiveFor(DateTimeImmutable $billingMonth): bool
     {
-        return $billingMonth >= $this->effectiveFrom
-            && (null === $this->effectiveUntil || $billingMonth <= $this->effectiveUntil);
+        $billingDate = $billingMonth->format('Y-m-d');
+
+        return $billingDate >= $this->effectiveFrom->format('Y-m-d')
+            && (null === $this->effectiveUntil || $billingDate <= $this->effectiveUntil->format('Y-m-d'));
     }
 
     private static function normalizeMultiplier(string $value): string
