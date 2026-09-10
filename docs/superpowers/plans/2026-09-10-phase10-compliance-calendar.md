@@ -88,17 +88,18 @@
 - `ComplianceAccessPolicy::canManageRegistry(User $user): bool`: manager or admin.
 - `ComplianceAccessPolicy::canRecordMandate(User $user): bool`: manager or admin.
 - `ComplianceAccessPolicy::canRecordMonthlyReport(User $user): bool`: manager or admin.
-- `ComplianceAccessPolicy::canRecordAnnualAudit(User $user): bool`: controller or admin.
-- `ComplianceRegistryService::profile(): CondominiumProfile` creates the singleton profile lazily and safely if absent.
+- `ComplianceAccessPolicy::canRecordAnnualAudit(User $user): bool`: manager, controller or admin. The actor records that the audit occurred; this does not imply the actor personally performed the statutory check.
+- `ComplianceRegistryService::profile(): ?CondominiumProfile` is read-only and never mutates on GET.
+- `ComplianceRegistryService::updateRegistryData(...)` creates the singleton profile only during the explicit registry POST when it does not yet exist.
 - `ComplianceRegistryService::recordMandate(...)` and `recordCompletion(...)` wrap writes in Doctrine transactions and reject unauthorized actors.
 
 **HTTP surface:**
-- `GET /management/compliance` — view current registry data, mandate history, completion history, and unified reminders.
-- `POST /management/compliance/registry` — update external registry identity.
+- `GET /management/compliance` — view current registry data, mandate history, completion history, and unified reminders; it must not create database rows.
+- `POST /management/compliance/registry` — create/update external registry identity.
 - `POST /management/compliance/mandate` — append a mandate.
 - `POST /management/compliance/completion` — append a monthly report or annual audit completion.
 
-- [ ] **Step 1: Write functional tests for anonymous/resident/cashier/manager/controller/admin role matrix, each mutation's valid and invalid CSRF path, duplicate completion rejection, no mutation on rejected requests, and the reminder output rendered from persisted data.**
+- [ ] **Step 1: Write functional tests for anonymous/resident/cashier/manager/controller/admin role matrix, GET-no-mutation, each mutation's valid and invalid CSRF path, duplicate completion rejection, no mutation on rejected requests, and the reminder output rendered from persisted data.**
 - [ ] **Step 2: Run the controller test and verify RED.**
 - [ ] **Step 3: Implement policy, transactional service, controller and Twig view.** Use explicit hidden CSRF tokens per action and show forms only when the current role has the corresponding capability.
 - [ ] **Step 4: Add one navigation entry `Съответствие` only for manager/controller/admin.**
