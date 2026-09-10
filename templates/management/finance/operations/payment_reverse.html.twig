@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Сторниране на плащане · Финанси{% endblock %}
+
+{% block body %}
+<section class="page-header"><div><p class="eyebrow">Финансови операции</p><h1>Сторниране на плащане</h1><p>Обект {{ payment.unit.designation }} · {{ (payment.amountCents / 100)|number_format(2, '.', '') }} €</p></div></section>
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+<p>Оригиналното плащане и разпределенията му остават в историята. Сторнирането се записва отделно.</p>
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('finance_payment_reverse_' ~ payment.id) }}">
+    <label for="reason">Причина</label>
+    <textarea id="reason" name="reason" required>{{ app.request.request.get('reason') }}</textarea>
+    <div class="actions"><button type="submit">Сторнирай плащането</button><a href="{{ path('app_management_finance_operations') }}">Отказ</a></div>
+</form>
+{% endblock %}
