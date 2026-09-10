@@ -1,0 +1,161 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Съответствие · Vhod{% endblock %}
+
+{% block body %}
+    <section class="hero">
+        <div>
+            <p class="eyebrow">Управление</p>
+            <h1>Съответствие</h1>
+            <p class="muted">Регистрационни данни, мандати и календар на повтарящите се задължения.</p>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <p class="eyebrow">Календар</p>
+                <h2>Предстоящи и просрочени действия</h2>
+            </div>
+            <span class="badge">{{ reminders|length }}</span>
+        </div>
+
+        {% if reminders is empty %}
+            <p class="muted">Няма активни напомняния.</p>
+        {% else %}
+            <ul class="compact-list">
+                {% for reminder in reminders %}
+                    <li>
+                        <span>
+                            <strong>{{ reminder.type.labelBg() }}</strong><br>
+                            <span class="muted">{{ reminder.subject }}</span>
+                        </span>
+                        <span>{{ reminder.dueAt|date('d.m.Y') }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+
+    <div class="columns" style="margin-top: 16px;">
+        <section class="panel">
+            <p class="eyebrow">ЕИСС</p>
+            <h2>Регистрационни данни</h2>
+            {% if profile %}
+                <ul class="compact-list">
+                    <li><span>Идентификатор</span><strong>{{ profile.registryIdentifier ?? '—' }}</strong></li>
+                    <li><span>Партида / референция</span><strong>{{ profile.registryParcelNumber ?? '—' }}</strong></li>
+                    <li><span>Дата на вписване</span><strong>{{ profile.registryRegisteredAt ? profile.registryRegisteredAt|date('d.m.Y') : '—' }}</strong></li>
+                </ul>
+            {% else %}
+                <p class="muted">Все още няма въведени регистрационни данни. Vhod не генерира ЕИСС идентификатор — записва само външно присвоения код.</p>
+            {% endif %}
+
+            {% if canManageRegistry %}
+                <form method="post" action="{{ path('app_management_compliance_registry') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('compliance_registry') }}">
+                    <label for="registry_identifier">ЕИСС идентификатор</label>
+                    <input id="registry_identifier" name="registry_identifier" maxlength="120" value="{{ profile ? profile.registryIdentifier : '' }}">
+                    <label for="registry_parcel_number">Партида / референция</label>
+                    <input id="registry_parcel_number" name="registry_parcel_number" maxlength="120" value="{{ profile ? profile.registryParcelNumber : '' }}">
+                    <label for="registry_registered_at">Дата на вписване</label>
+                    <input id="registry_registered_at" type="date" name="registry_registered_at" value="{{ profile and profile.registryRegisteredAt ? profile.registryRegisteredAt|date('Y-m-d') : '' }}">
+                    <button type="submit" name="registry_submit">Запази регистрационните данни</button>
+                </form>
+            {% endif %}
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">Управление</p>
+            <h2>История на мандатите</h2>
+            {% if mandates is empty %}
+                <p class="muted">Няма записани мандати.</p>
+            {% else %}
+                <ul class="compact-list">
+                    {% for mandate in mandates %}
+                        <li>
+                            <span>
+                                <strong>{{ mandate.holderLabel }}</strong><br>
+                                <span class="muted">{{ mandate.kind.labelBg() }}</span>
+                            </span>
+                            <span>{{ mandate.startsAt|date('d.m.Y') }} – {{ mandate.endsAt|date('d.m.Y') }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if canRecordMandate %}
+                <form method="post" action="{{ path('app_management_compliance_mandate') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('compliance_mandate') }}">
+                    <label for="mandate_kind">Вид</label>
+                    <select id="mandate_kind" name="kind" required>
+                        {% for kind in mandateKinds %}
+                            <option value="{{ kind.value }}">{{ kind.labelBg() }}</option>
+                        {% endfor %}
+                    </select>
+                    <label for="holder_label">Управител / орган</label>
+                    <input id="holder_label" name="holder_label" maxlength="180" required>
+                    <label for="starts_at">Начало</label>
+                    <input id="starts_at" type="date" name="starts_at" required>
+                    <label for="ends_at">Край</label>
+                    <input id="ends_at" type="date" name="ends_at" required>
+                    <label for="mandate_note">Бележка</label>
+                    <textarea id="mandate_note" name="note" rows="3"></textarea>
+                    <button type="submit" name="mandate_submit">Добави мандат</button>
+                </form>
+            {% endif %}
+        </section>
+    </div>
+
+    <section class="panel" style="margin-top: 16px;">
+        <p class="eyebrow">Периодични задължения</p>
+        <h2>Изпълнени действия</h2>
+        {% if completions is empty %}
+            <p class="muted">Няма записана история.</p>
+        {% else %}
+            <ul class="compact-list">
+                {% for completion in completions %}
+                    <li>
+                        <span>
+                            <strong>{{ completion.type.labelBg() }}</strong><br>
+                            <span class="muted">Период: {{ completion.periodKey }}{% if completion.note %} · {{ completion.note }}{% endif %}</span>
+                        </span>
+                        <span>{{ completion.completedAt|date('d.m.Y') }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="columns">
+            {% if canRecordMonthlyReport %}
+                <form method="post" action="{{ path('app_management_compliance_completion') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('compliance_completion_monthly_report') }}">
+                    <input type="hidden" name="type" value="monthly_report">
+                    <h2>Месечен отчет</h2>
+                    <label for="monthly_period_key">Период</label>
+                    <input id="monthly_period_key" type="month" name="period_key" value="{{ defaultMonthlyPeriod }}" required>
+                    <label for="monthly_completed_at">Изпълнено на</label>
+                    <input id="monthly_completed_at" type="date" name="completed_at" required>
+                    <label for="monthly_note">Бележка</label>
+                    <textarea id="monthly_note" name="note" rows="3"></textarea>
+                    <button type="submit" name="completion_monthly_submit">Запиши месечен отчет</button>
+                </form>
+            {% endif %}
+
+            {% if canRecordAnnualAudit %}
+                <form method="post" action="{{ path('app_management_compliance_completion') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('compliance_completion_annual_cash_audit') }}">
+                    <input type="hidden" name="type" value="annual_cash_audit">
+                    <h2>Годишна проверка на касата</h2>
+                    <label for="annual_period_key">Година</label>
+                    <input id="annual_period_key" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" name="period_key" value="{{ defaultAnnualPeriod }}" required>
+                    <label for="annual_completed_at">Изпълнено на</label>
+                    <input id="annual_completed_at" type="date" name="completed_at" required>
+                    <label for="annual_note">Бележка / протокол</label>
+                    <textarea id="annual_note" name="note" rows="3"></textarea>
+                    <button type="submit" name="completion_annual_submit">Запиши годишна проверка</button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}
