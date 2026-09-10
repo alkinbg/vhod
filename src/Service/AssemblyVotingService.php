@@ -40,6 +40,7 @@ final readonly class AssemblyVotingService
         private AssemblyVoteRepository $voteRepository,
         private AssemblyQuorumService $quorumService,
         private AssemblyResolutionCalculator $resolutionCalculator,
+        private ?AuditLogService $auditLog = null,
     ) {
     }
 
@@ -165,6 +166,18 @@ final readonly class AssemblyVotingService
             $correction = AssemblyVoteCorrection::record($vote, $previousChoice, $newChoice, $reason, $actor, $changedAt);
             $vote->correctChoice($newChoice);
             $this->entityManager->persist($correction);
+            $this->auditLog?->record(
+                $actor,
+                'assembly.vote.corrected',
+                'AssemblyVote',
+                $vote->getId(),
+                $changedAt,
+                [
+                    'previous_choice' => $previousChoice->value,
+                    'new_choice' => $newChoice->value,
+                    'agenda_item_id' => $item->getId(),
+                ],
+            );
             $this->entityManager->flush();
             $this->entityManager->commit();
 
@@ -194,6 +207,7 @@ final readonly class AssemblyVotingService
             $this->assertVotingOpen($item);
 
             $resolution = $this->createResolution($actor, $item, $resolvedAt);
+            $this->recordResolutionAudit($actor, $item, $resolution, $resolvedAt);
             $this->entityManager->flush();
             $this->entityManager->commit();
 
@@ -222,8 +236,10 @@ final readonly class AssemblyVotingService
         }
 
         $this->assertAbsenteeVotingOpen($item);
+        $resolution = $this->createResolution($actor, $item, $resolvedAt);
+        $this->recordResolutionAudit($actor, $item, $resolution, $resolvedAt);
 
-        return $this->createResolution($actor, $item, $resolvedAt);
+        return $resolution;
     }
 
     private function createResolution(
@@ -267,6 +283,25 @@ final readonly class AssemblyVotingService
         $item->resolve($resolvedAt);
 
         return $resolution;
+    }
+
+    private function recordResolutionAudit(
+        User $actor,
+        AssemblyAgendaItem $item,
+        AssemblyResolution $resolution,
+        DateTimeImmutable $resolvedAt,
+    ): void {
+        $this->auditLog?->record(
+            $actor,
+            'assembly.resolution.recorded',
+            'AssemblyAgendaItem',
+            $item->getId(),
+            $resolvedAt,
+            [
+                'assembly_id' => $item->getAssembly()->getId(),
+                'result' => $resolution->getResult()->value,
+            ],
+        );
     }
 
     private function findResolution(AssemblyAgendaItem $item): ?AssemblyResolution
