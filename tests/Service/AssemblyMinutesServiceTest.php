@@ -29,6 +29,7 @@ use App\Repository\AssemblyQuorumCheckRepository;
 use App\Repository\AssemblyVoteRepository;
 use App\Security\GeneralAssemblyAccessPolicy;
 use App\Service\AssemblyMinutesService;
+use App\Service\AssemblyQuorumBasisGuard;
 use App\Service\DocumentService;
 use App\Service\DocumentStorage;
 use App\Value\AssemblyMajorityRuleSnapshot;
@@ -64,6 +65,7 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
         $twig = self::getContainer()->get('twig');
         $accessPolicy = self::getContainer()->get(GeneralAssemblyAccessPolicy::class);
         $quorumChecks = self::getContainer()->get(AssemblyQuorumCheckRepository::class);
+        $quorumBasisGuard = self::getContainer()->get(AssemblyQuorumBasisGuard::class);
         $attendance = self::getContainer()->get(AssemblyAttendanceRepository::class);
         $proxies = self::getContainer()->get(AssemblyProxyRepository::class);
         $electorate = self::getContainer()->get(AssemblyElectorateEntryRepository::class);
@@ -73,6 +75,7 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
         self::assertInstanceOf(Environment::class, $twig);
         self::assertInstanceOf(GeneralAssemblyAccessPolicy::class, $accessPolicy);
         self::assertInstanceOf(AssemblyQuorumCheckRepository::class, $quorumChecks);
+        self::assertInstanceOf(AssemblyQuorumBasisGuard::class, $quorumBasisGuard);
         self::assertInstanceOf(AssemblyAttendanceRepository::class, $attendance);
         self::assertInstanceOf(AssemblyProxyRepository::class, $proxies);
         self::assertInstanceOf(AssemblyElectorateEntryRepository::class, $electorate);
@@ -85,6 +88,7 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
             $em,
             $accessPolicy,
             $quorumChecks,
+            $quorumBasisGuard,
             $attendance,
             $proxies,
             $electorate,
@@ -150,7 +154,7 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
 
     public function testFinalizationIsBlockedByOpenAbsenteeWindow(): void
     {
-        [$assembly] = $this->closedResolvedAssembly();
+        [$assembly] = $this->closedResolvedAssembly(withValidQuorum: true);
         $assembly->setMinutesMetadata('Иван Председател', 'Елена Протоколчик', 'Формални бележки.');
 
         $window = AssemblyAbsenteeWindow::open(
@@ -183,12 +187,50 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
         $this->em->flush();
 
         $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('Agenda item 1 is not resolved.');
+        $this->service->finalize($this->manager, $assembly, new DateTimeImmutable('2026-09-10T19:00:00Z'));
+    }
+
+    public function testFinalizationIsBlockedWithoutPersistedValidQuorumBasis(): void
+    {
+        [$assembly] = $this->closedResolvedAssembly();
+        $assembly->setMinutesMetadata('Иван Председател', 'Елена Протоколчик');
+        $this->em->flush();
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('A persisted valid quorum check is required before automatic legal finalization.');
+        $this->service->finalize($this->manager, $assembly, new DateTimeImmutable('2026-09-10T19:00:00Z'));
+    }
+
+    public function testFinalizationIsBlockedWhenLatestQuorumRequiresReview(): void
+    {
+        [$assembly] = $this->closedResolvedAssembly();
+        $assembly->setMinutesMetadata('Иван Председател', 'Елена Протоколчик');
+
+        $quorum = AssemblyQuorumCheck::record(
+            $assembly,
+            AssemblyQuorumCheckKind::FIRST_CALL,
+            new DateTimeImmutable('2026-09-10T17:10:00Z'),
+            new AssemblyQuorumCalculation(
+                '60',
+                '51',
+                'zues-test:review-required',
+                AssemblyLegalResult::REVIEW_REQUIRED,
+                'Кворумът изисква правен преглед.',
+            ),
+            $this->manager,
+        );
+        $this->em->persist($quorum);
+        $this->em->flush();
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('A persisted valid quorum check is required before automatic legal finalization.');
         $this->service->finalize($this->manager, $assembly, new DateTimeImmutable('2026-09-10T19:00:00Z'));
     }
 
     public function testFinalizationStoresOneResidentMinutesDocumentAndIsIdempotent(): void
     {
-        [$assembly] = $this->closedResolvedAssembly();
+        [$assembly] = $this->closedResolvedAssembly(withValidQuorum: true);
         $assembly->setMinutesMetadata('Иван Председател', 'Елена Протоколчик', 'Протоколът е проверен.');
         $this->em->flush();
 
@@ -223,7 +265,7 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
 
     public function testCorrectionIsAppendOnlyAndDoesNotRewriteFinalizedMinutes(): void
     {
-        [$assembly] = $this->closedResolvedAssembly();
+        [$assembly] = $this->closedResolvedAssembly(withValidQuorum: true);
         $assembly->setMinutesMetadata('Иван Председател', 'Елена Протоколчик');
         $this->em->flush();
         $original = $this->service->finalize($this->manager, $assembly, new DateTimeImmutable('2026-09-10T19:00:00Z'));
@@ -260,7 +302,7 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
     }
 
     /** @return array{GeneralAssembly, \App\Entity\AssemblyAgendaItem} */
-    private function closedResolvedAssembly(): array
+    private function closedResolvedAssembly(bool $withValidQuorum = false): array
     {
         $assembly = $this->draftAssembly();
         $item = $assembly->addAgendaItem(1, 'Избор на изпълнител', null, 'Общото събрание избира изпълнител.', AssemblyDecisionKind::ORDINARY, $this->ordinaryRule());
@@ -288,6 +330,24 @@ final class AssemblyMinutesServiceTest extends KernelTestCase
         $item->resolve(new DateTimeImmutable('2026-09-10T17:45:00Z'));
         $assembly->close($this->manager, new DateTimeImmutable('2026-09-10T18:00:00Z'));
         $this->em->persist($resolution);
+
+        if ($withValidQuorum) {
+            $quorum = AssemblyQuorumCheck::record(
+                $assembly,
+                AssemblyQuorumCheckKind::FIRST_CALL,
+                new DateTimeImmutable('2026-09-10T17:02:00Z'),
+                new AssemblyQuorumCalculation(
+                    '60',
+                    '51',
+                    'zues-test:first-call',
+                    AssemblyLegalResult::VALID,
+                    'Кворумът е валиден за тестовото събрание.',
+                ),
+                $this->manager,
+            );
+            $this->em->persist($quorum);
+        }
+
         $this->em->flush();
 
         return [$assembly, $item];
