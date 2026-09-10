@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Controller;
 
+use App\Entity\AssemblyQuorumCheck;
 use App\Entity\AssemblyResolution;
 use App\Entity\Document;
 use App\Entity\GeneralAssembly;
@@ -11,12 +12,15 @@ use App\Entity\Person;
 use App\Entity\User;
 use App\Enum\AssemblyConveningBasis;
 use App\Enum\AssemblyDecisionKind;
+use App\Enum\AssemblyLegalResult;
+use App\Enum\AssemblyQuorumCheckKind;
 use App\Enum\AssemblyResolutionResult;
 use App\Enum\AssemblyVoteDenominator;
 use App\Enum\DocumentCategory;
 use App\Enum\GeneralAssemblyStatus;
 use App\Enum\MajorityComparison;
 use App\Value\AssemblyMajorityRuleSnapshot;
+use App\Value\AssemblyQuorumCalculation;
 use App\Value\AssemblyResolutionCalculation;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -82,6 +86,19 @@ final class GeneralAssemblyMinutesControllerTest extends WebTestCase
 
         $assembly->convene($manager, new DateTimeImmutable('2026-09-09T16:00:00Z'));
         $assembly->start($manager, new DateTimeImmutable('2026-09-09T17:00:00Z'));
+        $quorum = AssemblyQuorumCheck::record(
+            $assembly,
+            AssemblyQuorumCheckKind::FIRST_CALL,
+            new DateTimeImmutable('2026-09-09T17:00:00Z'),
+            new AssemblyQuorumCalculation(
+                '60',
+                '51',
+                'zues-test:first-call',
+                AssemblyLegalResult::VALID,
+                'Кворумът е валиден за HTTP теста.',
+            ),
+            $manager,
+        );
         $item->open('Да бъде избран изпълнител А.', new DateTimeImmutable('2026-09-09T17:05:00Z'));
         $resolution = AssemblyResolution::record(
             $item,
@@ -99,6 +116,7 @@ final class GeneralAssemblyMinutesControllerTest extends WebTestCase
         );
         $item->resolve(new DateTimeImmutable('2026-09-09T17:45:00Z'));
         $assembly->close($manager, new DateTimeImmutable('2026-09-09T18:00:00Z'));
+        $em->persist($quorum);
         $em->persist($resolution);
         $em->flush();
 

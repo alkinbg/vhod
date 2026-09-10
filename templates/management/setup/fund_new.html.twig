@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Нов фонд · Настройка{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Първоначална настройка</p>
+        <h1>Нов фонд</h1>
+    </div>
+</section>
+
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('setup_fund_new') }}">
+
+    <label for="code">Код</label>
+    <input id="code" name="code" type="text" value="{{ app.request.request.get('code') }}" required>
+
+    <label for="name">Име</label>
+    <input id="name" name="name" type="text" value="{{ app.request.request.get('name') }}" required>
+
+    <label for="type">Тип</label>
+    <select id="type" name="type" required>
+        {% for type in types %}<option value="{{ type.value }}">{{ type.value }}</option>{% endfor %}
+    </select>
+
+    <div class="actions">
+        <button type="submit">Създай фонд</button>
+        <a href="{{ path('app_management_setup') }}">Отказ</a>
+    </div>
+</form>
+{% endblock %}

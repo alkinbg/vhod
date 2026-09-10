@@ -62,7 +62,7 @@ final class AssemblyResolutionCalculatorTest extends TestCase
             AssemblyVoteDenominator::ALL_COMMON_IDEAL_PARTS,
             '50',
             MajorityComparison::GREATER_THAN,
-            [['50.00000001', AssemblyVoteChoice::FOR], ['49.99999999', AssemblyVoteChoice::AGAINST]],
+            [['50.0001', AssemblyVoteChoice::FOR], ['49.9999', AssemblyVoteChoice::AGAINST]],
         );
 
         self::assertSame(

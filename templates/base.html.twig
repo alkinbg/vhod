@@ -17,6 +17,7 @@
             <nav>
                 <a href="{{ path('app_dashboard') }}">Начало</a>
                 <a href="{{ path('app_community_index') }}">Общност</a>
+                <a href="{{ path('app_maintenance_index') }}">Поддръжка</a>
                 <a class="nav-official-link" href="{{ path('app_announcements_index') }}">
                     Обяви
                     {% if announcementUnreadCount > 0 %}
@@ -29,6 +30,9 @@
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_CONTROLLER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_management_finance') }}">Финанси</a>
                 {% endif %}
+                {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_ADMIN') %}
+                    <a class="nav-management-link" href="{{ path('app_management_finance_operations') }}">Финансови операции</a>
+                {% endif %}
                 {% if is_granted('ROLE_CONTROLLER') or is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
                     <a class="nav-management-link" href="{{ path('app_management_assemblies') }}">Управление на ОС</a>
                     <a class="nav-management-link" href="{{ path('app_management_compliance') }}">Съответствие</a>
@@ -39,6 +43,7 @@
                     <a class="nav-management-link" href="{{ path('app_management_documents') }}">Документи · управление</a>
                 {% endif %}
                 {% if is_granted('ROLE_ADMIN') %}
+                    <a class="nav-management-link" href="{{ path('app_management_setup') }}">Настройка</a>
                     <a class="nav-management-link" href="{{ path('app_management_audit') }}">Audit</a>
                 {% endif %}
                 <a href="{{ path('app_logout') }}">Изход</a>

@@ -43,6 +43,7 @@ final readonly class AssemblyMinutesService
         private EntityManagerInterface $entityManager,
         private GeneralAssemblyAccessPolicy $accessPolicy,
         private AssemblyQuorumCheckRepository $quorumChecks,
+        private AssemblyQuorumBasisGuard $quorumBasisGuard,
         private AssemblyAttendanceRepository $attendance,
         private AssemblyProxyRepository $proxies,
         private AssemblyElectorateEntryRepository $electorate,
@@ -252,6 +253,8 @@ final readonly class AssemblyMinutesService
                 throw new DomainException(sprintf('Agenda item %d has no persisted resolution.', $item->getPosition()));
             }
         }
+
+        $this->quorumBasisGuard->assertValid($assembly);
     }
 
     private function calculateMinutesDueOn(GeneralAssembly $assembly): DateTimeImmutable

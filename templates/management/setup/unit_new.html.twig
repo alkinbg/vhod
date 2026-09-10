@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Нов обект · Настройка{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Първоначална настройка</p>
+        <h1>Нов обект</h1>
+    </div>
+</section>
+
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('setup_unit_new') }}">
+
+    <label for="designation">Обозначение</label>
+    <input id="designation" name="designation" type="text" value="{{ app.request.request.get('designation') }}" required>
+
+    <label for="type">Тип</label>
+    <select id="type" name="type" required>
+        {% for type in types %}<option value="{{ type.value }}">{{ type.value }}</option>{% endfor %}
+    </select>
+
+    <label for="floor">Етаж</label>
+    <input id="floor" name="floor" type="number" value="{{ app.request.request.get('floor') }}">
+
+    <label for="built_area">Застроена площ (m²)</label>
+    <input id="built_area" name="built_area" type="text" inputmode="decimal" value="{{ app.request.request.get('built_area') }}">
+
+    <label for="ideal_parts">Идеални части (%)</label>
+    <input id="ideal_parts" name="ideal_parts" type="text" inputmode="decimal" value="{{ app.request.request.get('ideal_parts') }}">
+
+    <div class="actions">
+        <button type="submit">Създай обект</button>
+        <a href="{{ path('app_management_setup') }}">Отказ</a>
+    </div>
+</form>
+{% endblock %}

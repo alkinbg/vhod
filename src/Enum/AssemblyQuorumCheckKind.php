@@ -8,4 +8,5 @@ enum AssemblyQuorumCheckKind: string
 {
     case FIRST_CALL = 'first_call';
     case DELAYED_CALL = 'delayed_call';
+    case NEXT_DAY_CALL = 'next_day_call';
 }

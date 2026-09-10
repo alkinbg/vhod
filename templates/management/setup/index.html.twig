@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Първоначална настройка · Vhod{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Администрация</p>
+        <h1>Първоначална настройка</h1>
+        <p>Минималните данни, необходими за работа на входа и финансовия модул.</p>
+    </div>
+</section>
+
+<div class="card-grid">
+    <article class="card">
+        <h2>Обекти</h2>
+        <p>{{ unit_count }} записани</p>
+        <a href="{{ path('app_management_setup_unit_new') }}">Добави обект</a>
+    </article>
+    <article class="card">
+        <h2>Собственици и ползватели</h2>
+        <p>{{ relation_count }} отношения</p>
+        <a href="{{ path('app_management_setup_relation_new') }}">Добави отношение</a>
+    </article>
+    <article class="card">
+        <h2>Фондове</h2>
+        <p>{{ fund_count }} фонда</p>
+        <a href="{{ path('app_management_setup_fund_new') }}">Добави фонд</a>
+    </article>
+    <article class="card">
+        <h2>Правила за такси</h2>
+        <p>{{ policy_count }} правила</p>
+        <a href="{{ path('app_management_setup_fee_policy_new') }}">Добави правило</a>
+    </article>
+</div>
+{% endblock %}

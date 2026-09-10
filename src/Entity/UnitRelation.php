@@ -13,6 +13,9 @@ use InvalidArgumentException;
 #[ORM\Index(columns: ['valid_from', 'valid_until'], name: 'idx_unit_relation_period')]
 class UnitRelation
 {
+    private const OWNERSHIP_SHARE_SCALE = 10_000;
+    private const OWNERSHIP_SHARE_MAX = 100 * self::OWNERSHIP_SHARE_SCALE;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -119,7 +122,7 @@ class UnitRelation
 
     public function endAt(DateTimeImmutable $date): void
     {
-        if ($date < $this->validFrom) {
+        if ($date->format('Y-m-d') < $this->validFrom->format('Y-m-d')) {
             throw new InvalidArgumentException('Relation cannot end before it starts.');
         }
 
@@ -128,8 +131,10 @@ class UnitRelation
 
     public function isActiveAt(DateTimeImmutable $date): bool
     {
-        return $date >= $this->validFrom
-            && (null === $this->validUntil || $date <= $this->validUntil);
+        $dateKey = $date->format('Y-m-d');
+
+        return $dateKey >= $this->validFrom->format('Y-m-d')
+            && (null === $this->validUntil || $dateKey <= $this->validUntil->format('Y-m-d'));
     }
 
     private static function assertOwnershipShare(UnitRelationType $type, ?string $ownershipShare): void
@@ -138,7 +143,19 @@ class UnitRelation
             throw new InvalidArgumentException('Ownership share is only valid for owner relations.');
         }
 
-        if (null !== $ownershipShare && (!is_numeric($ownershipShare) || (float) $ownershipShare <= 0 || (float) $ownershipShare > 100)) {
+        if (null === $ownershipShare) {
+            return;
+        }
+
+        if (1 !== preg_match('/^(?:100(?:\.0{1,4})?|(?:0|[1-9]\d?)(?:\.\d{1,4})?)$/D', $ownershipShare)) {
+            throw new InvalidArgumentException('Ownership share must be greater than 0 and at most 100.');
+        }
+
+        [$whole, $fraction] = array_pad(explode('.', $ownershipShare, 2), 2, '');
+        $scaled = ((int) $whole * self::OWNERSHIP_SHARE_SCALE)
+            + (int) str_pad($fraction, 4, '0');
+
+        if ($scaled <= 0 || $scaled > self::OWNERSHIP_SHARE_MAX) {
             throw new InvalidArgumentException('Ownership share must be greater than 0 and at most 100.');
         }
     }

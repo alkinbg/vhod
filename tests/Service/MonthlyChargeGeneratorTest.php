@@ -195,7 +195,8 @@ final class MonthlyChargeGeneratorTest extends KernelTestCase
         self::assertSame(2, $charges['12']->getCalculationDetails()['base_occupancy_count']);
         self::assertSame(1, $charges['12']->getCalculationDetails()['animal_equivalents']);
         self::assertFalse($charges['12']->getCalculationDetails()['unoccupied_minimum_applied']);
-        self::assertSame('current_register', $charges['12']->getCalculationDetails()['animal_source']);
+        self::assertSame('effective_dated_register', $charges['12']->getCalculationDetails()['animal_source']);
+        self::assertSame('2026-09-01', $charges['12']->getCalculationDetails()['animal_source_date']);
 
         self::assertSame('2.0000', $charges['13']->getQuantity());
         self::assertSame(600, $charges['13']->getAmountCents());

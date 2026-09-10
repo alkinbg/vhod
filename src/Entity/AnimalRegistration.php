@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use InvalidArgumentException;
 
 #[ORM\Entity]
+#[ORM\Index(columns: ['unit_id', 'valid_from', 'valid_until'], name: 'idx_animal_registration_unit_period')]
 class AnimalRegistration
 {
     #[ORM\Id]
@@ -28,8 +30,20 @@ class AnimalRegistration
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $veterinaryPassportNumber;
 
-    public function __construct(Unit $unit, string $species, int $count, ?string $veterinaryPassportNumber = null)
-    {
+    #[ORM\Column(type: 'date_immutable')]
+    private DateTimeImmutable $validFrom;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?DateTimeImmutable $validUntil;
+
+    public function __construct(
+        Unit $unit,
+        string $species,
+        int $count,
+        ?string $veterinaryPassportNumber = null,
+        ?DateTimeImmutable $validFrom = null,
+        ?DateTimeImmutable $validUntil = null,
+    ) {
         $species = trim($species);
         if ('' === $species) {
             throw new InvalidArgumentException('Animal species cannot be empty.');
@@ -39,10 +53,17 @@ class AnimalRegistration
             throw new InvalidArgumentException('Animal count must be positive.');
         }
 
+        $validFrom ??= new DateTimeImmutable('1970-01-01');
+        if (null !== $validUntil && $validUntil->format('Y-m-d') < $validFrom->format('Y-m-d')) {
+            throw new InvalidArgumentException('Animal registration cannot end before it starts.');
+        }
+
         $this->unit = $unit;
         $this->species = $species;
         $this->count = $count;
         $this->veterinaryPassportNumber = self::nullableTrim($veterinaryPassportNumber);
+        $this->validFrom = $validFrom;
+        $this->validUntil = $validUntil;
     }
 
     public function getId(): ?int { return $this->id; }
@@ -50,6 +71,25 @@ class AnimalRegistration
     public function getSpecies(): string { return $this->species; }
     public function getCount(): int { return $this->count; }
     public function getVeterinaryPassportNumber(): ?string { return $this->veterinaryPassportNumber; }
+    public function getValidFrom(): DateTimeImmutable { return $this->validFrom; }
+    public function getValidUntil(): ?DateTimeImmutable { return $this->validUntil; }
+
+    public function endAt(DateTimeImmutable $date): void
+    {
+        if ($date->format('Y-m-d') < $this->validFrom->format('Y-m-d')) {
+            throw new InvalidArgumentException('Animal registration cannot end before it starts.');
+        }
+
+        $this->validUntil = $date;
+    }
+
+    public function isActiveAt(DateTimeImmutable $date): bool
+    {
+        $dateKey = $date->format('Y-m-d');
+
+        return $dateKey >= $this->validFrom->format('Y-m-d')
+            && (null === $this->validUntil || $dateKey <= $this->validUntil->format('Y-m-d'));
+    }
 
     private static function nullableTrim(?string $value): ?string
     {

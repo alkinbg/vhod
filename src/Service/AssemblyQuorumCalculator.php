@@ -64,6 +64,7 @@ final class AssemblyQuorumCalculator
             : match ($kind) {
                 AssemblyQuorumCheckKind::FIRST_CALL => $rule->firstCallRequiredPercent,
                 AssemblyQuorumCheckKind::DELAYED_CALL => $rule->delayedCallRequiredPercent,
+                AssemblyQuorumCheckKind::NEXT_DAY_CALL => '0.00000000',
             };
 
         $representedTotal = '0.00000000';
@@ -110,6 +111,7 @@ final class AssemblyQuorumCalculator
             : match ($kind) {
                 AssemblyQuorumCheckKind::FIRST_CALL => 'first-call',
                 AssemblyQuorumCheckKind::DELAYED_CALL => 'delayed-call',
+                AssemblyQuorumCheckKind::NEXT_DAY_CALL => 'next-day-no-minimum',
             };
 
         return new AssemblyQuorumCalculation(

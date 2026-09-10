@@ -6,7 +6,9 @@ namespace App\Tests\Controller;
 
 use App\Entity\BudgetLine;
 use App\Entity\Expense;
+use App\Entity\ExpenseReversal;
 use App\Entity\ExternalIncome;
+use App\Entity\ExternalIncomeReversal;
 use App\Entity\Fund;
 use App\Entity\Person;
 use App\Entity\User;
@@ -140,6 +142,85 @@ final class FinanceManagementControllerTest extends WebTestCase
         $income = $this->entityManager->getRepository(ExternalIncome::class)->findAll();
         self::assertCount(1, $income);
         self::assertSame(2500, $income[0]->getAmountCents());
+    }
+
+    public function testCashierCanReverseExpenseAndIncomeWithoutMutatingOriginalRows(): void
+    {
+        $expense = Expense::post(
+            $this->operatingFund,
+            ExpenseCategory::COMMON_ELECTRICITY,
+            4280,
+            new DateTimeImmutable('2026-09-05 Europe/Sofia'),
+            new DateTimeImmutable('2026-09-05 10:00:00 Europe/Sofia'),
+            'Електроенергия общи части',
+        );
+        $income = ExternalIncome::record(
+            $this->operatingFund,
+            ExternalIncomeCategory::COMMON_PART_RENT,
+            2500,
+            new DateTimeImmutable('2026-09-06 Europe/Sofia'),
+            new DateTimeImmutable('2026-09-06 10:00:00 Europe/Sofia'),
+            'Наем на обща част',
+        );
+        $this->entityManager->persist($expense);
+        $this->entityManager->persist($income);
+        $this->entityManager->flush();
+        self::assertNotNull($expense->getId());
+        self::assertNotNull($income->getId());
+
+        $this->client->loginUser($this->cashier);
+
+        $crawler = $this->client->request('GET', '/management/finance/expense/'.$expense->getId().'/reverse');
+        self::assertResponseIsSuccessful();
+        $this->client->submit($crawler->selectButton('Сторнирай')->form([
+            'reason' => 'Грешно въведен разход.',
+        ]));
+        self::assertResponseRedirects('/management/finance');
+
+        $crawler = $this->client->request('GET', '/management/finance/income/'.$income->getId().'/reverse');
+        self::assertResponseIsSuccessful();
+        $this->client->submit($crawler->selectButton('Сторнирай')->form([
+            'reason' => 'Грешно въведен приход.',
+        ]));
+        self::assertResponseRedirects('/management/finance');
+
+        $expenseReversals = $this->entityManager->getRepository(ExpenseReversal::class)->findAll();
+        $incomeReversals = $this->entityManager->getRepository(ExternalIncomeReversal::class)->findAll();
+        self::assertCount(1, $expenseReversals);
+        self::assertCount(1, $incomeReversals);
+        self::assertSame('Грешно въведен разход.', $expenseReversals[0]->getReason());
+        self::assertSame('Грешно въведен приход.', $incomeReversals[0]->getReason());
+        self::assertCount(1, $this->entityManager->getRepository(Expense::class)->findAll());
+        self::assertCount(1, $this->entityManager->getRepository(ExternalIncome::class)->findAll());
+        self::assertSame(4280, $expense->getAmountCents());
+        self::assertSame(2500, $income->getAmountCents());
+    }
+
+    public function testReversalRequiresFinanceWriterAndValidCsrf(): void
+    {
+        $expense = Expense::post(
+            $this->operatingFund,
+            ExpenseCategory::OTHER,
+            100,
+            new DateTimeImmutable('2026-09-08 Europe/Sofia'),
+            new DateTimeImmutable('2026-09-08 10:00:00 Europe/Sofia'),
+            'Тестов разход',
+        );
+        $this->entityManager->persist($expense);
+        $this->entityManager->flush();
+        self::assertNotNull($expense->getId());
+
+        $this->client->loginUser($this->controller);
+        $this->client->request('GET', '/management/finance/expense/'.$expense->getId().'/reverse');
+        self::assertResponseStatusCodeSame(403);
+
+        $this->client->loginUser($this->cashier);
+        $this->client->request('POST', '/management/finance/expense/'.$expense->getId().'/reverse', [
+            '_token' => 'invalid',
+            'reason' => 'Не трябва да се приложи.',
+        ]);
+        self::assertResponseStatusCodeSame(403);
+        self::assertCount(0, $this->entityManager->getRepository(ExpenseReversal::class)->findAll());
     }
 
     public function testCashierCannotCreateBudgetButManagerCan(): void

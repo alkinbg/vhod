@@ -12,6 +12,7 @@ use App\Entity\Unit;
 use App\Enum\PaymentSource;
 use App\Enum\ReconciliationMethod;
 use DateTimeImmutable;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 
@@ -40,6 +41,7 @@ final readonly class BankReconciliationService
             $reconciledAt,
             $note,
         ): PaymentReconciliation {
+            $this->lockUnitAndTransaction($entityManager, $unit, $transaction);
             $this->assertTransactionUnreconciled($transaction);
 
             return $this->postAndRecord(
@@ -87,6 +89,7 @@ final readonly class BankReconciliationService
             $unit,
             $reconciledAt,
         ): ?PaymentReconciliation {
+            $this->lockUnitAndTransaction($entityManager, $unit, $transaction);
             if (null !== $this->findByTransaction($transaction)) {
                 return null;
             }
@@ -112,6 +115,7 @@ final readonly class BankReconciliationService
         if (null === $payment->getId()) {
             throw new DomainException('Payment must be persisted before reconciliation.');
         }
+        $this->assertUsableUnit($payment->getUnit());
         $this->assertIncoming($transaction);
         $this->assertTransactionUnreconciled($transaction);
         $this->assertPaymentUnreconciled($payment);
@@ -122,6 +126,7 @@ final readonly class BankReconciliationService
             $reconciledAt,
             $note,
         ): PaymentReconciliation {
+            $this->lockUnitPaymentAndTransaction($entityManager, $payment, $transaction);
             $this->assertTransactionUnreconciled($transaction);
             $this->assertPaymentUnreconciled($payment);
 
@@ -171,6 +176,25 @@ final readonly class BankReconciliationService
         $entityManager->flush();
 
         return $reconciliation;
+    }
+
+    private function lockUnitAndTransaction(
+        EntityManagerInterface $entityManager,
+        Unit $unit,
+        BankTransaction $transaction,
+    ): void {
+        $entityManager->lock($unit, LockMode::PESSIMISTIC_WRITE);
+        $entityManager->lock($transaction, LockMode::PESSIMISTIC_WRITE);
+    }
+
+    private function lockUnitPaymentAndTransaction(
+        EntityManagerInterface $entityManager,
+        Payment $payment,
+        BankTransaction $transaction,
+    ): void {
+        $entityManager->lock($payment->getUnit(), LockMode::PESSIMISTIC_WRITE);
+        $entityManager->lock($payment, LockMode::PESSIMISTIC_WRITE);
+        $entityManager->lock($transaction, LockMode::PESSIMISTIC_WRITE);
     }
 
     private function assertPersistedTransaction(BankTransaction $transaction): void

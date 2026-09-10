@@ -72,7 +72,7 @@ class Unit
             return;
         }
 
-        if (!is_numeric($value) || (float) $value < 0) {
+        if (1 !== preg_match('/^\d{1,8}(?:\.\d{1,2})?$/D', $value)) {
             throw new InvalidArgumentException(sprintf('%s must be a non-negative decimal.', $label));
         }
     }
@@ -83,7 +83,7 @@ class Unit
             return;
         }
 
-        if (!is_numeric($value) || (float) $value < 0 || (float) $value > 100) {
+        if (1 !== preg_match('/^(?:100(?:\.0{1,4})?|(?:0|[1-9]\d?)(?:\.\d{1,4})?)$/D', $value)) {
             throw new InvalidArgumentException(sprintf('%s must be between 0 and 100.', $label));
         }
     }

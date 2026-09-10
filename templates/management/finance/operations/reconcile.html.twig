@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Осчетоводяване · Финанси{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Финансови операции</p>
+        <h1>Осчетоводяване на банкова транзакция</h1>
+        <p>{{ transaction.bookingDate|date('d.m.Y') }} · {{ (transaction.amountCents / 100)|number_format(2, '.', '') }} € · {{ transaction.counterpartyName ?? 'неизвестен платец' }}</p>
+    </div>
+</section>
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('finance_reconcile_' ~ transaction.id) }}">
+
+    <label for="unit_id">Осчетоводи като ново плащане за обект</label>
+    <select id="unit_id" name="unit_id">
+        <option value="">— изберете обект —</option>
+        {% for unit in units %}<option value="{{ unit.id }}">{{ unit.designation }}</option>{% endfor %}
+    </select>
+
+    <label for="payment_id">или свържи със съществуващо плащане</label>
+    <select id="payment_id" name="payment_id">
+        <option value="">— без съществуващо плащане —</option>
+        {% for payment in payments %}
+            <option value="{{ payment.id }}">{{ payment.receivedAt|date('d.m.Y') }} · {{ payment.unit.designation }} · {{ (payment.amountCents / 100)|number_format(2, '.', '') }} €</option>
+        {% endfor %}
+    </select>
+
+    <label for="note">Бележка</label>
+    <textarea id="note" name="note">{{ app.request.request.get('note') }}</textarea>
+
+    <div class="actions"><button type="submit">Осчетоводи транзакцията</button><a href="{{ path('app_management_finance_operations') }}">Отказ</a></div>
+</form>
+{% endblock %}
