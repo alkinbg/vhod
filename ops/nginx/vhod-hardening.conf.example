@@ -1,0 +1,64 @@
+# Vhod Nginx hardening example.
+#
+# `map` and `limit_req_zone` directives belong in the http {} context.
+# Adapt upstream/socket paths and TLS certificate settings to the real host.
+
+map $request_method $vhod_login_key {
+    default "";
+    POST $binary_remote_addr;
+}
+
+limit_req_zone $vhod_login_key zone=vhod_login:10m rate=5r/m;
+limit_req_zone $binary_remote_addr zone=vhod_dynamic:10m rate=10r/s;
+
+server {
+    listen 443 ssl http2;
+    server_name vhod.example.invalid;
+    root /srv/vhod/current/public;
+    index index.php;
+
+    # Configure the real certificate/key paths outside this repository.
+    ssl_certificate /etc/ssl/vhod/fullchain.pem;
+    ssl_certificate_key /etc/ssl/vhod/privkey.pem;
+
+    limit_req_status 429;
+
+    # Enforce transport/browser protections at the edge as well as in Symfony.
+    # Hide any upstream copy first so clients receive one deterministic value.
+    proxy_hide_header Strict-Transport-Security;
+    proxy_hide_header X-Content-Type-Options;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location = /healthz {
+        try_files $uri /index.php$is_args$args;
+    }
+
+    # GET /login is not counted because $vhod_login_key is empty for non-POST requests.
+    location = /login {
+        limit_req zone=vhod_login burst=10 nodelay;
+        try_files $uri /index.php$is_args$args;
+    }
+
+    location / {
+        limit_req zone=vhod_dynamic burst=60 nodelay;
+        try_files $uri /index.php$is_args$args;
+    }
+
+    location ~ ^/index\.php(/|$) {
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+        fastcgi_split_path_info ^(.+\.php)(/.*)$;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+        internal;
+    }
+
+    location ~ \.php$ {
+        return 404;
+    }
+}
+
+# If Vhod is behind another reverse proxy/CDN, configure real_ip_header and
+# set_real_ip_from ONLY for trusted proxy networks before using
+# $binary_remote_addr as the rate-limit key. Never trust arbitrary X-Forwarded-For.
