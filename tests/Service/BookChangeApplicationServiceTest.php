@@ -100,6 +100,34 @@ final class BookChangeApplicationServiceTest extends KernelTestCase
         self::assertSame($this->unit, $members[0]->getRelation()->getUnit());
     }
 
+    public function testAcceptingHouseholdEndDeclarationClosesExistingMembershipWithoutDeletingHistory(): void
+    {
+        $relation = $this->entityManager->getRepository(UnitRelation::class)->findOneBy([
+            'person' => $this->resident->getPerson(),
+            'unit' => $this->unit,
+        ]);
+        self::assertInstanceOf(UnitRelation::class, $relation);
+
+        $person = new Person('Мария', 'Иванова');
+        $member = new HouseholdMember($person, $relation, new DateTimeImmutable('2026-01-01'));
+        $this->entityManager->persist($person);
+        $this->entityManager->persist($member);
+        $this->entityManager->flush();
+        self::assertNotNull($member->getId());
+
+        $declaration = $this->submit(BookChangeType::HOUSEHOLD_MEMBER_END, [
+            'memberId' => $member->getId(),
+            'validUntil' => '2026-08-31',
+        ]);
+
+        $this->service->accept($declaration, $this->manager, new DateTimeImmutable('2026-09-07 21:00:00'));
+
+        self::assertSame(BookDeclarationStatus::ACCEPTED, $declaration->getStatus());
+        self::assertSame('2026-08-31', $member->getValidUntil()?->format('Y-m-d'));
+        self::assertFalse($member->isActiveAt(new DateTimeImmutable('2026-09-01')));
+        self::assertCount(1, $this->entityManager->getRepository(HouseholdMember::class)->findAll());
+    }
+
     public function testAcceptingAbsenceDeclarationCreatesAbsence(): void
     {
         $declaration = $this->submit(BookChangeType::ABSENCE, [
@@ -115,12 +143,14 @@ final class BookChangeApplicationServiceTest extends KernelTestCase
         self::assertTrue($absences[0]->covers(new DateTimeImmutable('2026-10-10')));
     }
 
-    public function testAcceptingAnimalDeclarationCreatesAnimalRecord(): void
+    public function testAcceptingAnimalDeclarationCreatesEffectiveDatedAnimalRecord(): void
     {
         $declaration = $this->submit(BookChangeType::ANIMAL, [
             'species' => 'куче',
             'count' => 1,
             'passport' => 'BG-123',
+            'validFrom' => '2026-09-01',
+            'validUntil' => '2027-08-31',
         ]);
 
         $this->service->accept($declaration, $this->manager, new DateTimeImmutable('2026-09-07 21:00:00'));
@@ -128,6 +158,10 @@ final class BookChangeApplicationServiceTest extends KernelTestCase
         $animals = $this->entityManager->getRepository(AnimalRegistration::class)->findAll();
         self::assertCount(1, $animals);
         self::assertSame('BG-123', $animals[0]->getVeterinaryPassportNumber());
+        self::assertSame('2026-09-01', $animals[0]->getValidFrom()->format('Y-m-d'));
+        self::assertSame('2027-08-31', $animals[0]->getValidUntil()?->format('Y-m-d'));
+        self::assertFalse($animals[0]->isActiveAt(new DateTimeImmutable('2026-08-01')));
+        self::assertTrue($animals[0]->isActiveAt(new DateTimeImmutable('2026-09-01')));
     }
 
     /** @param array<string, bool|int|float|string|null> $payload */
