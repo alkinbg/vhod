@@ -7,6 +7,7 @@ namespace App\Tests\Service;
 use App\Entity\AssemblyAgendaItem;
 use App\Entity\AssemblyAttendance;
 use App\Entity\AssemblyElectorateEntry;
+use App\Entity\AssemblyQuorumCheck;
 use App\Entity\AssemblyResolution;
 use App\Entity\AssemblyVote;
 use App\Entity\GeneralAssembly;
@@ -16,13 +17,16 @@ use App\Entity\User;
 use App\Enum\AssemblyAttendanceMode;
 use App\Enum\AssemblyConveningBasis;
 use App\Enum\AssemblyDecisionKind;
+use App\Enum\AssemblyLegalResult;
 use App\Enum\AssemblyPrincipalType;
+use App\Enum\AssemblyQuorumCheckKind;
 use App\Enum\AssemblyResolutionResult;
 use App\Enum\AssemblyVoteChoice;
 use App\Enum\AssemblyVoteDenominator;
 use App\Enum\MajorityComparison;
 use App\Service\AssemblyVotingService;
 use App\Value\AssemblyMajorityRuleSnapshot;
+use App\Value\AssemblyQuorumCalculation;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -175,6 +179,7 @@ final class AssemblyVotingServiceTest extends KernelTestCase
         self::assertSame(AssemblyVoteChoice::AGAINST, $correction->getPreviousChoice());
         self::assertSame(AssemblyVoteChoice::FOR, $vote->getChoice());
 
+        $this->persistValidQuorum();
         $resolution = $this->service->resolveItem(
             $this->manager,
             $this->item,
@@ -209,6 +214,7 @@ final class AssemblyVotingServiceTest extends KernelTestCase
             self::assertCount(1, $this->em->getRepository(AssemblyVote::class)->findAll());
         }
 
+        $this->persistValidQuorum();
         $first = $this->service->resolveItem($this->manager, $this->item, new DateTimeImmutable('2026-09-20T15:04:00Z'));
         $second = $this->service->resolveItem($this->manager, $this->item, new DateTimeImmutable('2026-09-20T15:05:00Z'));
         self::assertSame($first->getId(), $second->getId());
@@ -260,5 +266,24 @@ final class AssemblyVotingServiceTest extends KernelTestCase
             AssemblyVoteChoice::FOR,
             new DateTimeImmutable('2026-09-20T15:02:00Z'),
         );
+    }
+
+    private function persistValidQuorum(): void
+    {
+        $check = AssemblyQuorumCheck::record(
+            $this->assembly,
+            AssemblyQuorumCheckKind::FIRST_CALL,
+            new DateTimeImmutable('2026-09-20T15:00:30Z'),
+            new AssemblyQuorumCalculation(
+                '60',
+                '51',
+                'zues-test-valid',
+                AssemblyLegalResult::VALID,
+                'Persisted valid quorum prerequisite for resolution test.',
+            ),
+            $this->manager,
+        );
+        $this->em->persist($check);
+        $this->em->flush();
     }
 }
