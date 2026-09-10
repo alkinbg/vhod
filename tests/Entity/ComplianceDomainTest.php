@@ -43,6 +43,48 @@ final class ComplianceDomainTest extends TestCase
         self::assertSame('2026-09-10T05:30:00+00:00', $profile->getUpdatedAt()->format(DATE_ATOM));
     }
 
+    public function testRegistryIdentifierCanBeSetOnceAndCannotThenBeChangedOrCleared(): void
+    {
+        $actor = $this->user('registry-immutable@example.com');
+        $profile = CondominiumProfile::create($actor, new DateTimeImmutable('2026-09-10T08:00:00Z'));
+        $profile->updateRegistryData(
+            'EISES-RUSE-000123',
+            '18.123.456',
+            new DateTimeImmutable('2026-09-01'),
+            $actor,
+            new DateTimeImmutable('2026-09-10T08:01:00Z'),
+        );
+
+        $profile->updateRegistryData(
+            ' EISES-RUSE-000123 ',
+            '18.123.999',
+            new DateTimeImmutable('2026-09-02'),
+            $actor,
+            new DateTimeImmutable('2026-09-10T08:02:00Z'),
+        );
+        self::assertSame('EISES-RUSE-000123', $profile->getRegistryIdentifier());
+        self::assertSame('18.123.999', $profile->getRegistryParcelNumber());
+
+        foreach (['EISES-RUSE-000999', '   '] as $invalidIdentifier) {
+            try {
+                $profile->updateRegistryData(
+                    $invalidIdentifier,
+                    '18.000.000',
+                    new DateTimeImmutable('2026-09-03'),
+                    $actor,
+                    new DateTimeImmutable('2026-09-10T08:03:00Z'),
+                );
+                self::fail('An already assigned external registry identifier was changed or cleared.');
+            } catch (InvalidArgumentException) {
+                self::addToAssertionCount(1);
+            }
+
+            self::assertSame('EISES-RUSE-000123', $profile->getRegistryIdentifier());
+            self::assertSame('18.123.999', $profile->getRegistryParcelNumber());
+            self::assertSame('2026-09-02', $profile->getRegistryRegisteredAt()?->format('Y-m-d'));
+        }
+    }
+
     public function testRegistryProfileAllowsUnknownExternalIdentityWithoutInventingAValue(): void
     {
         $actor = $this->user('registry-empty@example.com');
