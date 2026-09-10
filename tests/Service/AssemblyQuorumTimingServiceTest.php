@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Service;
 
-use App\Entity\AssemblyQuorumCheck;
 use App\Entity\GeneralAssembly;
 use App\Entity\Person;
 use App\Entity\User;
@@ -151,6 +150,32 @@ final class AssemblyQuorumTimingServiceTest extends KernelTestCase
             $assembly,
             AssemblyQuorumCheckKind::NEXT_DAY_CALL,
             new DateTimeImmutable('2026-09-21T15:00:00Z'), // Monday.
+        );
+
+        self::assertSame(AssemblyLegalResult::VALID, $check->getResult());
+    }
+
+    public function testNextEligibleDaySkipsOfficialHolidayAndFollowingNonWorkingDays(): void
+    {
+        self::assertTrue(defined(AssemblyQuorumCheckKind::class.'::NEXT_DAY_CALL'));
+        $assembly = $this->convenedAssembly('2026-12-23T15:00:00Z');
+
+        try {
+            $this->service->check(
+                $this->manager,
+                $assembly,
+                AssemblyQuorumCheckKind::NEXT_DAY_CALL,
+                new DateTimeImmutable('2026-12-24T15:00:00Z'),
+            );
+            self::fail('A next-day quorum check must not be accepted on an official holiday.');
+        } catch (DomainException) {
+        }
+
+        $check = $this->service->check(
+            $this->manager,
+            $assembly,
+            AssemblyQuorumCheckKind::NEXT_DAY_CALL,
+            new DateTimeImmutable('2026-12-28T15:00:00Z'),
         );
 
         self::assertSame(AssemblyLegalResult::VALID, $check->getResult());
