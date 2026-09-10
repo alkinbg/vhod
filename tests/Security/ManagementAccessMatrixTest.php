@@ -53,6 +53,7 @@ final class ManagementAccessMatrixTest extends WebTestCase
             '/management/announcements' => ['manager', 'admin'],
             '/management/assemblies' => ['controller', 'manager', 'admin'],
             '/management/compliance' => ['controller', 'manager', 'admin'],
+            '/management/audit' => ['admin'],
         ];
 
         foreach ($matrix as $path => $allowedRoles) {
