@@ -106,6 +106,20 @@ final class GeneralAssemblyLifecycleControllerTest extends WebTestCase
         $reloaded = $this->entityManager()->find(GeneralAssembly::class, $id);
         self::assertInstanceOf(GeneralAssembly::class, $reloaded);
         self::assertSame(GeneralAssemblyStatus::CONVENED, $reloaded->getStatus());
+
+        $reloaded->start($this->manager(), new DateTimeImmutable('2026-09-09T14:00:00Z'));
+        $this->entityManager()->flush();
+        self::assertSame(GeneralAssemblyStatus::IN_PROGRESS, $reloaded->getStatus());
+
+        self::ensureKernelShutdown();
+        $this->client = self::createClient();
+        $this->client->loginUser($this->manager());
+        $this->client->request('POST', '/management/assembly/'.$id.'/close', ['_token' => 'invalid']);
+        self::assertResponseStatusCodeSame(403);
+
+        $reloaded = $this->entityManager()->find(GeneralAssembly::class, $id);
+        self::assertInstanceOf(GeneralAssembly::class, $reloaded);
+        self::assertSame(GeneralAssemblyStatus::IN_PROGRESS, $reloaded->getStatus());
     }
 
     private function convenedAssembly(User $manager): GeneralAssembly
