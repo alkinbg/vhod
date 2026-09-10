@@ -28,6 +28,7 @@ use App\Service\AssemblyAbsenteeVotingService;
 use App\Service\AssemblyVotingService;
 use App\Value\AssemblyMajorityRuleSnapshot;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -143,6 +144,9 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
 
     public function testManagerCanOpenAbsenteeWindowFromWorkbenchAndCsrfIsRequired(): void
     {
+        $deadline = new DateTimeImmutable('+1 day', new DateTimeZone('Europe/Sofia'));
+        $deadlineInput = $deadline->format('Y-m-d\TH:i');
+
         $this->client->loginUser($this->user($this->managerId));
         $crawler = $this->client->request('GET', $this->workbenchUrl());
         self::assertResponseIsSuccessful();
@@ -152,7 +156,7 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
         $this->client->request('POST', $this->openUrl(), [
             '_token' => 'invalid',
             'agenda_item_ids' => [(string) $this->itemId],
-            'deadline_at' => '2026-09-10T12:00',
+            'deadline_at' => $deadlineInput,
             'legal_basis' => 'Правно основание за неприсъствено гласуване',
         ]);
         self::assertResponseStatusCodeSame(403);
@@ -170,7 +174,7 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
         $this->client->request('POST', $this->openUrl(), [
             '_token' => $token,
             'agenda_item_ids' => [(string) $this->itemId],
-            'deadline_at' => '2026-09-10T12:00',
+            'deadline_at' => $deadlineInput,
             'legal_basis' => 'Правно основание за неприсъствено гласуване',
         ]);
         self::assertResponseRedirects($this->workbenchUrl());
@@ -184,9 +188,10 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
 
     public function testManagerCanRegisterEvidenceBackedDeclaration(): void
     {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $window = $this->openWindowDirectly(
-            new DateTimeImmutable('2026-09-09T18:10:00Z'),
-            new DateTimeImmutable('2026-09-10T09:00:00Z'),
+            $now->modify('-5 minutes'),
+            $now->modify('+1 day'),
         );
         self::assertNotNull($window->getId());
 
