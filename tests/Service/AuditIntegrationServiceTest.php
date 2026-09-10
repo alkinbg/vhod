@@ -9,8 +9,10 @@ use App\Entity\Person;
 use App\Entity\Unit;
 use App\Entity\User;
 use App\Enum\PaymentSource;
+use App\Service\AuditLogService;
 use App\Service\ComplianceRegistryService;
 use App\Service\OfficialAnnouncementService;
+use App\Service\PaymentAllocator;
 use App\Service\PaymentPostingService;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -78,8 +80,11 @@ final class AuditIntegrationServiceTest extends KernelTestCase
         $this->entityManager->persist($unit);
         $this->entityManager->flush();
 
-        $service = self::getContainer()->get(PaymentPostingService::class);
-        self::assertInstanceOf(PaymentPostingService::class, $service);
+        $service = new PaymentPostingService(
+            $this->entityManager,
+            new PaymentAllocator($this->entityManager),
+            new AuditLogService($this->entityManager),
+        );
         $receivedAt = new DateTimeImmutable('2026-09-10 10:00:00', new DateTimeZone('UTC'));
         $postedAt = $receivedAt->modify('+1 minute');
 
