@@ -117,7 +117,7 @@ final class SetupManagementControllerTest extends WebTestCase
         $relations = $this->entityManager->getRepository(UnitRelation::class)->findAll();
         self::assertCount(1, $relations);
         self::assertSame($this->admin->getPerson()->getId(), $relations[0]->getPerson()?->getId());
-        self::assertSame('100.0000', $relations[0]->getOwnershipShare());
+        self::assertSame(100.0, (float) $relations[0]->getOwnershipShare());
 
         $policies = $this->entityManager->getRepository(FeePolicy::class)->findAll();
         self::assertCount(1, $policies);
