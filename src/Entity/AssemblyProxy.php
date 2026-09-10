@@ -16,6 +16,7 @@ use InvalidArgumentException;
 #[ORM\Index(name: 'idx_assembly_proxy_assembly', columns: ['assembly_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_principal', columns: ['principal_entry_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_representative_person', columns: ['representative_person_id'])]
+#[ORM\Index(name: 'idx_proxy_assembly_representative', columns: ['assembly_id', 'representative_person_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_registered_by', columns: ['registered_by_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_evidence_document', columns: ['evidence_document_id'])]
 #[ORM\Index(name: 'idx_assembly_proxy_revoked_by', columns: ['revoked_by_id'])]
