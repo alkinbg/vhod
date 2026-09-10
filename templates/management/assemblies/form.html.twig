@@ -76,6 +76,121 @@
                     <button type="submit" name="assembly_submit" class="btn btn-primary">Запази чернова</button>
                 </div>
             </form>
+
+            {% if assembly and assembly.status.value == 'draft' %}
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h2 class="h4 mb-0">Дневен ред</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-secondary small mb-3">
+                            Правилото за мнозинство се предлага според вида решение и се записва като snapshot към точката. Категориите, отбелязани за правен преглед, не трябва да водят до автоматичен правен извод без потвърждение.
+                        </p>
+
+                        {% if assembly.agendaItems is not empty %}
+                            {% for item in assembly.agendaItems %}
+                                {% set item_rule = item.majorityRule %}
+                                <div class="border rounded p-3 mb-3">
+                                    <form method="post" action="{{ path('app_management_assembly_agenda_edit', {id: assembly.id, itemId: item.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_agenda_edit_' ~ assembly.id ~ '_' ~ item.id) }}">
+
+                                        <div class="row">
+                                            <div class="col-md-3 mb-3">
+                                                <label class="form-label" for="agenda_position_{{ item.id }}">Позиция</label>
+                                                <input class="form-control" id="agenda_position_{{ item.id }}" value="{{ item.position }}" disabled>
+                                            </div>
+                                            <div class="col-md-9 mb-3">
+                                                <label class="form-label" for="agenda_title_{{ item.id }}">Точка</label>
+                                                <input class="form-control" id="agenda_title_{{ item.id }}" name="agenda_title" required maxlength="180" value="{{ item.title }}">
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label" for="agenda_description_{{ item.id }}">Описание</label>
+                                            <textarea class="form-control" id="agenda_description_{{ item.id }}" name="agenda_description" rows="2">{{ item.description }}</textarea>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label" for="agenda_resolution_{{ item.id }}">Проект за решение</label>
+                                            <textarea class="form-control" id="agenda_resolution_{{ item.id }}" name="draft_resolution_text" rows="3" required>{{ item.draftResolutionText }}</textarea>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label" for="agenda_kind_{{ item.id }}">Вид решение</label>
+                                            <select class="form-select" id="agenda_kind_{{ item.id }}" name="decision_kind" required>
+                                                {% for kind in decision_kinds %}
+                                                    {% set rule = decision_rules[kind.value] %}
+                                                    <option value="{{ kind.value }}"{{ kind == item.kind ? ' selected' : '' }}>
+                                                        {{ kind.value }} — {{ rule.comparison.value == 'greater_than' ? '>' : '≥' }} {{ rule.thresholdPercent }}% / {{ rule.denominator.value }}{{ rule.requiresLegalReview() ? ' · правен преглед' : '' }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div class="alert {{ item_rule.requiresLegalReview() ? 'alert-warning' : 'alert-info' }} py-2 small">
+                                            <strong>{{ item_rule.ruleCode }}</strong>:
+                                            {{ item_rule.comparison.value == 'greater_than' ? '>' : '≥' }} {{ item_rule.thresholdPercent }}%,
+                                            {{ item_rule.denominator.value }}.
+                                            {{ item_rule.legalBasis }}
+                                            {% if item_rule.requiresLegalReview() %}<strong> Изисква правен преглед.</strong>{% endif %}
+                                        </div>
+
+                                        <button type="submit" name="assembly_agenda_edit_{{ item.id }}" class="btn btn-outline-primary">Запази точката</button>
+                                    </form>
+
+                                    <form method="post" action="{{ path('app_management_assembly_agenda_remove', {id: assembly.id, itemId: item.id}) }}" class="mt-2">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('assembly_agenda_remove_' ~ assembly.id ~ '_' ~ item.id) }}">
+                                        <button type="submit" name="assembly_agenda_remove_{{ item.id }}" class="btn btn-outline-danger btn-sm">Премахни точката</button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-secondary">Все още няма добавени точки.</p>
+                        {% endif %}
+
+                        <hr>
+
+                        <form method="post" action="{{ path('app_management_assembly_agenda_add', {id: assembly.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('assembly_agenda_add_' ~ assembly.id) }}">
+
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label" for="agenda_position_new">Позиция</label>
+                                    <input class="form-control" type="number" min="1" id="agenda_position_new" name="position" required value="{{ assembly.agendaItems|length + 1 }}">
+                                </div>
+                                <div class="col-md-9 mb-3">
+                                    <label class="form-label" for="agenda_title_new">Точка</label>
+                                    <input class="form-control" id="agenda_title_new" name="agenda_title" required maxlength="180">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="agenda_description_new">Описание</label>
+                                <textarea class="form-control" id="agenda_description_new" name="agenda_description" rows="2"></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="agenda_resolution_new">Проект за решение</label>
+                                <textarea class="form-control" id="agenda_resolution_new" name="draft_resolution_text" rows="3" required></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="agenda_kind_new">Вид решение и предложено мнозинство</label>
+                                <select class="form-select" id="agenda_kind_new" name="decision_kind" required>
+                                    {% for kind in decision_kinds %}
+                                        {% set rule = decision_rules[kind.value] %}
+                                        <option value="{{ kind.value }}">
+                                            {{ kind.value }} — {{ rule.comparison.value == 'greater_than' ? '>' : '≥' }} {{ rule.thresholdPercent }}% / {{ rule.denominator.value }}{{ rule.requiresLegalReview() ? ' · правен преглед' : '' }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <button type="submit" name="assembly_agenda_add" class="btn btn-primary">Добави точка</button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
