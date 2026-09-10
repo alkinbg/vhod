@@ -23,10 +23,14 @@
                         <span class="badge unread-badge nav-unread-badge">{{ announcementUnreadCount }}</span>
                     {% endif %}
                 </a>
+                <a class="nav-official-link" href="{{ path('app_assemblies_index') }}">Общи събрания</a>
                 <a class="nav-official-link" href="{{ path('app_documents_index') }}">Документи</a>
                 <a href="{{ path('app_book') }}">Моята книга</a>
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_CONTROLLER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_management_finance') }}">Финанси</a>
+                {% endif %}
+                {% if is_granted('ROLE_CONTROLLER') or is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
+                    <a class="nav-management-link" href="{{ path('app_management_assemblies') }}">Управление на ОС</a>
                 {% endif %}
                 {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
                     <a href="{{ path('app_community_moderation') }}">Модерация</a>
