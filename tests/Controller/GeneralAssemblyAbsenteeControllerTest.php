@@ -213,6 +213,37 @@ final class GeneralAssemblyAbsenteeControllerTest extends WebTestCase
         self::assertSame(AssemblyVoteCastMode::ABSENTEE, $votes[0]->getCastMode());
     }
 
+    public function testDeclarationAndCloseRequireValidCsrfWithoutMutation(): void
+    {
+        $window = $this->openWindowDirectly(
+            new DateTimeImmutable('2026-09-09T18:10:00Z'),
+            new DateTimeImmutable('2026-09-10T09:00:00Z'),
+        );
+        self::assertNotNull($window->getId());
+
+        $this->client->loginUser($this->user($this->managerId));
+        $this->client->request('POST', $this->declarationUrl($window->getId()), [
+            '_token' => 'invalid',
+            'electorate_entry_id' => (string) $this->entryId,
+            'evidence_document_id' => (string) $this->evidenceId,
+            'signature_mode' => AssemblyAbsenteeSignatureMode::HAND_SIGNED->value,
+            'choices' => [(string) $this->itemId => 'for'],
+        ]);
+        self::assertResponseStatusCodeSame(403);
+        self::assertCount(0, $this->entityManager()->getRepository(AssemblyAbsenteeDeclaration::class)->findAll());
+        self::assertCount(0, $this->entityManager()->getRepository(AssemblyVote::class)->findAll());
+
+        self::ensureKernelShutdown();
+        $this->client = self::createClient();
+        $this->client->loginUser($this->user($this->managerId));
+        $this->client->request('POST', $this->closeUrl($window->getId()), ['_token' => 'invalid']);
+        self::assertResponseStatusCodeSame(403);
+
+        $reloaded = $this->entityManager()->find(AssemblyAbsenteeWindow::class, $window->getId());
+        self::assertInstanceOf(AssemblyAbsenteeWindow::class, $reloaded);
+        self::assertNull($reloaded->getClosedAt());
+    }
+
     public function testManagerCanCloseExpiredWindowAndResidentCannotMutateIt(): void
     {
         $window = $this->openWindowDirectly(
