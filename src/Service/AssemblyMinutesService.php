@@ -49,6 +49,7 @@ final readonly class AssemblyMinutesService
         private AssemblyVoteRepository $votes,
         private DocumentService $documentService,
         private DocumentStorage $documentStorage,
+        private ?AuditLogService $auditLog = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -178,6 +179,14 @@ final readonly class AssemblyMinutesService
                 $dueOn = $assembly->getMinutesDueOn() ?? $this->calculateMinutesDueOn($assembly);
                 $assembly->finalizeMinutes($document, $actor, $finalizedAt, $dueOn);
                 $entityManager->persist($assembly);
+                $this->auditLog?->record(
+                    $actor,
+                    'assembly.minutes.finalized',
+                    'GeneralAssembly',
+                    $assembly->getId(),
+                    $finalizedAt,
+                    ['minutes_document_id' => $document->getId()],
+                );
 
                 return $document;
             });
@@ -207,6 +216,14 @@ final readonly class AssemblyMinutesService
             $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $correction = AssemblyMinutesCorrection::record($assembly, $reason, $document, $actor, $recordedAt);
             $entityManager->persist($correction);
+            $this->auditLog?->record(
+                $actor,
+                'assembly.minutes.correction.recorded',
+                'GeneralAssembly',
+                $assembly->getId(),
+                $recordedAt,
+                ['document_id' => $document->getId()],
+            );
 
             return $correction;
         });

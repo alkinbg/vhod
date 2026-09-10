@@ -23,6 +23,7 @@ final readonly class ComplianceRegistryService
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ComplianceAccessPolicy $accessPolicy,
+        private ?AuditLogService $auditLog = null,
     ) {}
 
     public function profile(): ?CondominiumProfile
@@ -50,6 +51,19 @@ final readonly class ComplianceRegistryService
                 }
 
                 $profile->updateRegistryData($identifier, $parcelNumber, $registeredAt, $actor, $updatedAt);
+                $entityManager->flush();
+                $this->auditLog?->record(
+                    $actor,
+                    'compliance.registry.updated',
+                    'CondominiumProfile',
+                    $profile->getId(),
+                    $updatedAt,
+                    [
+                        'identifier_set' => null !== $profile->getRegistryIdentifier(),
+                        'parcel_number_set' => null !== $profile->getRegistryParcelNumber(),
+                        'registered_at_set' => null !== $profile->getRegistryRegisteredAt(),
+                    ],
+                );
 
                 return $profile;
             });
@@ -84,6 +98,20 @@ final readonly class ComplianceRegistryService
                 $note,
             );
             $entityManager->persist($mandate);
+            $entityManager->flush();
+            $this->auditLog?->record(
+                $actor,
+                'compliance.mandate.recorded',
+                'ManagementMandate',
+                $mandate->getId(),
+                $recordedAt,
+                [
+                    'kind' => $kind->value,
+                    'starts_at' => $startsAt->format('Y-m-d'),
+                    'ends_at' => $endsAt->format('Y-m-d'),
+                    'source_assembly_id' => $sourceAssembly?->getId(),
+                ],
+            );
 
             return $mandate;
         });
@@ -126,6 +154,19 @@ final readonly class ComplianceRegistryService
                     $note,
                 );
                 $entityManager->persist($completion);
+                $entityManager->flush();
+                $this->auditLog?->record(
+                    $actor,
+                    'compliance.completion.recorded',
+                    'ComplianceCompletion',
+                    $completion->getId(),
+                    $recordedAt,
+                    [
+                        'type' => $type->value,
+                        'period_key' => $completion->getPeriodKey(),
+                        'evidence_document_id' => $evidenceDocument?->getId(),
+                    ],
+                );
 
                 return $completion;
             });

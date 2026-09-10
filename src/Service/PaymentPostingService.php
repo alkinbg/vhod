@@ -9,6 +9,7 @@ use App\Entity\Payment;
 use App\Entity\PaymentAllocation;
 use App\Entity\PaymentReversal;
 use App\Entity\Unit;
+use App\Entity\User;
 use App\Enum\PaymentSource;
 use App\Value\PaymentAllocationProposal;
 use App\Value\PaymentPostingResult;
@@ -21,6 +22,7 @@ final readonly class PaymentPostingService
     public function __construct(
         private EntityManagerInterface $entityManager,
         private PaymentAllocator $allocator,
+        private ?AuditLogService $auditLog = null,
     ) {
     }
 
@@ -34,6 +36,7 @@ final readonly class PaymentPostingService
         ?string $externalReference = null,
         ?string $note = null,
         ?PaymentAllocationProposal $explicitProposal = null,
+        ?User $actor = null,
     ): PaymentPostingResult {
         $externalReference = self::nullableTrim($externalReference);
 
@@ -56,6 +59,7 @@ final readonly class PaymentPostingService
             $externalReference,
             $note,
             $explicitProposal,
+            $actor,
         ): PaymentPostingResult {
             if (null !== $externalReference) {
                 $existing = $this->findByExternalReference($externalReference);
@@ -97,6 +101,20 @@ final readonly class PaymentPostingService
             }
 
             $entityManager->flush();
+            $this->auditLog?->record(
+                $actor,
+                'finance.payment.posted',
+                'Payment',
+                $payment->getId(),
+                $postedAt,
+                [
+                    'amount_cents' => $amountCents,
+                    'source' => $source->value,
+                    'unit_id' => $unit->getId(),
+                    'allocated_cents' => $proposal->getAllocatedCents(),
+                    'unallocated_cents' => $proposal->getUnallocatedCents(),
+                ],
+            );
 
             return new PaymentPostingResult(
                 $payment,

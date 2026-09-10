@@ -28,6 +28,7 @@ final readonly class GeneralAssemblyService
         private AssemblyInvitationService $invitationService,
         private DocumentService $documentService,
         private DocumentStorage $documentStorage,
+        private ?AuditLogService $auditLog = null,
     ) {}
 
     public function createDraft(
@@ -142,6 +143,14 @@ final readonly class GeneralAssemblyService
                 $assembly->linkInvitation($invitationDocument);
                 $assembly->convene($actor, $convenedAt);
                 $entityManager->persist($assembly);
+                $this->auditLog?->record(
+                    $actor,
+                    'assembly.convened',
+                    'GeneralAssembly',
+                    $assembly->getId(),
+                    $convenedAt,
+                    ['invitation_document_id' => $invitationDocument->getId()],
+                );
 
                 return $invitationDocument;
             });

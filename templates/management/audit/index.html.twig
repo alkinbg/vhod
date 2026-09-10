@@ -1,0 +1,44 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Audit · Vhod{% endblock %}
+
+{% block body %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Сигурност</p>
+            <h1>Audit log</h1>
+            <p class="muted">Последните 200 значими действия. Записите са само за преглед и не могат да се редактират от този екран.</p>
+        </div>
+    </section>
+
+    <div class="card">
+        {% if entries is empty %}
+            <p class="muted">Все още няма audit записи.</p>
+        {% else %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Кога</th>
+                        <th>Кой</th>
+                        <th>Действие</th>
+                        <th>Обект</th>
+                        <th>Контекст</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for entry in entries %}
+                        <tr>
+                            <td>{{ entry.occurredAt|date('d.m.Y H:i:s', 'Europe/Sofia') }}</td>
+                            <td>{{ entry.actorIdentifier }}</td>
+                            <td><code>{{ entry.action }}</code></td>
+                            <td>{{ entry.subjectType }}{% if entry.subjectId %} #{{ entry.subjectId }}{% endif %}</td>
+                            <td><code>{{ entry.context|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

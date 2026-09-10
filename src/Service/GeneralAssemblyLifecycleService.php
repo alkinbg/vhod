@@ -17,6 +17,7 @@ final readonly class GeneralAssemblyLifecycleService
     public function __construct(
         private EntityManagerInterface $entityManager,
         private GeneralAssemblyAccessPolicy $accessPolicy,
+        private ?AuditLogService $auditLog = null,
     ) {
     }
 
@@ -27,6 +28,13 @@ final readonly class GeneralAssemblyLifecycleService
         $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $assembly, $startedAt): void {
             $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $assembly->start($actor, $startedAt);
+            $this->auditLog?->record(
+                $actor,
+                'assembly.started',
+                'GeneralAssembly',
+                $assembly->getId(),
+                $startedAt,
+            );
         });
     }
 
@@ -37,6 +45,13 @@ final readonly class GeneralAssemblyLifecycleService
         $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $assembly, $closedAt): void {
             $entityManager->lock($assembly, LockMode::PESSIMISTIC_WRITE);
             $assembly->close($actor, $closedAt);
+            $this->auditLog?->record(
+                $actor,
+                'assembly.closed',
+                'GeneralAssembly',
+                $assembly->getId(),
+                $closedAt,
+            );
         });
     }
 

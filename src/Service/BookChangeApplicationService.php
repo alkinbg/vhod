@@ -20,8 +20,10 @@ use DomainException;
 
 final readonly class BookChangeApplicationService
 {
-    public function __construct(private EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private ?AuditLogService $auditLog = null,
+    ) {
     }
 
     public function accept(
@@ -45,6 +47,17 @@ final readonly class BookChangeApplicationService
             };
 
             $declaration->accept($reviewedBy, $reviewedAt, $note);
+            $this->auditLog?->record(
+                $reviewedBy,
+                'condominium_book.declaration.accepted',
+                'BookChangeDeclaration',
+                $declaration->getId(),
+                $reviewedAt,
+                [
+                    'change_type' => $declaration->getType()->value,
+                    'unit_id' => $declaration->getUnit()->getId(),
+                ],
+            );
         });
     }
 

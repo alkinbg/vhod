@@ -9,13 +9,17 @@ use App\Entity\CommunityPost;
 use App\Entity\CommunityReport;
 use App\Entity\User;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 
 final readonly class CommunityModerationService
 {
-    public function __construct(private EntityManagerInterface $entityManager) {}
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private ?AuditLogService $auditLog = null,
+    ) {}
 
     public function reportPost(User $reporter, CommunityPost $post, string $reason, DateTimeImmutable $createdAt): CommunityReport
     {
@@ -55,22 +59,38 @@ final readonly class CommunityModerationService
         });
     }
 
-    public function setPostHidden(User $moderator, CommunityPost $post, bool $hidden): void
+    public function setPostHidden(User $moderator, CommunityPost $post, bool $hidden, ?DateTimeImmutable $changedAt = null): void
     {
         self::assertModerator($moderator);
-        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($post, $hidden): void {
+        $changedAt ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($moderator, $post, $hidden, $changedAt): void {
             $entityManager->lock($post, LockMode::PESSIMISTIC_WRITE);
             $hidden ? $post->hide() : $post->publishAgain();
+            $this->auditLog?->record(
+                $moderator,
+                $hidden ? 'community.post.hidden' : 'community.post.restored',
+                'CommunityPost',
+                $post->getId(),
+                $changedAt,
+            );
         });
     }
 
-    public function setCommentHidden(User $moderator, CommunityComment $comment, bool $hidden): void
+    public function setCommentHidden(User $moderator, CommunityComment $comment, bool $hidden, ?DateTimeImmutable $changedAt = null): void
     {
         self::assertModerator($moderator);
-        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($comment, $hidden): void {
+        $changedAt ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($moderator, $comment, $hidden, $changedAt): void {
             $entityManager->lock($comment->getPost(), LockMode::PESSIMISTIC_WRITE);
             $entityManager->lock($comment, LockMode::PESSIMISTIC_WRITE);
             $hidden ? $comment->hide() : $comment->publishAgain();
+            $this->auditLog?->record(
+                $moderator,
+                $hidden ? 'community.comment.hidden' : 'community.comment.restored',
+                'CommunityComment',
+                $comment->getId(),
+                $changedAt,
+            );
         });
     }
 
@@ -80,6 +100,13 @@ final readonly class CommunityModerationService
         $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($moderator, $report, $resolvedAt): void {
             $entityManager->lock($report, LockMode::PESSIMISTIC_WRITE);
             $report->resolve($moderator, $resolvedAt);
+            $this->auditLog?->record(
+                $moderator,
+                'community.report.resolved',
+                'CommunityReport',
+                $report->getId(),
+                $resolvedAt,
+            );
         });
     }
 
