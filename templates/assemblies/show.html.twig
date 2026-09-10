@@ -1,0 +1,101 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ assembly.title }}{% endblock %}
+
+{% block body %}
+<section class="page-shell official-shell assembly-resident-shell">
+    <div class="page-heading assembly-heading">
+        <div>
+            <p class="eyebrow">Официално общо събрание</p>
+            <h1>{{ assembly.title }}</h1>
+            <p class="muted">{{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }}</p>
+        </div>
+        <span class="badge assembly-status assembly-status--{{ assembly.status.value }}">{{ assembly.status.value }}</span>
+    </div>
+
+    <article class="panel official-card assembly-summary">
+        <div class="assembly-facts">
+            <div><span>Инициатор</span><strong>{{ assembly.initiatorDisplayName }}</strong></div>
+            <div><span>Основание за свикване</span><strong>{{ assembly.conveningBasis.value }}</strong></div>
+            <div><span>Референтна дата</span><strong>{{ assembly.referenceDate|date('d.m.Y') }}</strong></div>
+            <div><span>Часова зона</span><strong>{{ assembly.timezoneSnapshot }}</strong></div>
+        </div>
+
+        {% if assembly.conveningBasisNote %}
+            <p class="muted assembly-note">{{ assembly.conveningBasisNote }}</p>
+        {% endif %}
+
+        <div class="official-actions">
+            {% if assembly.invitationDocument %}
+                <a class="button-link" href="{{ path('app_document_download', {id: assembly.invitationDocument.id}) }}">Свали поканата</a>
+            {% endif %}
+            {% if assembly.status.value == 'minutes_finalized' and assembly.minutesDocument %}
+                <a class="button-link secondary-button" href="{{ path('app_assembly_minutes', {id: assembly.id}) }}">Виж протокола</a>
+            {% endif %}
+            <a class="button-link secondary-button" href="{{ path('app_assemblies_index') }}">Всички събрания</a>
+        </div>
+    </article>
+
+    <section class="assembly-official-section">
+        <div class="assembly-section-heading">
+            <div>
+                <p class="eyebrow">Официален дневен ред</p>
+                <h2>Точки и решения</h2>
+            </div>
+        </div>
+
+        <div class="assembly-agenda-list">
+            {% for row in agenda %}
+                {% set item = row.item %}
+                {% set resolution = row.resolution %}
+                <article class="card assembly-agenda-card">
+                    <div class="official-card__meta">
+                        <span>Точка {{ item.position }}</span>
+                        <span class="badge">{{ item.status.value }}</span>
+                    </div>
+                    <h2>{{ item.title }}</h2>
+                    {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+                    {% if item.isEmergency() %}
+                        <div class="notice notice-soft"><strong>Извънредна точка:</strong> {{ item.emergencyReason }}</div>
+                    {% endif %}
+
+                    {% if item.finalResolutionText %}
+                        <div class="assembly-resolution-text">
+                            <span>Финален текст на решението</span>
+                            <p>{{ item.finalResolutionText }}</p>
+                        </div>
+                    {% else %}
+                        <div class="assembly-resolution-text">
+                            <span>Проект за решение</span>
+                            <p>{{ item.draftResolutionText }}</p>
+                        </div>
+                    {% endif %}
+
+                    {% if resolution %}
+                        <div class="assembly-result">
+                            <strong>Резултат: {{ resolution.result.value }}</strong>
+                            <p>{{ resolution.explanation }}</p>
+                            <div class="assembly-result-totals">
+                                <span>За: {{ resolution.forIdealPartsPercent }}%</span>
+                                <span>Против: {{ resolution.againstIdealPartsPercent }}%</span>
+                                <span>Въздържали се: {{ resolution.abstainIdealPartsPercent }}%</span>
+                            </div>
+                        </div>
+                    {% elseif assembly.status.value == 'closed' or assembly.status.value == 'minutes_finalized' %}
+                        <div class="notice notice-soft">Няма публикуван окончателен резултат за тази точка.</div>
+                    {% endif %}
+                </article>
+            {% else %}
+                <div class="card empty-state">
+                    <h2>Няма точки в дневния ред</h2>
+                    <p>Към това общо събрание няма публикувани точки.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="notice notice-info assembly-boundary-note">
+        <strong>Официален процес.</strong> Гласуванията и решенията на Общото събрание са отделени от неформалните анкети, реакции и коментари в Общността. Тази страница е само за преглед.
+    </div>
+</section>
+{% endblock %}

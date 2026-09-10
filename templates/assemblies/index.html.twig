@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Общи събрания{% endblock %}
+
+{% block body %}
+<section class="page-shell official-shell assembly-resident-shell">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">Официална информация</p>
+            <h1>Общи събрания</h1>
+            <p class="muted">Свикани и проведени общи събрания на етажната собственост. Формалните решения тук са отделени от разговорите и анкетите в Общността.</p>
+        </div>
+    </div>
+
+    <div class="official-list assembly-list">
+        {% for assembly in assemblies %}
+            <article class="card official-card assembly-card">
+                <div class="official-card__meta">
+                    <span class="badge badge--official">Официално общо събрание</span>
+                    <span class="badge assembly-status assembly-status--{{ assembly.status.value }}">{{ assembly.status.value }}</span>
+                    <time datetime="{{ assembly.scheduledAt|date('c') }}">{{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</time>
+                </div>
+                <h2><a href="{{ path('app_assembly_show', {id: assembly.id}) }}">{{ assembly.title }}</a></h2>
+                <p class="muted mb-0">{{ assembly.place }}</p>
+                <div class="official-actions">
+                    <a class="button-link secondary-button" href="{{ path('app_assembly_show', {id: assembly.id}) }}">Виж събранието</a>
+                    {% if assembly.status.value == 'minutes_finalized' and assembly.minutesDocument %}
+                        <a class="button-link" href="{{ path('app_assembly_minutes', {id: assembly.id}) }}">Протокол</a>
+                    {% endif %}
+                </div>
+            </article>
+        {% else %}
+            <div class="card empty-state">
+                <h2>Няма публикувани общи събрания</h2>
+                <p>След свикване на общо събрание официалната информация ще се появи тук.</p>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

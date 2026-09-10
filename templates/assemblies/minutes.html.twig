@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Протокол — {{ assembly.title }}{% endblock %}
+
+{% block body %}
+<section class="page-shell official-shell assembly-resident-shell">
+    <div class="page-heading assembly-heading">
+        <div>
+            <p class="eyebrow">Официален документ</p>
+            <h1>Протокол от общо събрание</h1>
+            <p class="muted">{{ assembly.title }} · {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }}</p>
+        </div>
+        <span class="badge badge--official">Финализиран</span>
+    </div>
+
+    <article class="panel official-card assembly-minutes-summary">
+        <div class="assembly-facts">
+            <div><span>Председател</span><strong>{{ assembly.chairpersonNameSnapshot }}</strong></div>
+            <div><span>Протоколчик</span><strong>{{ assembly.secretaryNameSnapshot }}</strong></div>
+            {% if assembly.minutesFinalizedAt %}
+                <div><span>Финализиран на</span><strong>{{ assembly.minutesFinalizedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</strong></div>
+            {% endif %}
+            {% if assembly.minutesDueOn %}
+                <div><span>Срок за протокола</span><strong>{{ assembly.minutesDueOn|date('d.m.Y') }}</strong></div>
+            {% endif %}
+        </div>
+
+        {% if assembly.formalNotes %}
+            <div class="assembly-resolution-text">
+                <span>Формални бележки</span>
+                <p>{{ assembly.formalNotes|nl2br }}</p>
+            </div>
+        {% endif %}
+
+        <div class="official-actions">
+            <a class="button-link" href="{{ path('app_document_download', {id: document.id}) }}">Свали официалния PDF</a>
+            <a class="button-link secondary-button" href="{{ path('app_assembly_show', {id: assembly.id}) }}">Към събранието</a>
+        </div>
+    </article>
+
+    {% if corrections %}
+        <section class="assembly-official-section">
+            <div class="assembly-section-heading">
+                <div>
+                    <p class="eyebrow">История</p>
+                    <h2>Добавки и корекции</h2>
+                </div>
+            </div>
+            <div class="assembly-agenda-list">
+                {% for correction in corrections %}
+                    <article class="card official-card">
+                        <div class="official-card__meta">
+                            <span class="badge badge--official">Добавка към протокола</span>
+                            <time datetime="{{ correction.recordedAt|date('c') }}">{{ correction.recordedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</time>
+                        </div>
+                        <p>{{ correction.reason }}</p>
+                        <div class="official-actions">
+                            <a class="button-link secondary-button" href="{{ path('app_document_download', {id: correction.document.id}) }}">Свали добавката</a>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    <div class="notice notice-info assembly-boundary-note">
+        Официалният протокол е финализиран документ. Последващи поправки се публикуват като отделни добавки и не променят исторически записаните гласове и решения.
+    </div>
+</section>
+{% endblock %}
