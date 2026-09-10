@@ -39,6 +39,7 @@ final readonly class AssemblyVotingService
         private AssemblyElectorateEntryRepository $electorateRepository,
         private AssemblyVoteRepository $voteRepository,
         private AssemblyQuorumService $quorumService,
+        private AssemblyQuorumBasisGuard $quorumBasisGuard,
         private AssemblyResolutionCalculator $resolutionCalculator,
         private ?AuditLogService $auditLog = null,
     ) {
@@ -205,6 +206,7 @@ final readonly class AssemblyVotingService
                 return $existing;
             }
             $this->assertVotingOpen($item);
+            $this->quorumBasisGuard->assertValid($item->getAssembly());
 
             $resolution = $this->createResolution($actor, $item, $resolvedAt);
             $this->recordResolutionAudit($actor, $item, $resolution, $resolvedAt);
@@ -236,6 +238,7 @@ final readonly class AssemblyVotingService
         }
 
         $this->assertAbsenteeVotingOpen($item);
+        $this->quorumBasisGuard->assertValid($item->getAssembly());
         $resolution = $this->createResolution($actor, $item, $resolvedAt);
         $this->recordResolutionAudit($actor, $item, $resolution, $resolvedAt);
 
