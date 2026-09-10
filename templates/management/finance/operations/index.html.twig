@@ -1,0 +1,85 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Финансови операции · Vhod{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Финанси</p>
+        <h1>Финансови операции</h1>
+        <p>Начисления, касови плащания и банково осчетоводяване.</p>
+    </div>
+</section>
+
+<div class="card-grid">
+    <article class="card">
+        <h2>Месечни начисления</h2>
+        <form method="post" action="{{ path('app_management_finance_generate_charges') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('finance_generate_charges') }}">
+            <label for="month">Месец</label>
+            <input id="month" name="month" type="month" required>
+            <button type="submit">Генерирай начисления</button>
+        </form>
+    </article>
+
+    <article class="card">
+        <h2>Касово плащане</h2>
+        <p>Записва плащане и го разпределя по най-старите непогасени начисления.</p>
+        <a href="{{ path('app_management_finance_payment_new') }}">Ново плащане</a>
+    </article>
+
+    <article class="card">
+        <h2>Банков импорт</h2>
+        {% if bank_accounts is empty %}
+            <p class="muted">Няма активна банкова сметка.</p>
+        {% else %}
+            <p>Импорт на CAMT.053 извлечение.</p>
+            <a href="{{ path('app_management_finance_bank_import') }}">Импортирай извлечение</a>
+        {% endif %}
+    </article>
+</div>
+
+<section>
+    <h2>Неосчетоводени входящи банкови транзакции</h2>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead><tr><th>Дата</th><th>Платец</th><th>Основание</th><th class="text-end">Сума</th><th></th></tr></thead>
+            <tbody>
+            {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.bookingDate|date('d.m.Y') }}</td>
+                    <td>{{ transaction.counterpartyName ?? '—' }}</td>
+                    <td>{{ transaction.remittanceInformation ?? '—' }}</td>
+                    <td class="text-end">{{ (transaction.amountCents / 100)|number_format(2, '.', '') }} €</td>
+                    <td class="text-end"><a href="{{ path('app_management_finance_reconcile', {id: transaction.id}) }}">Осчетоводи</a></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="text-muted">Няма неосчетоводени входящи транзакции.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section>
+    <h2>Последни активни плащания</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Дата</th><th>Обект</th><th>Източник</th><th class="text-end">Сума</th><th></th></tr></thead>
+            <tbody>
+            {% for payment in payments %}
+                <tr>
+                    <td>{{ payment.receivedAt|date('d.m.Y') }}</td>
+                    <td>{{ payment.unit.designation }}</td>
+                    <td>{{ payment.source.value }}</td>
+                    <td class="text-end">{{ (payment.amountCents / 100)|number_format(2, '.', '') }} €</td>
+                    <td class="text-end"><a href="{{ path('app_management_finance_payment_reverse', {id: payment.id}) }}">Сторнирай</a></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="text-muted">Няма активни плащания.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
