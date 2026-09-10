@@ -165,8 +165,10 @@ class FeePolicy
 
     public function isEffectiveFor(DateTimeImmutable $billingMonth): bool
     {
-        return $billingMonth >= $this->effectiveFrom
-            && (null === $this->effectiveUntil || $billingMonth <= $this->effectiveUntil);
+        $billingDate = $billingMonth->format('Y-m-d');
+
+        return $billingDate >= $this->effectiveFrom->format('Y-m-d')
+            && (null === $this->effectiveUntil || $billingDate <= $this->effectiveUntil->format('Y-m-d'));
     }
 
     private static function assertFirstDayOfMonth(DateTimeImmutable $date, string $label): void
