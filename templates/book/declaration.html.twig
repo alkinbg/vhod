@@ -38,6 +38,19 @@
             <input id="lastName" name="lastName" type="text" required>
             <label for="validFrom">От дата</label>
             <input id="validFrom" name="validFrom" type="date" required>
+        {% elseif change_type.value == 'household_member_end' %}
+            {% if household_members is empty %}
+                <p>Няма активен член на домакинството, чието членство може да бъде приключено.</p>
+            {% else %}
+                <label for="memberId">Член на домакинството</label>
+                <select id="memberId" name="memberId" required>
+                    {% for member in household_members %}
+                        <option value="{{ member.id }}">{{ member.person.displayName }}</option>
+                    {% endfor %}
+                </select>
+                <label for="validUntil">Последен ден на членството</label>
+                <input id="validUntil" name="validUntil" type="date" required>
+            {% endif %}
         {% elseif change_type.value == 'absence' %}
             <label for="validFrom">От дата</label>
             <input id="validFrom" name="validFrom" type="date" required>
@@ -50,10 +63,16 @@
             <input id="count" name="count" type="number" min="1" value="1" required>
             <label for="passport">Номер на ветеринарен паспорт</label>
             <input id="passport" name="passport" type="text">
+            <label for="validFrom">От дата</label>
+            <input id="validFrom" name="validFrom" type="date" required>
+            <label for="validUntil">До дата</label>
+            <input id="validUntil" name="validUntil" type="date">
         {% endif %}
 
         <div class="actions">
-            <button type="submit">Изпрати декларацията</button>
+            {% if change_type.value != 'household_member_end' or household_members is not empty %}
+                <button type="submit">Изпрати декларацията</button>
+            {% endif %}
             <a href="{{ path('app_book') }}">Отказ</a>
         </div>
     </form>
