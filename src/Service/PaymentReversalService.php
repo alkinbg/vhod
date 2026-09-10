@@ -10,6 +10,7 @@ use App\Entity\PaymentReversal;
 use App\Entity\User;
 use App\Value\PaymentReversalResult;
 use DateTimeImmutable;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 
@@ -30,8 +31,15 @@ final readonly class PaymentReversalService
         if (null === $payment->getId()) {
             throw new DomainException('Only a persisted payment can be reversed.');
         }
+        if (null === $payment->getUnit()->getId()) {
+            throw new DomainException('Payment reversal requires a persisted unit.');
+        }
 
         return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($payment, $reason, $reversedAt, $actor): PaymentReversalResult {
+            // Keep the same lock order as posting/reconciliation: Unit first, then Payment.
+            $entityManager->lock($payment->getUnit(), LockMode::PESSIMISTIC_WRITE);
+            $entityManager->lock($payment, LockMode::PESSIMISTIC_WRITE);
+
             $existing = $entityManager->getRepository(PaymentReversal::class)->findOneBy(['payment' => $payment]);
             if ($existing instanceof PaymentReversal) {
                 throw new DomainException('Payment has already been reversed.');
