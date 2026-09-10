@@ -122,7 +122,7 @@ class UnitRelation
 
     public function endAt(DateTimeImmutable $date): void
     {
-        if ($date < $this->validFrom) {
+        if ($date->format('Y-m-d') < $this->validFrom->format('Y-m-d')) {
             throw new InvalidArgumentException('Relation cannot end before it starts.');
         }
 
@@ -131,8 +131,10 @@ class UnitRelation
 
     public function isActiveAt(DateTimeImmutable $date): bool
     {
-        return $date >= $this->validFrom
-            && (null === $this->validUntil || $date <= $this->validUntil);
+        $dateKey = $date->format('Y-m-d');
+
+        return $dateKey >= $this->validFrom->format('Y-m-d')
+            && (null === $this->validUntil || $dateKey <= $this->validUntil->format('Y-m-d'));
     }
 
     private static function assertOwnershipShare(UnitRelationType $type, ?string $ownershipShare): void
