@@ -14,6 +14,8 @@ use App\Enum\PaymentSource;
 use App\Value\PaymentAllocationProposal;
 use App\Value\PaymentPostingResult;
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 
@@ -49,35 +51,12 @@ final readonly class PaymentPostingService
             }
         }
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use (
-            $unit,
-            $amountCents,
-            $source,
-            $receivedAt,
-            $postedAt,
-            $reference,
-            $externalReference,
-            $note,
-            $explicitProposal,
-            $actor,
-        ): PaymentPostingResult {
-            if (null !== $externalReference) {
-                $existing = $this->findByExternalReference($externalReference);
-                if (null !== $existing) {
-                    $this->assertIdempotentMatch($existing, $unit, $amountCents, $source);
+        if (null === $unit->getId()) {
+            throw new DomainException('Payment posting requires a persisted unit.');
+        }
 
-                    return $this->resultForExistingPayment($existing);
-                }
-            }
-
-            $proposal = $explicitProposal ?? $this->allocator->propose($unit, $amountCents);
-            if ($proposal->getPaymentAmountCents() !== $amountCents) {
-                throw new DomainException('Allocation proposal payment amount does not match the payment amount.');
-            }
-
-            $this->validateProposal($unit, $proposal);
-
-            $payment = Payment::post(
+        try {
+            return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use (
                 $unit,
                 $amountCents,
                 $source,
@@ -86,42 +65,95 @@ final readonly class PaymentPostingService
                 $reference,
                 $externalReference,
                 $note,
-            );
-            $entityManager->persist($payment);
-
-            foreach ($proposal->getAllocations() as $position => $proposed) {
-                $allocation = PaymentAllocation::allocate(
-                    $payment,
-                    $proposed->charge,
-                    $proposed->amountCents,
-                    $position,
-                    $postedAt,
-                );
-                $entityManager->persist($allocation);
-            }
-
-            $entityManager->flush();
-            $this->auditLog?->record(
+                $explicitProposal,
                 $actor,
-                'finance.payment.posted',
-                'Payment',
-                $payment->getId(),
-                $postedAt,
-                [
-                    'amount_cents' => $amountCents,
-                    'source' => $source->value,
-                    'unit_id' => $unit->getId(),
-                    'allocated_cents' => $proposal->getAllocatedCents(),
-                    'unallocated_cents' => $proposal->getUnallocatedCents(),
-                ],
-            );
+            ): PaymentPostingResult {
+                // All finance mutations lock Unit first. This serializes allocation
+                // decisions for one unit and gives every path the same lock order.
+                $entityManager->lock($unit, LockMode::PESSIMISTIC_WRITE);
 
-            return new PaymentPostingResult(
-                $payment,
-                $proposal->getAllocatedCents(),
-                $proposal->getUnallocatedCents(),
-            );
-        });
+                if (null !== $externalReference) {
+                    $existing = $this->findByExternalReference($externalReference);
+                    if (null !== $existing) {
+                        $this->assertIdempotentMatch($existing, $unit, $amountCents, $source);
+
+                        return $this->resultForExistingPayment($existing);
+                    }
+                }
+
+                $proposal = $explicitProposal ?? $this->allocator->propose($unit, $amountCents);
+                if ($proposal->getPaymentAmountCents() !== $amountCents) {
+                    throw new DomainException('Allocation proposal payment amount does not match the payment amount.');
+                }
+
+                $this->lockProposalCharges($entityManager, $proposal);
+                $this->validateProposal($unit, $proposal);
+
+                $payment = Payment::post(
+                    $unit,
+                    $amountCents,
+                    $source,
+                    $receivedAt,
+                    $postedAt,
+                    $reference,
+                    $externalReference,
+                    $note,
+                );
+                $entityManager->persist($payment);
+
+                foreach ($proposal->getAllocations() as $position => $proposed) {
+                    $allocation = PaymentAllocation::allocate(
+                        $payment,
+                        $proposed->charge,
+                        $proposed->amountCents,
+                        $position,
+                        $postedAt,
+                    );
+                    $entityManager->persist($allocation);
+                }
+
+                $entityManager->flush();
+                $this->auditLog?->record(
+                    $actor,
+                    'finance.payment.posted',
+                    'Payment',
+                    $payment->getId(),
+                    $postedAt,
+                    [
+                        'amount_cents' => $amountCents,
+                        'source' => $source->value,
+                        'unit_id' => $unit->getId(),
+                        'allocated_cents' => $proposal->getAllocatedCents(),
+                        'unallocated_cents' => $proposal->getUnallocatedCents(),
+                    ],
+                );
+
+                return new PaymentPostingResult(
+                    $payment,
+                    $proposal->getAllocatedCents(),
+                    $proposal->getUnallocatedCents(),
+                );
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            throw new DomainException('External payment reference is already used by another payment.', 0, $exception);
+        }
+    }
+
+    private function lockProposalCharges(EntityManagerInterface $entityManager, PaymentAllocationProposal $proposal): void
+    {
+        $charges = [];
+        foreach ($proposal->getAllocations() as $proposed) {
+            $id = $proposed->charge->getId();
+            if (null === $id) {
+                throw new DomainException('Allocation proposal contains a non-persisted charge.');
+            }
+            $charges[$id] = $proposed->charge;
+        }
+
+        ksort($charges, SORT_NUMERIC);
+        foreach ($charges as $charge) {
+            $entityManager->lock($charge, LockMode::PESSIMISTIC_WRITE);
+        }
     }
 
     private function validateProposal(Unit $unit, PaymentAllocationProposal $proposal): void
