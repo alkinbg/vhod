@@ -57,8 +57,8 @@ final class GeneralAssemblyMutationCsrfTest extends WebTestCase
         $em->persist($manager);
 
         $draft = $this->newAssembly('Редактируема чернова', $manager, '2026-09-21T15:00:00Z');
-        $posting = $this->newAssembly('Свикано за поставяне', $manager, '2026-09-22T15:00:00Z');
-        $voting = $this->newAssembly('Активно гласуване', $manager, '2026-09-23T15:00:00Z');
+        $posting = $this->newAssembly('Свикано за поставяне', $manager, '2026-09-10T08:00:00Z');
+        $voting = $this->newAssembly('Активно гласуване', $manager, '2026-09-10T05:00:00Z');
 
         $planned = $voting->addAgendaItem(1, 'Планирана точка', null, 'Проект 1', AssemblyDecisionKind::ORDINARY, $this->rule());
         $open = $voting->addAgendaItem(2, 'Отворена точка', null, 'Проект 2', AssemblyDecisionKind::ORDINARY, $this->rule());
@@ -87,17 +87,17 @@ final class GeneralAssemblyMutationCsrfTest extends WebTestCase
         }
         $em->flush();
 
-        $posting->convene($manager, new DateTimeImmutable('2026-09-20T12:00:00Z'));
-        $voting->convene($manager, new DateTimeImmutable('2026-09-22T12:00:00Z'));
-        $voting->start($manager, new DateTimeImmutable('2026-09-23T15:00:00Z'));
+        $posting->convene($manager, new DateTimeImmutable('2026-09-10T04:00:00Z'));
+        $voting->convene($manager, new DateTimeImmutable('2026-09-10T04:00:00Z'));
+        $voting->start($manager, new DateTimeImmutable('2026-09-10T05:00:00Z'));
         $attendance = AssemblyAttendance::register(
             $voting,
             $entry,
             AssemblyAttendanceMode::IN_PERSON,
             $manager,
-            new DateTimeImmutable('2026-09-23T15:00:00Z'),
+            new DateTimeImmutable('2026-09-10T05:00:00Z'),
         );
-        $open->open('Финален текст 2', new DateTimeImmutable('2026-09-23T15:01:00Z'));
+        $open->open('Финален текст 2', new DateTimeImmutable('2026-09-10T05:01:00Z'));
         $em->persist($attendance);
         $em->flush();
 
@@ -164,7 +164,7 @@ final class GeneralAssemblyMutationCsrfTest extends WebTestCase
             AssemblyVoteChoice::FOR,
             '100',
             $this->user(),
-            new DateTimeImmutable('2026-09-23T15:02:00Z'),
+            new DateTimeImmutable('2026-09-10T05:02:00Z'),
         );
         $this->entityManager()->persist($vote);
         $this->entityManager()->flush();
