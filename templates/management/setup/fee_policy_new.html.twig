@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ново правило за такса · Настройка{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Първоначална настройка</p>
+        <h1>Ново правило за такса</h1>
+    </div>
+</section>
+
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('setup_fee_policy_new') }}">
+
+    <label for="code">Код</label>
+    <input id="code" name="code" type="text" value="{{ app.request.request.get('code') }}" required>
+
+    <label for="name">Име</label>
+    <input id="name" name="name" type="text" value="{{ app.request.request.get('name') }}" required>
+
+    <label for="fund_id">Фонд</label>
+    <select id="fund_id" name="fund_id" required>
+        {% for fund in funds %}<option value="{{ fund.id }}">{{ fund.name }}</option>{% endfor %}
+    </select>
+
+    <label for="category">Категория</label>
+    <select id="category" name="category" required>
+        {% for category in categories %}<option value="{{ category.value }}">{{ category.value }}</option>{% endfor %}
+    </select>
+
+    <label for="distribution">Разпределение</label>
+    <select id="distribution" name="distribution" required>
+        {% for distribution in distributions %}<option value="{{ distribution.value }}">{{ distribution.value }}</option>{% endfor %}
+    </select>
+
+    <label for="amount">Месечна сума (€)</label>
+    <input id="amount" name="amount" type="text" inputmode="decimal" value="{{ app.request.request.get('amount') }}" required>
+
+    <label for="effective_from">В сила от</label>
+    <input id="effective_from" name="effective_from" type="date" value="{{ app.request.request.get('effective_from') }}" required>
+
+    <label for="decision_reference">Решение на общото събрание</label>
+    <input id="decision_reference" name="decision_reference" type="text" value="{{ app.request.request.get('decision_reference') }}" required>
+
+    <label><input type="checkbox" name="include_animal_equivalents" value="1"> Включва еквивалент за животни</label>
+    <label><input type="checkbox" name="statutory_minimum_confirmed" value="1"> Потвърден е приложимият законов минимум</label>
+
+    <div class="actions">
+        <button type="submit">Създай правило</button>
+        <a href="{{ path('app_management_setup') }}">Отказ</a>
+    </div>
+</form>
+{% endblock %}
