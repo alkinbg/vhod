@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>Протокол — {{ assembly.title }}</title>
+    <style>
+        @page { margin: 18mm 16mm; }
+        body { font-family: "DejaVu Sans", sans-serif; font-size: 10.5pt; line-height: 1.45; color: #111; }
+        h1 { font-size: 18pt; margin: 0 0 8px; }
+        h2 { font-size: 13pt; margin: 18px 0 8px; border-bottom: 1px solid #999; padding-bottom: 4px; }
+        h3 { font-size: 11pt; margin: 12px 0 5px; }
+        p { margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+        th, td { border: 1px solid #bbb; padding: 5px 6px; vertical-align: top; }
+        th { background: #eee; text-align: left; }
+        .muted { color: #555; }
+        .warning { border: 1px solid #8a5a00; background: #fff7dc; padding: 7px 9px; margin: 6px 0; }
+        .result { margin-top: 6px; padding: 6px; border: 1px solid #aaa; }
+        .signature { margin-top: 28px; width: 48%; display: inline-block; vertical-align: top; }
+    </style>
+</head>
+<body>
+<h1>ПРОТОКОЛ ОТ ОБЩО СЪБРАНИЕ</h1>
+<p><strong>{{ assembly.title }}</strong></p>
+<p>{{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }}</p>
+<p class="muted">Часова зона: {{ assembly.timezoneSnapshot }} · Статус: {{ assembly.status.value }}</p>
+
+<h2>Свикване и длъжностни лица</h2>
+<table>
+    <tr><th>Инициатор</th><td>{{ assembly.initiatorDisplayName }}</td></tr>
+    <tr><th>Основание за свикване</th><td>{{ assembly.conveningBasis.value }}{% if assembly.conveningBasisNote %} — {{ assembly.conveningBasisNote }}{% endif %}</td></tr>
+    <tr><th>Председател</th><td>{{ assembly.chairpersonNameSnapshot ?: 'Не е въведен' }}</td></tr>
+    <tr><th>Протоколчик</th><td>{{ assembly.secretaryNameSnapshot ?: 'Не е въведен' }}</td></tr>
+    {% if assembly.startedAt %}<tr><th>Начало</th><td>{{ assembly.startedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</td></tr>{% endif %}
+    {% if assembly.closedAt %}<tr><th>Край</th><td>{{ assembly.closedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</td></tr>{% endif %}
+</table>
+
+{% if warnings %}
+<h2>Предупреждения и правен преглед</h2>
+{% for warning in warnings %}<div class="warning">{{ warning }}</div>{% endfor %}
+{% endif %}
+
+<h2>Кворум</h2>
+{% if latestQuorumCheck %}
+<p><strong>Последна проверка:</strong> {{ latestQuorumCheck.checkedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} — {{ latestQuorumCheck.representedIdealPartsPercent }}% представени при изисквани {{ latestQuorumCheck.requiredIdealPartsPercent }}% — {{ latestQuorumCheck.result.value }}</p>
+{% else %}
+<p>Няма записана проверка на кворума.</p>
+{% endif %}
+{% if quorumChecks %}
+<table>
+    <thead><tr><th>Момент</th><th>Вид</th><th>Представени</th><th>Изисквани</th><th>Резултат</th></tr></thead>
+    <tbody>
+    {% for check in quorumChecks %}
+        <tr>
+            <td>{{ check.checkedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</td>
+            <td>{{ check.kind.value }}</td>
+            <td>{{ check.representedIdealPartsPercent }}%</td>
+            <td>{{ check.requiredIdealPartsPercent }}%</td>
+            <td>{{ check.result.value }}<br><span class="muted">{{ check.explanation }}</span></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<h2>Присъствие и представителство</h2>
+<p><strong>Представени идеални части по последната проверка:</strong> {{ representedIdealPartsPercent ? representedIdealPartsPercent ~ '%' : 'няма записана стойност' }}</p>
+{% if attendance %}
+<table>
+    <thead><tr><th>Обект / правоимащ</th><th>Начин</th><th>Представител</th><th>Идеални части</th></tr></thead>
+    <tbody>
+    {% for row in attendance %}
+        <tr>
+            <td>{{ row.electorateEntry.unitDesignationSnapshot }} — {{ row.electorateEntry.principalNameSnapshot }}</td>
+            <td>{{ row.mode.value }}</td>
+            <td>{{ row.representativeName ?: '—' }}</td>
+            <td>{{ row.electorateEntry.representedIdealPartsPercentSnapshot ?: 'изисква преглед' }}{% if row.electorateEntry.representedIdealPartsPercentSnapshot %}%{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Няма записано присъствие.</p>
+{% endif %}
+
+{% if proxies %}
+<h3>Пълномощни</h3>
+<table>
+    <thead><tr><th>Представляван</th><th>Представител</th><th>Основание</th><th>Статус</th></tr></thead>
+    <tbody>
+    {% for proxy in proxies %}
+        <tr>
+            <td>{{ proxy.principalEntry.principalNameSnapshot }}</td>
+            <td>{{ proxy.representativeName }}</td>
+            <td>{{ proxy.authorityKind }}</td>
+            <td>{{ proxy.revoked ? 'оттеглено' : 'действащо към закриване' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<h2>Дневен ред и решения</h2>
+{% for row in agenda %}
+    {% set item = row.item %}
+    {% set resolution = row.resolution %}
+    <h3>Точка {{ item.position }}. {{ item.title }}</h3>
+    {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+    {% if item.isEmergency() %}<div class="warning"><strong>Извънредна точка.</strong> Причина: {{ item.emergencyReason }}</div>{% endif %}
+    <p><strong>Финален текст на решението:</strong> {{ item.finalResolutionText ?: item.draftResolutionText }}</p>
+    <p class="muted">Правило: {{ item.majorityRule.ruleCode }} · {{ item.majorityRule.denominator.value }} · {{ item.majorityRule.comparison.value }} {{ item.majorityRule.thresholdPercent }}% · {{ item.majorityRule.legalBasis }}</p>
+
+    {% if row.votes %}
+    <table>
+        <thead><tr><th>Правоимащ</th><th>Глас</th><th>Тегло</th><th>Начин</th></tr></thead>
+        <tbody>
+        {% for vote in row.votes %}
+            <tr>
+                <td>{{ vote.electorateEntry.principalNameSnapshot }}</td>
+                <td>{{ vote.choice.value }}</td>
+                <td>{{ vote.weightIdealPartsPercent }}%</td>
+                <td>{{ vote.castMode.value }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if resolution %}
+        <div class="result">
+            <strong>Резултат: {{ resolution.result.value }}</strong><br>
+            За: {{ resolution.forIdealPartsPercent }}% · Против: {{ resolution.againstIdealPartsPercent }}% · Въздържали се: {{ resolution.abstainIdealPartsPercent }}%<br>
+            Деноминатор: {{ resolution.denominatorIdealPartsPercent }}% · Изискуемо: {{ resolution.requiredIdealPartsPercent }}%<br>
+            {{ resolution.explanation }}
+        </div>
+    {% else %}
+        <div class="warning">Няма окончателно записан резултат за тази точка.</div>
+    {% endif %}
+{% else %}
+    <p>Няма точки в дневния ред.</p>
+{% endfor %}
+
+<h2>Неприсъствено гласуване</h2>
+{% if absenteeWindow %}
+    <p>Прозорец: {{ absenteeWindow.openedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} — {{ absenteeWindow.deadlineAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}.</p>
+    <p>Основание: {{ absenteeWindow.legalBasis }}</p>
+    <p>Регистрирани декларации: {{ absenteeDeclarations|length }}.</p>
+    <p>Статус: {{ absenteeWindow.closedAt ? 'приключен' : 'отворен' }}.</p>
+{% else %}
+    <p>Не е използвано неприсъствено гласуване.</p>
+{% endif %}
+
+{% if assembly.formalNotes %}
+<h2>Формални бележки</h2>
+<p>{{ assembly.formalNotes|nl2br }}</p>
+{% endif %}
+
+<div class="signature"><strong>Председател:</strong><br><br>{{ assembly.chairpersonNameSnapshot ?: '________________' }}</div>
+<div class="signature"><strong>Протоколчик:</strong><br><br>{{ assembly.secretaryNameSnapshot ?: '________________' }}</div>
+</body>
+</html>
