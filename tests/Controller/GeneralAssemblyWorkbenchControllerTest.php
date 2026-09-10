@@ -18,6 +18,7 @@ use App\Enum\AssemblyPrincipalType;
 use App\Enum\AssemblyQuorumCheckKind;
 use App\Value\AssemblyQuorumRuleSnapshot;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -115,7 +116,7 @@ final class GeneralAssemblyWorkbenchControllerTest extends WebTestCase
             $reloadedSecond,
             AssemblyAttendanceMode::IN_PERSON,
             $this->user($this->managerId),
-            new DateTimeImmutable('2026-09-20T15:10:00Z'),
+            $reloadedAssembly->getScheduledAt()->modify('+10 minutes'),
         );
         $em->persist($attendance);
         $em->flush();
@@ -171,17 +172,20 @@ final class GeneralAssemblyWorkbenchControllerTest extends WebTestCase
         $secondPerson = new Person('Борис', 'Втори');
         $firstUnit = new Unit('Ап. 1', idealParts: '60.0000');
         $secondUnit = new Unit('Ап. 2', idealParts: '40.0000');
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $scheduledAt = $now->modify('-2 hours');
+        $createdAt = $scheduledAt->modify('-2 days');
         $assembly = GeneralAssembly::draft(
             'Работно общо събрание',
-            new DateTimeImmutable('2026-09-20T15:00:00Z'),
+            $scheduledAt,
             'Europe/Sofia',
-            new DateTimeImmutable('2026-09-09'),
+            $createdAt->modify('-1 day'),
             'Вход А',
             AssemblyConveningBasis::MANAGER_OR_BOARD,
             'Управител',
             $manager,
             $manager,
-            new DateTimeImmutable('2026-09-09T08:00:00Z'),
+            $createdAt,
         );
         $assembly->snapshotQuorumRule(new AssemblyQuorumRuleSnapshot(
             'zues-2026-default',
@@ -190,7 +194,7 @@ final class GeneralAssemblyWorkbenchControllerTest extends WebTestCase
             '51',
             '75',
             'ЗУЕС — приложим кворум',
-            'effective-through-2026-09-09',
+            'effective-through-2026-09-10',
             $reviewRequired,
         ));
 
@@ -209,7 +213,7 @@ final class GeneralAssemblyWorkbenchControllerTest extends WebTestCase
             '60',
             true,
             null,
-            new DateTimeImmutable('2026-09-09T08:05:00Z'),
+            $createdAt->modify('+5 minutes'),
         );
         $secondEntry = AssemblyElectorateEntry::snapshot(
             $assembly,
@@ -226,20 +230,20 @@ final class GeneralAssemblyWorkbenchControllerTest extends WebTestCase
             '40',
             true,
             null,
-            new DateTimeImmutable('2026-09-09T08:05:00Z'),
+            $createdAt->modify('+5 minutes'),
         );
 
         foreach ([$firstPerson, $secondPerson, $firstUnit, $secondUnit, $assembly, $firstEntry, $secondEntry] as $entity) {
             $em->persist($entity);
         }
         $em->flush();
-        $assembly->convene($manager, new DateTimeImmutable('2026-09-19T12:00:00Z'));
+        $assembly->convene($manager, $scheduledAt->modify('-1 day'));
         $attendance = AssemblyAttendance::register(
             $assembly,
             $firstEntry,
             AssemblyAttendanceMode::IN_PERSON,
             $manager,
-            new DateTimeImmutable('2026-09-20T15:00:00Z'),
+            $scheduledAt,
         );
         $em->persist($attendance);
         $em->flush();
