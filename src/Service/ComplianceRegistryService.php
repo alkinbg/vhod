@@ -14,6 +14,7 @@ use App\Enum\ComplianceCompletionType;
 use App\Enum\ManagementMandateKind;
 use App\Security\ComplianceAccessPolicy;
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 
@@ -40,17 +41,21 @@ final readonly class ComplianceRegistryService
             throw new DomainException('Compliance registry management access is required.');
         }
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $identifier, $parcelNumber, $registeredAt, $updatedAt): CondominiumProfile {
-            $profile = $entityManager->getRepository(CondominiumProfile::class)->findOneBy([]);
-            if (!$profile instanceof CondominiumProfile) {
-                $profile = CondominiumProfile::create($actor, $updatedAt);
-                $entityManager->persist($profile);
-            }
+        try {
+            return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $identifier, $parcelNumber, $registeredAt, $updatedAt): CondominiumProfile {
+                $profile = $entityManager->getRepository(CondominiumProfile::class)->findOneBy([]);
+                if (!$profile instanceof CondominiumProfile) {
+                    $profile = CondominiumProfile::create($actor, $updatedAt);
+                    $entityManager->persist($profile);
+                }
 
-            $profile->updateRegistryData($identifier, $parcelNumber, $registeredAt, $actor, $updatedAt);
+                $profile->updateRegistryData($identifier, $parcelNumber, $registeredAt, $actor, $updatedAt);
 
-            return $profile;
-        });
+                return $profile;
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            throw new DomainException('Регистрационният профил е бил създаден едновременно от друга заявка. Повторете операцията.', 0, $exception);
+        }
     }
 
     public function recordMandate(
@@ -101,27 +106,31 @@ final readonly class ComplianceRegistryService
             throw new DomainException('Compliance completion recording access is required.');
         }
 
-        return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $type, $periodKey, $completedAt, $recordedAt, $evidenceDocument, $note): ComplianceCompletion {
-            $existing = $entityManager->getRepository(ComplianceCompletion::class)->findOneBy([
-                'type' => $type,
-                'periodKey' => trim($periodKey),
-            ]);
-            if ($existing instanceof ComplianceCompletion) {
-                throw new DomainException('За този период вече има записано изпълнение.');
-            }
+        try {
+            return $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($actor, $type, $periodKey, $completedAt, $recordedAt, $evidenceDocument, $note): ComplianceCompletion {
+                $existing = $entityManager->getRepository(ComplianceCompletion::class)->findOneBy([
+                    'type' => $type,
+                    'periodKey' => trim($periodKey),
+                ]);
+                if ($existing instanceof ComplianceCompletion) {
+                    throw new DomainException('За този период вече има записано изпълнение.');
+                }
 
-            $completion = ComplianceCompletion::record(
-                $type,
-                $periodKey,
-                $completedAt,
-                $actor,
-                $recordedAt,
-                $evidenceDocument,
-                $note,
-            );
-            $entityManager->persist($completion);
+                $completion = ComplianceCompletion::record(
+                    $type,
+                    $periodKey,
+                    $completedAt,
+                    $actor,
+                    $recordedAt,
+                    $evidenceDocument,
+                    $note,
+                );
+                $entityManager->persist($completion);
 
-            return $completion;
-        });
+                return $completion;
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            throw new DomainException('За този период вече има записано изпълнение.', 0, $exception);
+        }
     }
 }
