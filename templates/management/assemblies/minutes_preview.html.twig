@@ -1,0 +1,226 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Преглед на протокола — {{ assembly.title }}{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <div class="text-secondary small text-uppercase fw-bold mb-1">Официално общо събрание</div>
+            <h1 class="h2 mb-1">Преглед на протокола</h1>
+            <p class="text-secondary mb-0">
+                {{ assembly.title }} · {{ assembly.scheduledAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} · {{ assembly.place }}
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary" href="{{ path('app_management_assembly_workbench', {id: assembly.id}) }}">Работно табло</a>
+            <a class="btn btn-outline-secondary" href="{{ path('app_management_assemblies') }}">Към събранията</a>
+        </div>
+    </div>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="alert alert-danger">{{ message }}</div>
+    {% endfor %}
+
+    {% if warnings %}
+        <div class="card mb-4">
+            <div class="card-header"><h2 class="card-title">Предупреждения и правен преглед</h2></div>
+            <div class="card-body">
+                {% for warning in warnings %}
+                    <div class="notice notice-warning mb-2">{{ warning }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Данни за протокола</h2></div>
+        <div class="card-body">
+            <form method="post" action="{{ path('app_management_assembly_minutes_metadata', {id: assembly.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('assembly_minutes_metadata_' ~ assembly.id) }}">
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="chairperson_name">Председател</label>
+                        <input class="form-control" id="chairperson_name" name="chairperson_name" maxlength="255" required value="{{ assembly.chairpersonNameSnapshot }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="secretary_name">Протоколчик</label>
+                        <input class="form-control" id="secretary_name" name="secretary_name" maxlength="255" required value="{{ assembly.secretaryNameSnapshot }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="formal_notes">Формални бележки</label>
+                        <textarea class="form-control" id="formal_notes" name="formal_notes" rows="4" maxlength="10000">{{ assembly.formalNotes }}</textarea>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" id="assembly_minutes_metadata_{{ assembly.id }}" name="assembly_minutes_metadata_{{ assembly.id }}" class="btn btn-primary">Запази данните</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Свикване и кворум</h2></div>
+        <div class="card-body">
+            <dl class="row mb-4">
+                <dt class="col-sm-4">Инициатор</dt><dd class="col-sm-8">{{ assembly.initiatorDisplayName }}</dd>
+                <dt class="col-sm-4">Основание</dt><dd class="col-sm-8">{{ assembly.conveningBasis.value }}{% if assembly.conveningBasisNote %} — {{ assembly.conveningBasisNote }}{% endif %}</dd>
+                <dt class="col-sm-4">Представени идеални части</dt><dd class="col-sm-8">{{ representedIdealPartsPercent ? representedIdealPartsPercent ~ '%' : 'Няма записана стойност' }}</dd>
+                <dt class="col-sm-4">Статус</dt><dd class="col-sm-8">{{ assembly.status.value }}</dd>
+            </dl>
+
+            {% if latestQuorumCheck %}
+                <p><strong>Последна проверка:</strong> {{ latestQuorumCheck.checkedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} — {{ latestQuorumCheck.representedIdealPartsPercent }}% при изисквани {{ latestQuorumCheck.requiredIdealPartsPercent }}% — {{ latestQuorumCheck.result.value }}</p>
+            {% else %}
+                <p class="text-secondary">Няма записана проверка на кворума.</p>
+            {% endif %}
+
+            {% if quorumChecks %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Момент</th><th>Вид</th><th>Представени</th><th>Изисквани</th><th>Резултат</th></tr></thead>
+                        <tbody>
+                        {% for check in quorumChecks %}
+                            <tr>
+                                <td>{{ check.checkedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</td>
+                                <td>{{ check.kind.value }}</td>
+                                <td>{{ check.representedIdealPartsPercent }}%</td>
+                                <td>{{ check.requiredIdealPartsPercent }}%</td>
+                                <td>{{ check.result.value }}<div class="text-secondary small">{{ check.explanation }}</div></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Присъствие и представителство</h2></div>
+        <div class="card-body">
+            {% if attendance %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Обект / правоимащ</th><th>Начин</th><th>Представител</th><th>Идеални части</th></tr></thead>
+                        <tbody>
+                        {% for row in attendance %}
+                            <tr>
+                                <td>{{ row.electorateEntry.unitDesignationSnapshot }} — {{ row.electorateEntry.principalNameSnapshot }}</td>
+                                <td>{{ row.mode.value }}</td>
+                                <td>{{ row.representativeName ?: '—' }}</td>
+                                <td>{{ row.electorateEntry.representedIdealPartsPercentSnapshot ?: 'изисква преглед' }}{% if row.electorateEntry.representedIdealPartsPercentSnapshot %}%{% endif %}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-secondary mb-0">Няма записано присъствие.</p>
+            {% endif %}
+
+            {% if proxies %}
+                <h3 class="h4 mt-4">Пълномощни</h3>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Представляван</th><th>Представител</th><th>Основание</th><th>Статус</th></tr></thead>
+                        <tbody>
+                        {% for proxy in proxies %}
+                            <tr>
+                                <td>{{ proxy.principalEntry.principalNameSnapshot }}</td>
+                                <td>{{ proxy.representativeName }}</td>
+                                <td>{{ proxy.authorityKind }}</td>
+                                <td>{{ proxy.revoked ? 'оттеглено' : 'действащо' }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Дневен ред и решения</h2></div>
+        <div class="card-body">
+            {% for row in agenda %}
+                {% set item = row.item %}
+                {% set resolution = row.resolution %}
+                <section class="mb-4">
+                    <div class="text-secondary small">Точка {{ item.position }} · {{ item.status.value }}</div>
+                    <h3 class="h4">{{ item.title }}</h3>
+                    {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+                    {% if item.isEmergency() %}<div class="notice notice-warning mb-2"><strong>Извънредна точка.</strong> {{ item.emergencyReason }}</div>{% endif %}
+                    <p><strong>Финален текст:</strong> {{ item.finalResolutionText ?: item.draftResolutionText }}</p>
+
+                    {% if row.votes %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead><tr><th>Правоимащ</th><th>Глас</th><th>Тегло</th><th>Начин</th></tr></thead>
+                                <tbody>
+                                {% for vote in row.votes %}
+                                    <tr>
+                                        <td>{{ vote.electorateEntry.principalNameSnapshot }}</td>
+                                        <td>{{ vote.choice.value }}</td>
+                                        <td>{{ vote.weightIdealPartsPercent }}%</td>
+                                        <td>{{ vote.castMode.value }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+
+                    {% if resolution %}
+                        <div class="notice notice-info">
+                            <strong>Резултат: {{ resolution.result.value }}</strong><br>
+                            За: {{ resolution.forIdealPartsPercent }}% · Против: {{ resolution.againstIdealPartsPercent }}% · Въздържали се: {{ resolution.abstainIdealPartsPercent }}% · Деноминатор: {{ resolution.denominatorIdealPartsPercent }}% · Изискуемо: {{ resolution.requiredIdealPartsPercent }}%
+                            <div class="mt-1">{{ resolution.explanation }}</div>
+                        </div>
+                    {% else %}
+                        <div class="notice notice-warning">Няма окончателно записан резултат за тази точка.</div>
+                    {% endif %}
+                </section>
+            {% else %}
+                <p class="text-secondary mb-0">Няма точки в дневния ред.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Неприсъствено гласуване</h2></div>
+        <div class="card-body">
+            {% if absenteeWindow %}
+                <p>Период: {{ absenteeWindow.openedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }} — {{ absenteeWindow.deadlineAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}</p>
+                <p>Основание: {{ absenteeWindow.legalBasis }}</p>
+                <p>Регистрирани декларации: {{ absenteeDeclarations|length }}</p>
+                <p class="mb-0">Статус: {{ absenteeWindow.closedAt ? 'приключен' : 'отворен' }}</p>
+            {% else %}
+                <p class="text-secondary mb-0">Не е използвано неприсъствено гласуване.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h2 class="card-title">Финализиране</h2></div>
+        <div class="card-body">
+            {% if assembly.status.value == 'minutes_finalized' %}
+                <div class="notice notice-info mb-0">
+                    Протоколът е финализиран{% if assembly.minutesFinalizedAt %} на {{ assembly.minutesFinalizedAt|date('d.m.Y H:i', assembly.timezoneSnapshot) }}{% endif %}.
+                </div>
+            {% else %}
+                <p class="text-secondary">Финализирането създава официален PDF документ с достъп за живущите. След това съдържанието на събранието не се променя; корекциите се записват като отделни добавки.</p>
+                <form method="post" action="{{ path('app_management_assembly_minutes_finalize', {id: assembly.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assembly_minutes_finalize_' ~ assembly.id) }}">
+                    <button type="submit" id="assembly_minutes_finalize_{{ assembly.id }}" name="assembly_minutes_finalize_{{ assembly.id }}" class="btn btn-primary">Финализирай протокола</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
