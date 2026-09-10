@@ -8,6 +8,7 @@ use App\Entity\AssemblyAgendaItem;
 use App\Entity\AssemblyAttendance;
 use App\Entity\AssemblyElectorateEntry;
 use App\Entity\AssemblyInvitationPosting;
+use App\Entity\AssemblyQuorumCheck;
 use App\Entity\AssemblyResolution;
 use App\Entity\AssemblyVote;
 use App\Entity\AssemblyVoteCorrection;
@@ -19,11 +20,14 @@ use App\Enum\AgendaItemStatus;
 use App\Enum\AssemblyAttendanceMode;
 use App\Enum\AssemblyConveningBasis;
 use App\Enum\AssemblyDecisionKind;
+use App\Enum\AssemblyLegalResult;
 use App\Enum\AssemblyPrincipalType;
+use App\Enum\AssemblyQuorumCheckKind;
 use App\Enum\AssemblyVoteChoice;
 use App\Enum\AssemblyVoteDenominator;
 use App\Enum\MajorityComparison;
 use App\Value\AssemblyMajorityRuleSnapshot;
+use App\Value\AssemblyQuorumCalculation;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -97,8 +101,22 @@ final class GeneralAssemblyMutationCsrfTest extends WebTestCase
             $manager,
             new DateTimeImmutable('2026-09-10T05:00:00Z'),
         );
+        $quorum = AssemblyQuorumCheck::record(
+            $voting,
+            AssemblyQuorumCheckKind::FIRST_CALL,
+            new DateTimeImmutable('2026-09-10T05:00:30Z'),
+            new AssemblyQuorumCalculation(
+                '100',
+                '51',
+                'csrf-matrix-valid-quorum',
+                AssemblyLegalResult::VALID,
+                'Valid quorum prerequisite for mutation route tests.',
+            ),
+            $manager,
+        );
         $open->open('Финален текст 2', new DateTimeImmutable('2026-09-10T05:01:00Z'));
         $em->persist($attendance);
+        $em->persist($quorum);
         $em->flush();
 
         foreach ([$manager, $draft, $posting, $voting, $planned, $open, $entry] as $entity) {
