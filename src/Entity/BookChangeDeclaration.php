@@ -147,6 +147,7 @@ class BookChangeDeclaration
         match ($type) {
             BookChangeType::CONTACT_UPDATE => self::validateContactPayload($payload),
             BookChangeType::HOUSEHOLD_MEMBER_ADD => self::validateHouseholdPayload($payload),
+            BookChangeType::HOUSEHOLD_MEMBER_END => self::validateHouseholdEndPayload($payload),
             BookChangeType::ABSENCE => self::validateAbsencePayload($payload),
             BookChangeType::ANIMAL => self::validateAnimalPayload($payload),
         };
@@ -175,6 +176,17 @@ class BookChangeDeclaration
         }
 
         self::requiredDate($payload, 'validFrom');
+    }
+
+    /** @param array<string, bool|int|float|string|null> $payload */
+    private static function validateHouseholdEndPayload(array $payload): void
+    {
+        $memberId = $payload['memberId'] ?? null;
+        if (!is_int($memberId) || $memberId <= 0) {
+            throw new InvalidArgumentException('Household member id must be a positive integer.');
+        }
+
+        self::requiredDate($payload, 'validUntil');
     }
 
     /** @param array<string, bool|int|float|string|null> $payload */
