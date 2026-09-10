@@ -211,8 +211,15 @@ final class FinanceOperationsController extends AbstractController
             $this->requireCsrf('finance_reconcile_'.$id, $request);
 
             try {
-                $paymentId = $request->request->getInt('payment_id');
-                if ($paymentId > 0) {
+                $paymentIdInput = $request->request->getString('payment_id');
+                if ('' !== $paymentIdInput) {
+                    $paymentId = filter_var($paymentIdInput, FILTER_VALIDATE_INT, [
+                        'options' => ['min_range' => 1],
+                    ]);
+                    if (false === $paymentId) {
+                        throw new InvalidArgumentException('Invalid payment.');
+                    }
+
                     $payment = $this->entityManager->find(Payment::class, $paymentId);
                     if (!$payment instanceof Payment) {
                         throw new InvalidArgumentException('Invalid payment.');
