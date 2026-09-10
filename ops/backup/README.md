@@ -26,10 +26,10 @@ VHOD_BACKUP_PASSPHRASE
 VHOD_PROJECT_DIR         # optional, auto-detected from the script location
 ```
 
-Then run:
+Then run the repository script explicitly with Bash (this does not depend on the checkout preserving executable mode):
 
 ```bash
-ops/backup/create-backup.sh
+bash ops/backup/create-backup.sh
 ```
 
 The output directory receives only an encrypted `*.tar.gz.gpg` file and its `*.sha256` sidecar. Plain database/document payloads exist only inside a mode-0700 temporary directory and are removed by the exit trap.
@@ -61,13 +61,13 @@ VHOD_KEEP_RESTORE_DB     # optional; 1 keeps the scratch DB, default removes it
 Run:
 
 ```bash
-ops/backup/verify-restore.sh /secure/backups/vhod-YYYYMMDDTHHMMSSZ.tar.gz.gpg
+bash ops/backup/verify-restore.sh /secure/backups/vhod-YYYYMMDDTHHMMSSZ.tar.gz.gpg
 ```
 
 The verifier checks SHA-256, decrypts only into a temporary directory, restores MariaDB into the scratch database, expands private documents into a scratch directory and runs `doctrine:schema:validate`. The scratch database is dropped automatically unless `VHOD_KEEP_RESTORE_DB=1` is explicitly set.
 
 ## Schedule and review
 
-Run the encrypted backup at least daily with a systemd timer or cron under a dedicated account. Alert if the job exits non-zero or if the newest **off-host** backup age exceeds the monitoring threshold.
+Run the encrypted backup at least daily with a systemd timer or cron under a dedicated account, invoking it through `bash`. Alert if the job exits non-zero or if the newest **off-host** backup age exceeds the monitoring threshold.
 
 Perform a restore drill at least monthly and after material changes to database/storage infrastructure. Record the date, tested backup identifier, result and corrective action if a drill fails. A successful backup job without a periodically proven restore is not a verified recovery process.
