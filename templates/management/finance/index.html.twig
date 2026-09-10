@@ -9,7 +9,7 @@
             <h1 class="h2 mb-1">Финанси</h1>
             <p class="text-muted mb-0">Период: {{ month|date('m.Y') }}</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             {% if can_write %}
                 <a class="btn btn-primary" href="{{ path('app_management_finance_expense_new') }}">Нов разход</a>
                 <a class="btn btn-outline-primary" href="{{ path('app_management_finance_income_new') }}">Нов приход</a>
@@ -30,7 +30,7 @@
     </div>
 
     <h2 class="h4">Бюджет спрямо изпълнение</h2>
-    <div class="table-responsive">
+    <div class="table-responsive mb-4">
         <table class="table table-striped align-middle">
             <thead><tr><th>Фонд</th><th>Категория</th><th class="text-end">Бюджет</th><th class="text-end">Разход</th><th class="text-end">Остатък</th></tr></thead>
             <tbody>
@@ -47,6 +47,64 @@
             {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <div class="row g-4">
+        <section class="col-lg-6">
+            <h2 class="h4">Последни разходи</h2>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Дата</th><th>Описание</th><th class="text-end">Сума</th><th></th></tr></thead>
+                    <tbody>
+                    {% for row in recent_expenses %}
+                        <tr>
+                            <td>{{ row.expense.paidAt|date('d.m.Y') }}</td>
+                            <td>
+                                {{ row.expense.description }}
+                                {% if row.reversed %}<span class="badge text-bg-secondary ms-1">сторниран</span>{% endif %}
+                            </td>
+                            <td class="text-end">{{ (row.expense.amountCents / 100)|number_format(2, '.', '') }} €</td>
+                            <td class="text-end">
+                                {% if can_write and not row.reversed %}
+                                    <a class="btn btn-sm btn-outline-danger" href="{{ path('app_management_finance_expense_reverse', {id: row.expense.id}) }}">Сторнирай</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-muted">Няма записани разходи.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="col-lg-6">
+            <h2 class="h4">Последни приходи</h2>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Дата</th><th>Описание</th><th class="text-end">Сума</th><th></th></tr></thead>
+                    <tbody>
+                    {% for row in recent_incomes %}
+                        <tr>
+                            <td>{{ row.income.receivedAt|date('d.m.Y') }}</td>
+                            <td>
+                                {{ row.income.description }}
+                                {% if row.reversed %}<span class="badge text-bg-secondary ms-1">сторниран</span>{% endif %}
+                            </td>
+                            <td class="text-end">{{ (row.income.amountCents / 100)|number_format(2, '.', '') }} €</td>
+                            <td class="text-end">
+                                {% if can_write and not row.reversed %}
+                                    <a class="btn btn-sm btn-outline-danger" href="{{ path('app_management_finance_income_reverse', {id: row.income.id}) }}">Сторнирай</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-muted">Няма записани приходи.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 </main>
 {% endblock %}
