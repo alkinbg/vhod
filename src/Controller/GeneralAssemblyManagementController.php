@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\AssemblyAgendaItem;
 use App\Entity\GeneralAssembly;
 use App\Entity\User;
 use App\Enum\AssemblyConveningBasis;
+use App\Enum\AssemblyDecisionKind;
 use App\Enum\DocumentCategory;
 use App\Enum\GeneralAssemblyStatus;
 use App\Repository\GeneralAssemblyRepository;
@@ -26,7 +28,6 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Throwable;
 
 final class GeneralAssemblyManagementController extends AbstractController
 {
@@ -84,10 +85,16 @@ final class GeneralAssemblyManagementController extends AbstractController
             }
         }
 
-        return $this->renderForm(null, 'assembly_create', $error, $status, $request);
+        return $this->renderForm(
+            null,
+            'assembly_create',
+            $error,
+            $status,
+            $request->isMethod('POST') ? $request->request->all() : [],
+        );
     }
 
-    #[Route('/management/assembly/{id}/edit', name: 'app_management_assembly_edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    #[Route('/management/assembly/{id}/edit', name: 'app_management_assembly_edit', requirements: ['id' => '\\d+'], methods: ['GET', 'POST'])]
     public function edit(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -98,7 +105,6 @@ final class GeneralAssemblyManagementController extends AbstractController
                 'assembly_edit_'.$id,
                 'Свикано общо събрание не може да бъде редактирано като чернова.',
                 Response::HTTP_UNPROCESSABLE_ENTITY,
-                $request,
             );
         }
 
@@ -131,10 +137,100 @@ final class GeneralAssemblyManagementController extends AbstractController
             }
         }
 
-        return $this->renderForm($assembly, 'assembly_edit_'.$id, $error, $status, $request);
+        return $this->renderForm(
+            $assembly,
+            'assembly_edit_'.$id,
+            $error,
+            $status,
+            $request->isMethod('POST') ? $request->request->all() : [],
+        );
     }
 
-    #[Route('/management/assembly/{id}/convene', name: 'app_management_assembly_convene', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/management/assembly/{id}/agenda/add', name: 'app_management_assembly_agenda_add', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function addAgendaItem(int $id, Request $request): Response
+    {
+        $actor = $this->requireManager();
+        $this->requireCsrf('assembly_agenda_add_'.$id, $request);
+        $assembly = $this->requireAssembly($id);
+
+        try {
+            $this->assemblyService->addAgendaItem(
+                $actor,
+                $assembly,
+                $this->parsePositiveInt($request->request->getString('position'), 'Позицията на точката трябва да е положително цяло число.'),
+                $request->request->getString('agenda_title'),
+                $request->request->getString('agenda_description'),
+                $request->request->getString('draft_resolution_text'),
+                $this->parseDecisionKind($request->request->getString('decision_kind')),
+            );
+            $this->addFlash('success', 'Точката е добавена към дневния ред.');
+
+            return $this->redirectToRoute('app_management_assembly_edit', ['id' => $id]);
+        } catch (InvalidArgumentException|DomainException|LogicException $exception) {
+            return $this->renderForm(
+                $assembly,
+                'assembly_edit_'.$id,
+                $exception->getMessage(),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+    }
+
+    #[Route('/management/assembly/{id}/agenda/{itemId}/edit', name: 'app_management_assembly_agenda_edit', requirements: ['id' => '\\d+', 'itemId' => '\\d+'], methods: ['POST'])]
+    public function editAgendaItem(int $id, int $itemId, Request $request): Response
+    {
+        $actor = $this->requireManager();
+        $this->requireCsrf('assembly_agenda_edit_'.$id.'_'.$itemId, $request);
+        $assembly = $this->requireAssembly($id);
+        $item = $this->requireAgendaItem($assembly, $itemId);
+
+        try {
+            $this->assemblyService->reviseAgendaItem(
+                $actor,
+                $assembly,
+                $item,
+                $request->request->getString('agenda_title'),
+                $request->request->getString('agenda_description'),
+                $request->request->getString('draft_resolution_text'),
+                $this->parseDecisionKind($request->request->getString('decision_kind')),
+            );
+            $this->addFlash('success', 'Точката от дневния ред е обновена.');
+
+            return $this->redirectToRoute('app_management_assembly_edit', ['id' => $id]);
+        } catch (InvalidArgumentException|DomainException|LogicException $exception) {
+            return $this->renderForm(
+                $assembly,
+                'assembly_edit_'.$id,
+                $exception->getMessage(),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+    }
+
+    #[Route('/management/assembly/{id}/agenda/{itemId}/remove', name: 'app_management_assembly_agenda_remove', requirements: ['id' => '\\d+', 'itemId' => '\\d+'], methods: ['POST'])]
+    public function removeAgendaItem(int $id, int $itemId, Request $request): Response
+    {
+        $actor = $this->requireManager();
+        $this->requireCsrf('assembly_agenda_remove_'.$id.'_'.$itemId, $request);
+        $assembly = $this->requireAssembly($id);
+        $item = $this->requireAgendaItem($assembly, $itemId);
+
+        try {
+            $this->assemblyService->removeAgendaItem($actor, $assembly, $item);
+            $this->addFlash('success', 'Точката е премахната от дневния ред.');
+
+            return $this->redirectToRoute('app_management_assembly_edit', ['id' => $id]);
+        } catch (InvalidArgumentException|DomainException|LogicException $exception) {
+            return $this->renderForm(
+                $assembly,
+                'assembly_edit_'.$id,
+                $exception->getMessage(),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+    }
+
+    #[Route('/management/assembly/{id}/convene', name: 'app_management_assembly_convene', requirements: ['id' => '\\d+'], methods: ['POST'])]
     public function convene(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -151,7 +247,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         }
     }
 
-    #[Route('/management/assembly/{id}/posting', name: 'app_management_assembly_posting', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/management/assembly/{id}/posting', name: 'app_management_assembly_posting', requirements: ['id' => '\\d+'], methods: ['POST'])]
     public function posting(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -190,7 +286,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         }
     }
 
-    #[Route('/management/assembly/{id}/minutes', name: 'app_management_assembly_minutes', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/management/assembly/{id}/minutes', name: 'app_management_assembly_minutes', requirements: ['id' => '\\d+'], methods: ['GET'])]
     public function minutes(int $id): Response
     {
         $this->requireManager();
@@ -202,7 +298,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         );
     }
 
-    #[Route('/management/assembly/{id}/minutes/metadata', name: 'app_management_assembly_minutes_metadata', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/management/assembly/{id}/minutes/metadata', name: 'app_management_assembly_minutes_metadata', requirements: ['id' => '\\d+'], methods: ['POST'])]
     public function minutesMetadata(int $id, Request $request): Response
     {
         $this->requireManager();
@@ -224,7 +320,7 @@ final class GeneralAssemblyManagementController extends AbstractController
         return $this->redirectToRoute('app_management_assembly_minutes', ['id' => $id]);
     }
 
-    #[Route('/management/assembly/{id}/minutes/finalize', name: 'app_management_assembly_minutes_finalize', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/management/assembly/{id}/minutes/finalize', name: 'app_management_assembly_minutes_finalize', requirements: ['id' => '\\d+'], methods: ['POST'])]
     public function finalizeMinutes(int $id, Request $request): Response
     {
         $actor = $this->requireManager();
@@ -249,19 +345,27 @@ final class GeneralAssemblyManagementController extends AbstractController
         ], new Response(status: $status));
     }
 
+    /** @param array<string, mixed> $submitted */
     private function renderForm(
         ?GeneralAssembly $assembly,
         string $csrfTokenId,
         ?string $error,
         int $status,
-        Request $request,
+        array $submitted = [],
     ): Response {
+        $decisionRules = [];
+        foreach (AssemblyDecisionKind::cases() as $kind) {
+            $decisionRules[$kind->value] = GeneralAssemblyService::suggestedMajorityRule($kind);
+        }
+
         return $this->render('management/assemblies/form.html.twig', [
             'assembly' => $assembly,
             'convening_bases' => AssemblyConveningBasis::cases(),
+            'decision_kinds' => AssemblyDecisionKind::cases(),
+            'decision_rules' => $decisionRules,
             'csrf_token_id' => $csrfTokenId,
             'error' => $error,
-            'submitted' => $request->isMethod('POST') ? $request->request->all() : [],
+            'submitted' => $submitted,
             'local_timezone' => self::LOCAL_TIMEZONE,
         ], new Response(status: $status));
     }
@@ -289,6 +393,16 @@ final class GeneralAssemblyManagementController extends AbstractController
         return $assembly;
     }
 
+    private function requireAgendaItem(GeneralAssembly $assembly, int $itemId): AssemblyAgendaItem
+    {
+        $item = $this->entityManager->find(AssemblyAgendaItem::class, $itemId);
+        if (!$item instanceof AssemblyAgendaItem || $item->getAssembly()->getId() !== $assembly->getId()) {
+            throw $this->createNotFoundException('Agenda item not found.');
+        }
+
+        return $item;
+    }
+
     private function requireCsrf(string $tokenId, Request $request): void
     {
         if (!$this->isCsrfTokenValid($tokenId, $request->request->getString('_token'))) {
@@ -306,10 +420,34 @@ final class GeneralAssemblyManagementController extends AbstractController
         return $basis;
     }
 
+    private function parseDecisionKind(string $value): AssemblyDecisionKind
+    {
+        $kind = AssemblyDecisionKind::tryFrom($value);
+        if (!$kind instanceof AssemblyDecisionKind) {
+            throw new InvalidArgumentException('Невалиден вид решение за точката от дневния ред.');
+        }
+
+        return $kind;
+    }
+
+    private function parsePositiveInt(string $value, string $errorMessage): int
+    {
+        if ('' === $value || !ctype_digit($value)) {
+            throw new InvalidArgumentException($errorMessage);
+        }
+
+        $number = (int) $value;
+        if ($number < 1) {
+            throw new InvalidArgumentException($errorMessage);
+        }
+
+        return $number;
+    }
+
     private function parseLocalDateTime(string $value): DateTimeImmutable
     {
         $timezone = new DateTimeZone(self::LOCAL_TIMEZONE);
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, $timezone);
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i', $value, $timezone);
         $errors = DateTimeImmutable::getLastErrors();
         if (!$date instanceof DateTimeImmutable || (false !== $errors && (0 < $errors['warning_count'] || 0 < $errors['error_count']))) {
             throw new InvalidArgumentException('Невалидни дата и час.');
