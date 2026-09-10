@@ -6,17 +6,22 @@ namespace App\Controller;
 
 use App\Entity\BudgetLine;
 use App\Entity\Expense;
+use App\Entity\ExpenseReversal;
 use App\Entity\ExternalIncome;
+use App\Entity\ExternalIncomeReversal;
 use App\Entity\Fund;
 use App\Entity\User;
 use App\Enum\ExpenseCategory;
 use App\Enum\ExternalIncomeCategory;
 use App\Service\BudgetActualService;
+use App\Service\ExpenseReversalService;
+use App\Service\ExternalIncomeReversalService;
 use App\Service\MonthlyFinancialReportService;
 use App\Value\EuroAmount;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
+use DomainException;
 use InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +37,8 @@ final class FinanceManagementController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly MonthlyFinancialReportService $monthlyReportService,
         private readonly BudgetActualService $budgetActualService,
+        private readonly ExpenseReversalService $expenseReversalService,
+        private readonly ExternalIncomeReversalService $externalIncomeReversalService,
     ) {
     }
 
@@ -49,6 +56,8 @@ final class FinanceManagementController extends AbstractController
             'budget_actual' => $this->budgetActualService->build((int) $month->format('Y'), $through),
             'can_write' => $this->canWriteFinance(),
             'can_budget' => $this->canCreateBudget(),
+            'recent_expenses' => $this->recentExpenses(),
+            'recent_incomes' => $this->recentExternalIncomes(),
         ]);
     }
 
@@ -138,6 +147,70 @@ final class FinanceManagementController extends AbstractController
         return $this->renderIncomeForm();
     }
 
+    #[Route('/management/finance/expense/{id}/reverse', name: 'app_management_finance_expense_reverse', requirements: ['id' => '\\d+'], methods: ['GET', 'POST'])]
+    public function expenseReverse(int $id, Request $request): Response
+    {
+        $actor = $this->requireFinanceWriter();
+        $expense = $this->entityManager->find(Expense::class, $id);
+        if (!$expense instanceof Expense) {
+            throw $this->createNotFoundException('Expense not found.');
+        }
+
+        if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid('finance_expense_reverse_'.$id, $request->request->getString('_token'))) {
+                throw $this->createAccessDeniedException('Invalid CSRF token.');
+            }
+
+            try {
+                $this->expenseReversalService->reverse(
+                    $expense,
+                    $request->request->getString('reason'),
+                    new DateTimeImmutable('now', new DateTimeZone(self::SOFIA)),
+                    $actor,
+                );
+                $this->addFlash('success', 'Разходът е сторниран с отделен коригиращ запис.');
+
+                return $this->redirectToRoute('app_management_finance');
+            } catch (DomainException|InvalidArgumentException $exception) {
+                return $this->renderReversalForm('Разход', $expense->getDescription(), 'finance_expense_reverse_'.$id, $exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
+        return $this->renderReversalForm('Разход', $expense->getDescription(), 'finance_expense_reverse_'.$id);
+    }
+
+    #[Route('/management/finance/income/{id}/reverse', name: 'app_management_finance_income_reverse', requirements: ['id' => '\\d+'], methods: ['GET', 'POST'])]
+    public function incomeReverse(int $id, Request $request): Response
+    {
+        $actor = $this->requireFinanceWriter();
+        $income = $this->entityManager->find(ExternalIncome::class, $id);
+        if (!$income instanceof ExternalIncome) {
+            throw $this->createNotFoundException('External income not found.');
+        }
+
+        if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid('finance_income_reverse_'.$id, $request->request->getString('_token'))) {
+                throw $this->createAccessDeniedException('Invalid CSRF token.');
+            }
+
+            try {
+                $this->externalIncomeReversalService->reverse(
+                    $income,
+                    $request->request->getString('reason'),
+                    new DateTimeImmutable('now', new DateTimeZone(self::SOFIA)),
+                    $actor,
+                );
+                $this->addFlash('success', 'Приходът е сторниран с отделен коригиращ запис.');
+
+                return $this->redirectToRoute('app_management_finance');
+            } catch (DomainException|InvalidArgumentException $exception) {
+                return $this->renderReversalForm('Приход', $income->getDescription(), 'finance_income_reverse_'.$id, $exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
+        return $this->renderReversalForm('Приход', $income->getDescription(), 'finance_income_reverse_'.$id);
+    }
+
     #[Route('/management/finance/budget/new', name: 'app_management_finance_budget_new', methods: ['GET', 'POST'])]
     public function budgetNew(Request $request): Response
     {
@@ -171,7 +244,7 @@ final class FinanceManagementController extends AbstractController
                 return $this->redirectToRoute('app_management_finance');
             } catch (InvalidArgumentException $exception) {
                 return $this->renderBudgetForm($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
-            } catch (Throwable $exception) {
+            } catch (Throwable) {
                 return $this->renderBudgetForm('За тази година, фонд и категория вече има бюджетен ред.', Response::HTTP_UNPROCESSABLE_ENTITY);
             }
         }
@@ -220,6 +293,44 @@ final class FinanceManagementController extends AbstractController
             'categories' => ExpenseCategory::cases(),
             'error' => $error,
         ], new Response(status: $status));
+    }
+
+    private function renderReversalForm(string $kind, string $description, string $csrfId, ?string $error = null, int $status = Response::HTTP_OK): Response
+    {
+        return $this->render('management/finance/reversal.html.twig', [
+            'kind' => $kind,
+            'description' => $description,
+            'csrf_id' => $csrfId,
+            'error' => $error,
+        ], new Response(status: $status));
+    }
+
+    /** @return list<array{expense: Expense, reversed: bool}> */
+    private function recentExpenses(): array
+    {
+        $rows = [];
+        foreach ($this->entityManager->getRepository(Expense::class)->findBy([], ['paidAt' => 'DESC', 'id' => 'DESC'], 20) as $expense) {
+            $rows[] = [
+                'expense' => $expense,
+                'reversed' => null !== $this->entityManager->getRepository(ExpenseReversal::class)->findOneBy(['expense' => $expense]),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** @return list<array{income: ExternalIncome, reversed: bool}> */
+    private function recentExternalIncomes(): array
+    {
+        $rows = [];
+        foreach ($this->entityManager->getRepository(ExternalIncome::class)->findBy([], ['receivedAt' => 'DESC', 'id' => 'DESC'], 20) as $income) {
+            $rows[] = [
+                'income' => $income,
+                'reversed' => null !== $this->entityManager->getRepository(ExternalIncomeReversal::class)->findOneBy(['income' => $income]),
+            ];
+        }
+
+        return $rows;
     }
 
     /** @return list<Fund> */
@@ -275,12 +386,14 @@ final class FinanceManagementController extends AbstractController
         return $user;
     }
 
-    private function requireFinanceWriter(): void
+    private function requireFinanceWriter(): User
     {
-        $this->requireFinanceReader();
+        $user = $this->requireFinanceReader();
         if (!$this->canWriteFinance()) {
             throw $this->createAccessDeniedException('Finance write access is required.');
         }
+
+        return $user;
     }
 
     private function requireBudgetWriter(): void
