@@ -38,6 +38,9 @@
                     <a class="nav-management-link" href="{{ path('app_management_announcements') }}">Официални обяви</a>
                     <a class="nav-management-link" href="{{ path('app_management_documents') }}">Документи · управление</a>
                 {% endif %}
+                {% if is_granted('ROLE_ADMIN') %}
+                    <a class="nav-management-link" href="{{ path('app_management_audit') }}">Audit</a>
+                {% endif %}
                 <a href="{{ path('app_logout') }}">Изход</a>
             </nav>
         {% endif %}
