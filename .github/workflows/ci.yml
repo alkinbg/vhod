@@ -43,6 +43,9 @@ jobs:
             - name: Install dependencies
               run: composer install --no-interaction --prefer-dist --no-progress
 
+            - name: Compile AssetMapper assets
+              run: php bin/console asset-map:compile
+
             - name: Validate container
               run: php bin/console lint:container
 
