@@ -121,6 +121,31 @@ final class AssemblyVotingServiceTest extends KernelTestCase
         $em->flush();
     }
 
+    public function testResolutionIsRejectedWithoutPersistedValidQuorum(): void
+    {
+        $this->service->openItem(
+            $this->manager,
+            $this->item,
+            'Да се извърши ремонтът по приложената оферта.',
+            new DateTimeImmutable('2026-09-20T15:01:00Z'),
+        );
+        $this->service->recordVote(
+            $this->manager,
+            $this->item,
+            $this->entry,
+            AssemblyVoteChoice::FOR,
+            new DateTimeImmutable('2026-09-20T15:02:00Z'),
+        );
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('valid quorum');
+        $this->service->resolveItem(
+            $this->manager,
+            $this->item,
+            new DateTimeImmutable('2026-09-20T15:04:00Z'),
+        );
+    }
+
     public function testOpenVoteCorrectAndResolveUsesSnapshottedWeight(): void
     {
         $this->service->openItem(
