@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\BookChangeDeclaration;
+use App\Entity\HouseholdMember;
 use App\Entity\Unit;
 use App\Entity\UnitRelation;
 use App\Entity\User;
@@ -112,6 +113,9 @@ final class BookController extends AbstractController
             'change_type' => $changeType,
             'unit' => $unit,
             'units' => array_values($eligibleUnits),
+            'household_members' => BookChangeType::HOUSEHOLD_MEMBER_END === $changeType
+                ? $this->activeHouseholdMembersFor($unit, $today)
+                : [],
         ]);
     }
 
@@ -156,6 +160,25 @@ final class BookController extends AbstractController
         return $unit;
     }
 
+    /** @return list<HouseholdMember> */
+    private function activeHouseholdMembersFor(Unit $unit, DateTimeImmutable $at): array
+    {
+        $members = [];
+        foreach ($this->entityManager->getRepository(HouseholdMember::class)->findAll() as $member) {
+            if (!self::sameUnit($member->getRelation()->getUnit(), $unit) || !$member->isActiveAt($at)) {
+                continue;
+            }
+
+            $members[] = $member;
+        }
+
+        usort($members, static fn (HouseholdMember $left, HouseholdMember $right): int =>
+            strnatcasecmp($left->getPerson()->getDisplayName(), $right->getPerson()->getDisplayName())
+        );
+
+        return $members;
+    }
+
     /** @return array<string, bool|int|float|string|null> */
     private function payloadFromRequest(BookChangeType $type, Request $request): array
     {
@@ -169,6 +192,10 @@ final class BookController extends AbstractController
                 'lastName' => $request->request->getString('lastName'),
                 'validFrom' => $request->request->getString('validFrom'),
             ],
+            BookChangeType::HOUSEHOLD_MEMBER_END => [
+                'memberId' => $request->request->getInt('memberId'),
+                'validUntil' => $request->request->getString('validUntil'),
+            ],
             BookChangeType::ABSENCE => [
                 'validFrom' => $request->request->getString('validFrom'),
                 'validUntil' => $request->request->getString('validUntil'),
@@ -177,7 +204,21 @@ final class BookController extends AbstractController
                 'species' => $request->request->getString('species'),
                 'count' => $request->request->getInt('count'),
                 'passport' => $request->request->getString('passport'),
+                'validFrom' => $request->request->getString('validFrom'),
+                'validUntil' => $request->request->getString('validUntil'),
             ],
         };
+    }
+
+    private static function sameUnit(Unit $left, Unit $right): bool
+    {
+        if ($left === $right) {
+            return true;
+        }
+
+        $leftId = $left->getId();
+        $rightId = $right->getId();
+
+        return null !== $leftId && null !== $rightId && $leftId === $rightId;
     }
 }
