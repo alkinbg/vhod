@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ново отношение · Настройка{% endblock %}
+
+{% block body %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Първоначална настройка</p>
+        <h1>Ново отношение към обект</h1>
+        <p>Изберете физическо лице или оставете полето празно и въведете юридическо лице.</p>
+    </div>
+</section>
+
+{% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('setup_relation_new') }}">
+
+    <label for="unit_id">Обект</label>
+    <select id="unit_id" name="unit_id" required>
+        {% for unit in units %}<option value="{{ unit.id }}">{{ unit.designation }}</option>{% endfor %}
+    </select>
+
+    <label for="person_id">Физическо лице</label>
+    <select id="person_id" name="person_id">
+        <option value="">— юридическо лице —</option>
+        {% for person in people %}<option value="{{ person.id }}">{{ person.displayName }}</option>{% endfor %}
+    </select>
+
+    <label for="legal_entity_name">Юридическо лице</label>
+    <input id="legal_entity_name" name="legal_entity_name" type="text" value="{{ app.request.request.get('legal_entity_name') }}">
+
+    <label for="legal_entity_identifier">ЕИК/идентификатор</label>
+    <input id="legal_entity_identifier" name="legal_entity_identifier" type="text" value="{{ app.request.request.get('legal_entity_identifier') }}">
+
+    <label for="type">Вид отношение</label>
+    <select id="type" name="type" required>
+        {% for type in types %}<option value="{{ type.value }}">{{ type.value }}</option>{% endfor %}
+    </select>
+
+    <label for="valid_from">В сила от</label>
+    <input id="valid_from" name="valid_from" type="date" value="{{ app.request.request.get('valid_from') }}" required>
+
+    <label for="ownership_share">Дял на собственост (%)</label>
+    <input id="ownership_share" name="ownership_share" type="text" inputmode="decimal" value="{{ app.request.request.get('ownership_share') }}">
+
+    <div class="actions">
+        <button type="submit">Създай отношение</button>
+        <a href="{{ path('app_management_setup') }}">Отказ</a>
+    </div>
+</form>
+{% endblock %}
