@@ -306,13 +306,19 @@ final readonly class MonthlyChargeGenerator
         $chargeablePeople = max(1, $baseOccupancyCount);
         $animalEquivalents = 0;
         $animalSource = null;
+        $animalSourceDate = null;
 
         if ($policy->includesAnimalEquivalents()) {
             $animals = $this->entityManager->getRepository(AnimalRegistration::class)->findBy(['unit' => $unit]);
             foreach ($animals as $animal) {
+                if (!$animal->isActiveAt($billingMonth)) {
+                    continue;
+                }
+
                 $animalEquivalents += $animal->getCount();
             }
-            $animalSource = 'current_register';
+            $animalSource = 'effective_dated_register';
+            $animalSourceDate = $billingMonth->format('Y-m-d');
         }
 
         $quantity = ($chargeablePeople + $animalEquivalents).'.000';
@@ -322,6 +328,7 @@ final readonly class MonthlyChargeGenerator
             'unoccupied_minimum_applied' => $unoccupiedMinimumApplied,
             'animal_equivalents' => $animalEquivalents,
             'animal_source' => $animalSource,
+            'animal_source_date' => $animalSourceDate,
         ]];
     }
 
