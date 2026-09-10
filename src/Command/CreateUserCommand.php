@@ -6,6 +6,9 @@ namespace App\Command;
 
 use App\Entity\Person;
 use App\Entity\User;
+use App\Service\AuditLogService;
+use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -24,6 +27,7 @@ final class CreateUserCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly ?AuditLogService $auditLog = null,
     ) {
         parent::__construct();
     }
@@ -84,9 +88,19 @@ final class CreateUserCommand extends Command
             return Command::INVALID;
         }
 
-        $this->entityManager->persist($person);
-        $this->entityManager->persist($user);
-        $this->entityManager->flush();
+        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $entityManager) use ($person, $user): void {
+            $entityManager->persist($person);
+            $entityManager->persist($user);
+            $entityManager->flush();
+            $this->auditLog?->record(
+                null,
+                'security.user.created',
+                'User',
+                $user->getId(),
+                new DateTimeImmutable('now', new DateTimeZone('UTC')),
+                ['roles' => implode(',', $user->getRoles())],
+            );
+        });
 
         $io->success(sprintf('Created account for %s.', $email));
         return Command::SUCCESS;
