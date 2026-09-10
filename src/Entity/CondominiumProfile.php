@@ -70,7 +70,12 @@ final class CondominiumProfile
         User $actor,
         DateTimeImmutable $updatedAt,
     ): void {
-        $this->registryIdentifier = self::optional($identifier, 120, 'Registry identifier');
+        $identifier = self::optional($identifier, 120, 'Registry identifier');
+        if (null !== $this->registryIdentifier && $identifier !== $this->registryIdentifier) {
+            throw new InvalidArgumentException('The externally assigned registry identifier cannot be changed once recorded.');
+        }
+
+        $this->registryIdentifier = $identifier;
         $this->registryParcelNumber = self::optional($parcelNumber, 120, 'Registry parcel number');
         $this->registryRegisteredAt = $registeredAt;
         $this->updatedBy = $actor;
