@@ -1,62 +1,172 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="bg" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Vhod{% endblock %}</title>
-    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
     {% block javascripts %}
         {% block importmap %}{{ importmap('app') }}{% endblock %}
     {% endblock %}
 </head>
 <body>
-    <header class="topbar">
-        <a class="brand" href="{{ path('app_dashboard') }}">Vhod</a>
-        {% if app.user %}
-            {% set announcementUnreadCount = announcement_unread_count() %}
-            <nav>
-                <a href="{{ path('app_dashboard') }}">Начало</a>
-                <a href="{{ path('app_community_index') }}">Общност</a>
-                <a href="{{ path('app_maintenance_index') }}">Поддръжка</a>
-                <a class="nav-official-link" href="{{ path('app_announcements_index') }}">
-                    Обяви
-                    {% if announcementUnreadCount > 0 %}
-                        <span class="badge unread-badge nav-unread-badge">{{ announcementUnreadCount }}</span>
-                    {% endif %}
-                </a>
-                <a class="nav-official-link" href="{{ path('app_assemblies_index') }}">Общи събрания</a>
-                <a class="nav-official-link" href="{{ path('app_documents_index') }}">Документи</a>
-                <a href="{{ path('app_book') }}">Моята книга</a>
-                {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_CONTROLLER') or is_granted('ROLE_ADMIN') %}
-                    <a href="{{ path('app_management_finance') }}">Финанси</a>
-                {% endif %}
-                {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_ADMIN') %}
-                    <a class="nav-management-link" href="{{ path('app_management_finance_operations') }}">Финансови операции</a>
-                {% endif %}
-                {% if is_granted('ROLE_CONTROLLER') or is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
-                    <a class="nav-management-link" href="{{ path('app_management_assemblies') }}">Управление на ОС</a>
-                    <a class="nav-management-link" href="{{ path('app_management_compliance') }}">Съответствие</a>
-                {% endif %}
-                {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
-                    <a href="{{ path('app_community_moderation') }}">Модерация</a>
-                    <a class="nav-management-link" href="{{ path('app_management_announcements') }}">Официални обяви</a>
-                    <a class="nav-management-link" href="{{ path('app_management_documents') }}">Документи · управление</a>
-                {% endif %}
-                {% if is_granted('ROLE_ADMIN') %}
-                    <a class="nav-management-link" href="{{ path('app_management_setup') }}">Настройка</a>
-                    <a class="nav-management-link" href="{{ path('app_management_audit') }}">Audit</a>
-                {% endif %}
-                <a href="{{ path('app_logout') }}">Изход</a>
-            </nav>
-        {% endif %}
-    </header>
-    <main class="container">
-        {% for type, messages in app.flashes %}
-            {% for message in messages %}
-                <div class="flash flash-{{ type }}">{{ message }}</div>
+{% if app.user %}
+    {% set announcementUnreadCount = announcement_unread_count() %}
+    {% set currentRoute = app.request.attributes.get('_route')|default('') %}
+    <div class="page">
+        <aside class="navbar navbar-vertical navbar-expand-lg" aria-label="Основна навигация">
+            <div class="container-fluid">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Отвори навигацията">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <h1 class="navbar-brand navbar-brand-autodark mb-0">
+                    <a href="{{ path('app_dashboard') }}" aria-label="Vhod · Начало">Vhod</a>
+                </h1>
+
+                <div class="collapse navbar-collapse" id="sidebar-menu">
+                    <ul class="navbar-nav pt-lg-3">
+                        <li class="nav-section-title">Основно</li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute == 'app_dashboard' %} active{% endif %}" href="{{ path('app_dashboard') }}"{% if currentRoute == 'app_dashboard' %} aria-current="page"{% endif %}>
+                                <span class="nav-link-title">Начало</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-section-title">Общност</li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute starts with 'app_community_' and not (currentRoute starts with 'app_community_moderation') %} active{% endif %}" href="{{ path('app_community_index') }}">
+                                <span class="nav-link-title">Общност</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute starts with 'app_maintenance_' %} active{% endif %}" href="{{ path('app_maintenance_index') }}">
+                                <span class="nav-link-title">Поддръжка</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-section-title">Етажна собственост</li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute starts with 'app_announcements_' %} active{% endif %}" href="{{ path('app_announcements_index') }}">
+                                <span class="nav-link-title">Обяви</span>
+                                {% if announcementUnreadCount > 0 %}
+                                    <span class="badge text-bg-danger ms-auto" aria-label="{{ announcementUnreadCount }} непрочетени обяви">{{ announcementUnreadCount }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute starts with 'app_assemblies_' %} active{% endif %}" href="{{ path('app_assemblies_index') }}">
+                                <span class="nav-link-title">Общи събрания</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute starts with 'app_documents_' %} active{% endif %}" href="{{ path('app_documents_index') }}">
+                                <span class="nav-link-title">Документи</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link{% if currentRoute starts with 'app_book' %} active{% endif %}" href="{{ path('app_book') }}">
+                                <span class="nav-link-title">Моята книга</span>
+                            </a>
+                        </li>
+
+                        {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_CONTROLLER') or is_granted('ROLE_ADMIN') %}
+                            <li class="nav-section-title">Управление</li>
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute == 'app_management_finance' %} active{% endif %}" href="{{ path('app_management_finance') }}">
+                                    <span class="nav-link-title">Финанси</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_CASHIER') or is_granted('ROLE_ADMIN') %}
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_finance_operations' %} active{% endif %}" href="{{ path('app_management_finance_operations') }}">
+                                    <span class="nav-link-title">Финансови операции</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% if is_granted('ROLE_CONTROLLER') or is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_assemblies' %} active{% endif %}" href="{{ path('app_management_assemblies') }}">
+                                    <span class="nav-link-title">Управление на ОС</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_compliance' %} active{% endif %}" href="{{ path('app_management_compliance') }}">
+                                    <span class="nav-link-title">Съответствие</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% if is_granted('ROLE_MANAGER') or is_granted('ROLE_ADMIN') %}
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_community_moderation' %} active{% endif %}" href="{{ path('app_community_moderation') }}">
+                                    <span class="nav-link-title">Модерация</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_announcements' %} active{% endif %}" href="{{ path('app_management_announcements') }}">
+                                    <span class="nav-link-title">Официални обяви</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_documents' %} active{% endif %}" href="{{ path('app_management_documents') }}">
+                                    <span class="nav-link-title">Документи · управление</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% if is_granted('ROLE_ADMIN') %}
+                            <li class="nav-section-title">Система</li>
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_setup' %} active{% endif %}" href="{{ path('app_management_setup') }}">
+                                    <span class="nav-link-title">Настройка</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link{% if currentRoute starts with 'app_management_audit' %} active{% endif %}" href="{{ path('app_management_audit') }}">
+                                    <span class="nav-link-title">Audit</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+
+                    <div class="navbar-footer mt-auto">
+                        <div class="vhod-sidebar-user">
+                            <div class="min-w-0">
+                                <div class="fw-semibold text-truncate">{{ app.user.person.firstName }} {{ app.user.person.lastName }}</div>
+                                <div class="text-secondary small text-truncate">{{ app.user.userIdentifier }}</div>
+                            </div>
+                            <a class="btn btn-ghost-secondary btn-sm" href="{{ path('app_logout') }}">Изход</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="page-wrapper">
+            <main class="page-body">
+                <div class="container-xl">
+                    {% for type, messages in app.flashes %}
+                        {% set alertType = type == 'error' ? 'danger' : (type in ['success', 'warning', 'info', 'danger'] ? type : 'info') %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ alertType }}" role="alert">{{ message }}</div>
+                        {% endfor %}
+                    {% endfor %}
+                    {% block body %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+{% else %}
+    <div class="page page-center">
+        <main class="container container-tight py-4">
+            {% for type, messages in app.flashes %}
+                {% set alertType = type == 'error' ? 'danger' : (type in ['success', 'warning', 'info', 'danger'] ? type : 'info') %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ alertType }}" role="alert">{{ message }}</div>
+                {% endfor %}
             {% endfor %}
-        {% endfor %}
-        {% block body %}{% endblock %}
-    </main>
+            {% block body %}{% endblock %}
+        </main>
+    </div>
+{% endif %}
 </body>
 </html>
