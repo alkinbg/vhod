@@ -3,68 +3,110 @@
 {% block title %}Начало · Vhod{% endblock %}
 
 {% block body %}
-<section class="hero">
-    <div>
-        <p class="eyebrow">Нашият вход</p>
-        <h1>Здравей{% if person %}, {{ person.firstName }}{% endif %}.</h1>
-        <p class="muted">Всичко важно за входа на едно място.</p>
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Нашият вход</div>
+            <h1 class="page-title">Здравей{% if person %}, {{ person.firstName }}{% endif %}.</h1>
+            <div class="text-secondary mt-1">Всичко важно за входа на едно място.</div>
+        </div>
     </div>
-</section>
+</div>
 
-<section class="grid">
-    <article class="card highlight">
-        <span>Моето салдо</span>
-        <strong>{{ (total_balance_cents / 100)|number_format(2, '.', '') }} €</strong>
-        <small>Общо за активните обекти, свързани с профила ви.</small>
-        <a class="button-link secondary-button" href="{{ path('app_book') }}">Моята книга</a>
-    </article>
-    <article class="card">
-        <span>Моите обекти</span>
-        <strong>{{ unit_balances|length }}</strong>
-        {% if unit_balances %}
-            <small>{% for row in unit_balances %}{% if not loop.first %}, {% endif %}{{ row.unit.designation }}{% endfor %}</small>
-        {% else %}
-            <small>Няма активен собственик/ползвател, свързан с профила.</small>
-        {% endif %}
-    </article>
-    <article class="card">
-        <span>Активни сигнали</span>
-        <strong data-testid="active-maintenance-count">{{ active_signal_count }}</strong>
-        <small>Отворени, в работа или изчакващи сигнали, подадени от вас.</small>
-        <a class="button-link secondary-button" href="{{ path('app_maintenance_index') }}">Поддръжка</a>
-    </article>
-    <article class="card official-card general-assembly-dashboard-card">
-        <span>Официално</span>
-        <strong>Общи събрания</strong>
-        <small>Покани, дневен ред, решения и финализирани протоколи.</small>
-        <a class="button-link secondary-button" href="{{ path('app_assemblies_index') }}">Виж събранията</a>
-    </article>
-</section>
-
-<section class="columns">
-    <article class="panel">
-        <div class="panel-title"><div><p class="eyebrow">Общност</p><h2>Какво обсъждат съседите</h2></div><span class="badge">Активно</span></div>
-        <p class="muted">Публикации, идеи и взаимопомощ между хората от входа.</p>
-        <a class="button-link secondary-button" href="{{ path('app_community_index') }}">Към общността</a>
-    </article>
-    {% set unreadCount = announcement_unread_count() %}
-    <article class="panel official-dashboard-card official-card">
-        <div class="panel-title">
-            <div>
-                <p class="eyebrow">Официално</p>
-                <h2>Официални обяви</h2>
+<div class="row row-deck row-cards">
+    <div class="col-sm-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="subheader">Моето салдо</div>
+                <div class="h1 mb-3">{{ (total_balance_cents / 100)|number_format(2, '.', '') }} €</div>
+                <p class="text-secondary">Общо за активните обекти, свързани с профила ви.</p>
+                <div class="mt-auto">
+                    <a class="btn btn-outline-primary w-100" href="{{ path('app_book') }}">Моята книга</a>
+                </div>
             </div>
-            {% if unreadCount > 0 %}
-                <span class="badge unread-badge">{{ unreadCount }} непрочетени</span>
-            {% else %}
-                <span class="badge badge--official">Актуално</span>
-            {% endif %}
-        </div>
-        <p class="muted">Публикувани съобщения от управлението на входа, отделени от разговорите в общността.</p>
-        <div class="official-actions">
-            <a class="button-link" href="{{ path('app_announcements_index') }}">Виж обявите</a>
-            <a class="button-link secondary-button" href="{{ path('app_documents_index') }}">Документи</a>
-        </div>
-    </article>
-</section>
+        </article>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body">
+                <div class="subheader">Моите обекти</div>
+                <div class="h1 mb-3">{{ unit_balances|length }}</div>
+                {% if unit_balances %}
+                    <p class="text-secondary mb-0">{% for row in unit_balances %}{% if not loop.first %}, {% endif %}{{ row.unit.designation }}{% endfor %}</p>
+                {% else %}
+                    <p class="text-secondary mb-0">Няма активен собственик/ползвател, свързан с профила.</p>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="subheader">Активни сигнали</div>
+                <div class="h1 mb-3" data-testid="active-maintenance-count">{{ active_signal_count }}</div>
+                <p class="text-secondary">Отворени, в работа или изчакващи сигнали, подадени от вас.</p>
+                <div class="mt-auto">
+                    <a class="btn btn-outline-primary w-100" href="{{ path('app_maintenance_index') }}">Поддръжка</a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <article class="card h-100 official-card general-assembly-dashboard-card">
+            <div class="card-body d-flex flex-column">
+                <div class="subheader">Официално</div>
+                <h2 class="h3 mb-3">Общи събрания</h2>
+                <p class="text-secondary">Покани, дневен ред, решения и финализирани протоколи.</p>
+                <div class="mt-auto">
+                    <a class="btn btn-outline-primary w-100" href="{{ path('app_assemblies_index') }}">Виж събранията</a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-md-6">
+        <article class="card h-100">
+            <div class="card-header align-items-start">
+                <div>
+                    <div class="subheader">Общност</div>
+                    <h2 class="card-title mt-1">Какво обсъждат съседите</h2>
+                </div>
+                <span class="badge text-bg-secondary ms-auto">Активно</span>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-secondary">Публикации, идеи и взаимопомощ между хората от входа.</p>
+                <div class="mt-auto">
+                    <a class="btn btn-outline-primary" href="{{ path('app_community_index') }}">Към общността</a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    {% set unreadCount = announcement_unread_count() %}
+    <div class="col-md-6">
+        <article class="card h-100 official-dashboard-card official-card">
+            <div class="card-header align-items-start">
+                <div>
+                    <div class="subheader">Официално</div>
+                    <h2 class="card-title mt-1">Официални обяви</h2>
+                </div>
+                {% if unreadCount > 0 %}
+                    <span class="badge text-bg-danger ms-auto">{{ unreadCount }} непрочетени</span>
+                {% else %}
+                    <span class="badge text-bg-primary ms-auto">Актуално</span>
+                {% endif %}
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-secondary">Публикувани съобщения от управлението на входа, отделени от разговорите в общността.</p>
+                <div class="d-flex flex-wrap gap-2 mt-auto">
+                    <a class="btn btn-primary" href="{{ path('app_announcements_index') }}">Виж обявите</a>
+                    <a class="btn btn-outline-secondary" href="{{ path('app_documents_index') }}">Документи</a>
+                </div>
+            </div>
+        </article>
+    </div>
+</div>
 {% endblock %}
