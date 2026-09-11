@@ -3,24 +3,37 @@
 {% block title %}Вход · Vhod{% endblock %}
 
 {% block body %}
-<section class="auth-card">
-    <p class="eyebrow">Само за съседи</p>
-    <h1>Добре дошли във Vhod</h1>
-    <p class="muted">Вътрешната система на нашия вход.</p>
+<div class="text-center mb-4">
+    <div class="navbar-brand navbar-brand-autodark justify-content-center fs-1 fw-bold">Vhod</div>
+    <div class="text-secondary mt-2">Само за съседи</div>
+</div>
 
-    {% if error %}
-        <div class="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
-    {% endif %}
+<section class="card card-md" aria-labelledby="login-title">
+    <div class="card-body">
+        <h1 id="login-title" class="h2 text-center mb-2">Добре дошли</h1>
+        <p class="text-secondary text-center mb-4">Вътрешната система на нашия вход.</p>
 
-    <form method="post">
-        <label for="username">Имейл</label>
-        <input id="username" type="email" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+        {% if error %}
+            <div class="alert alert-danger" role="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
 
-        <label for="password">Парола</label>
-        <input id="password" type="password" name="_password" autocomplete="current-password" required>
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label" for="username">Имейл</label>
+                <input class="form-control" id="username" type="email" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+            </div>
 
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-        <button type="submit">Вход</button>
-    </form>
+            <div class="mb-3">
+                <label class="form-label" for="password">Парола</label>
+                <input class="form-control" id="password" type="password" name="_password" autocomplete="current-password" required>
+            </div>
+
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <div class="form-footer">
+                <button class="btn btn-primary w-100" type="submit">Вход</button>
+            </div>
+        </form>
+    </div>
 </section>
 {% endblock %}
