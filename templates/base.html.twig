@@ -164,7 +164,7 @@
                     <div class="alert alert-{{ alertType }}" role="alert">{{ message }}</div>
                 {% endfor %}
             {% endfor %}
-            {% block body %}{% endblock %}
+            {{ block('body') }}
         </main>
     </div>
 {% endif %}
