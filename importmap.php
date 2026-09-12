@@ -13,4 +13,11 @@ return [
         'path' => './assets/app.js',
         'entrypoint' => true,
     ],
+    '@tabler/core' => [
+        'version' => '1.5.1',
+    ],
+    '@tabler/core/dist/css/tabler.min.css' => [
+        'version' => '1.5.1',
+        'type' => 'css',
+    ],
 ];
