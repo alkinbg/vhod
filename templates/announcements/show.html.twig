@@ -3,58 +3,61 @@
 {% block title %}{{ announcement.title }}{% endblock %}
 
 {% block body %}
-    <article class="page-shell official-shell">
-        <header class="page-heading official-heading">
-            <div>
-                <div class="official-card__meta">
-                    <span class="badge badge--official">Официално</span>
-                    {% if receipt and not receipt.read %}
-                        <span class="badge unread-badge">Непрочетено</span>
-                    {% endif %}
-                </div>
-                <h1>{{ announcement.title }}</h1>
-                {% if announcement.publishedAt %}
-                    <p class="muted">
-                        Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i') }}
-                        {% if announcement.publishedBy %}
-                            от {{ announcement.publishedBy.person.displayName }}
-                        {% endif %}
-                    </p>
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-start g-3">
+        <div class="col">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                <span class="badge bg-primary-lt">Официално</span>
+                {% if receipt and not receipt.read %}
+                    <span class="badge bg-danger-lt text-danger">Непрочетено</span>
                 {% endif %}
             </div>
-        </header>
-
-        <section class="card official-content">
-            <div class="official-body">{{ announcement.body|nl2br }}</div>
-        </section>
-
-        {% if announcement.documents|length > 0 %}
-            <section class="card document-links">
-                <h2>Документи</h2>
-                <ul>
-                    {% for document in announcement.documents %}
-                        <li>
-                            <a href="{{ path('app_document_download', {id: document.id}) }}">{{ document.title }}</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </section>
-        {% endif %}
-
-        <div class="official-actions">
-            {% if receipt and not receipt.read %}
-                <form method="post" action="{{ path('app_announcement_read', {id: announcement.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('announcement_read_' ~ announcement.id) }}">
-                    <button type="submit" name="announcement_read_submit" class="btn btn-primary">Маркирай като прочетено</button>
-                </form>
+            <h1 class="page-title">{{ announcement.title }}</h1>
+            {% if announcement.publishedAt %}
+                <div class="text-secondary mt-2">
+                    Публикувано на {{ announcement.publishedAt|date('d.m.Y H:i') }}
+                    {% if announcement.publishedBy %} от {{ announcement.publishedBy.person.displayName }}{% endif %}
+                </div>
             {% endif %}
-
-            <a class="btn" href="{{ path('app_announcement_print', {id: announcement.id}) }}" target="_blank" rel="noopener">Печат</a>
-            <a class="btn" href="{{ path('app_announcement_pdf', {id: announcement.id}) }}">PDF</a>
-            {% if viber_share_url %}
-                <a class="btn" href="{{ viber_share_url }}">Сподели във Viber</a>
-            {% endif %}
-            <a class="btn" href="{{ path('app_announcements_index') }}">Назад към обявите</a>
         </div>
-    </article>
+    </div>
+</div>
+
+<article class="card mb-3 vhod-readable" data-testid="announcement-detail">
+    <div class="card-body">
+        <div class="lh-lg">{{ announcement.body|nl2br }}</div>
+    </div>
+</article>
+
+{% if announcement.documents|length > 0 %}
+    <div class="card mb-3 vhod-readable">
+        <div class="card-header">
+            <h2 class="card-title">Документи</h2>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for document in announcement.documents %}
+                <a class="list-group-item list-group-item-action d-flex align-items-center gap-3" href="{{ path('app_document_download', {id: document.id}) }}">
+                    <span class="text-primary" aria-hidden="true">▣</span>
+                    <span class="flex-fill">{{ document.title }}</span>
+                    <span class="text-secondary small">Изтегли</span>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="btn-list vhod-readable">
+    {% if receipt and not receipt.read %}
+        <form method="post" action="{{ path('app_announcement_read', {id: announcement.id}) }}" class="d-inline">
+            <input type="hidden" name="_token" value="{{ csrf_token('announcement_read_' ~ announcement.id) }}">
+            <button type="submit" name="announcement_read_submit" class="btn btn-primary">Маркирай като прочетено</button>
+        </form>
+    {% endif %}
+    <a class="btn btn-outline-secondary" href="{{ path('app_announcement_print', {id: announcement.id}) }}" target="_blank" rel="noopener">Печат</a>
+    <a class="btn btn-outline-secondary" href="{{ path('app_announcement_pdf', {id: announcement.id}) }}">PDF</a>
+    {% if viber_share_url %}
+        <a class="btn btn-outline-secondary" href="{{ viber_share_url }}">Сподели във Viber</a>
+    {% endif %}
+    <a class="btn btn-link" href="{{ path('app_announcements_index') }}">Назад към обявите</a>
+</div>
 {% endblock %}
