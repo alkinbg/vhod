@@ -53,8 +53,8 @@ final class GeneralAssemblyNavigationTest extends WebTestCase
         self::assertSelectorTextContains('nav a[href="/assemblies"]', 'Общи събрания');
         self::assertSelectorExists('nav a[href="/community"]');
         self::assertSelectorNotExists('nav a[href="/management/assemblies"]');
-        self::assertSelectorExists('.general-assembly-dashboard-card a[href="/assemblies"]');
-        self::assertSelectorTextContains('.general-assembly-dashboard-card', 'Официално');
+        self::assertSelectorExists('[data-testid="resident-dashboard-sections"] a[href="/assemblies"]');
+        self::assertSelectorTextContains('[data-testid="resident-dashboard-sections"]', 'Официално');
     }
 
     public function testControllerManagerAndAdminSeeManagementAssemblyNavigation(): void
