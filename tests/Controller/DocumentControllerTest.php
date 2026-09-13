@@ -53,7 +53,6 @@ final class DocumentControllerTest extends WebTestCase
     public function testAnonymousUserIsRedirectedToLogin(): void
     {
         $this->client->request('GET', '/documents');
-
         self::assertResponseRedirects('/login');
     }
 
@@ -103,26 +102,21 @@ final class DocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Lift warranty');
         self::assertSelectorTextNotContains('body', 'House rules');
+        self::assertSelectorExists('[data-testid="document-list"] .table.table-vcenter');
+        self::assertSelectorExists('select.form-select[name="category"]');
     }
 
     public function testUnknownCategoryReturnsNotFound(): void
     {
         $this->client->loginUser($this->resident);
         $this->client->request('GET', '/documents?category=not-a-real-category');
-
         self::assertResponseStatusCodeSame(404);
     }
 
     public function testResidentCanDownloadVisiblePrivateDocumentWithPersistedHeaders(): void
     {
         $entityManager = $this->entityManager();
-        $document = $this->recordDocument(
-            $entityManager,
-            DocumentAccessLevel::RESIDENTS,
-            DocumentCategory::HOUSE_RULES,
-            'House rules',
-            'rules.pdf',
-        );
+        $document = $this->recordDocument($entityManager, DocumentAccessLevel::RESIDENTS, DocumentCategory::HOUSE_RULES, 'House rules', 'rules.pdf');
         $entityManager->flush();
         $documentId = $document->getId();
         self::assertNotNull($documentId);
@@ -139,38 +133,26 @@ final class DocumentControllerTest extends WebTestCase
     public function testRestrictedDocumentIdReturnsNotFound(): void
     {
         $entityManager = $this->entityManager();
-        $document = $this->recordDocument(
-            $entityManager,
-            DocumentAccessLevel::FINANCE,
-            DocumentCategory::BANK_STATEMENT,
-            'Bank statement',
-        );
+        $document = $this->recordDocument($entityManager, DocumentAccessLevel::FINANCE, DocumentCategory::BANK_STATEMENT, 'Bank statement');
         $entityManager->flush();
         $documentId = $document->getId();
         self::assertNotNull($documentId);
 
         $this->client->loginUser($this->resident);
         $this->client->request('GET', '/document/'.$documentId.'/download');
-
         self::assertResponseStatusCodeSame(404);
     }
 
     public function testMissingPrivateBinaryReturnsNotFound(): void
     {
         $entityManager = $this->entityManager();
-        $document = $this->recordDocument(
-            $entityManager,
-            DocumentAccessLevel::RESIDENTS,
-            DocumentCategory::TECHNICAL_DOCUMENTATION,
-            'Lift documentation',
-        );
+        $document = $this->recordDocument($entityManager, DocumentAccessLevel::RESIDENTS, DocumentCategory::TECHNICAL_DOCUMENTATION, 'Lift documentation');
         $entityManager->flush();
         $documentId = $document->getId();
         self::assertNotNull($documentId);
 
         $this->client->loginUser($this->resident);
         $this->client->request('GET', '/document/'.$documentId.'/download');
-
         self::assertResponseStatusCodeSame(404);
     }
 
@@ -178,7 +160,6 @@ final class DocumentControllerTest extends WebTestCase
     {
         $entityManager = self::getContainer()->get('doctrine.orm.entity_manager');
         self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
-
         return $entityManager;
     }
 
@@ -191,32 +172,14 @@ final class DocumentControllerTest extends WebTestCase
         }
         $entityManager->persist($person);
         $entityManager->persist($user);
-
         return $user;
     }
 
-    private function recordDocument(
-        EntityManagerInterface $entityManager,
-        DocumentAccessLevel $accessLevel,
-        DocumentCategory $category,
-        string $title,
-        string $originalName = 'document.pdf',
-    ): Document {
+    private function recordDocument(EntityManagerInterface $entityManager, DocumentAccessLevel $accessLevel, DocumentCategory $category, string $title, string $originalName = 'document.pdf'): Document
+    {
         $storageName = str_pad(dechex($this->storageCounter++), 32, '0', STR_PAD_LEFT).'.pdf';
-        $document = Document::record(
-            $category,
-            $accessLevel,
-            $title,
-            'Описание на документа.',
-            $originalName,
-            $storageName,
-            'application/pdf',
-            13,
-            $this->manager,
-            new DateTimeImmutable('2026-09-09 07:00:00+00:00'),
-        );
+        $document = Document::record($category, $accessLevel, $title, 'Описание на документа.', $originalName, $storageName, 'application/pdf', 13, $this->manager, new DateTimeImmutable('2026-09-09 07:00:00+00:00'));
         $entityManager->persist($document);
-
         return $document;
     }
 

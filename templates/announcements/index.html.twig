@@ -3,36 +3,48 @@
 {% block title %}Обяви{% endblock %}
 
 {% block body %}
-    <section class="page-shell official-shell">
-        <div class="page-heading">
-            <div>
-                <p class="eyebrow">Официална информация</p>
-                <h1>Обяви</h1>
-                <p class="muted">Публикувани съобщения от управлението на входа.</p>
-            </div>
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Официална информация</div>
+            <h1 class="page-title">Обяви</h1>
+            <div class="text-secondary mt-1">Публикувани съобщения от управлението на входа.</div>
         </div>
+    </div>
+</div>
 
-        <div class="official-list">
+{% if announcements is empty %}
+    <div class="card">
+        <div class="empty py-6">
+            <div class="empty-icon text-secondary">◎</div>
+            <p class="empty-title">Няма публикувани обяви</p>
+            <p class="empty-subtitle text-secondary">Когато бъде публикувана официална информация, тя ще се появи тук.</p>
+        </div>
+    </div>
+{% else %}
+    <div class="card" data-testid="announcement-list">
+        <div class="list-group list-group-flush">
             {% for announcement in announcements %}
-                <article class="card official-card">
-                    <div class="official-card__meta">
-                        <span class="badge badge--official">Официално</span>
-                        {% if announcement.id in unread_announcement_ids %}
-                            <span class="badge unread-badge">Непрочетено</span>
-                        {% endif %}
-                        {% if announcement.publishedAt %}
-                            <time datetime="{{ announcement.publishedAt|date('c') }}">{{ announcement.publishedAt|date('d.m.Y H:i') }}</time>
-                        {% endif %}
+                <a class="list-group-item list-group-item-action py-3" href="{{ path('app_announcement_show', {id: announcement.id}) }}">
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="flex-fill min-w-0">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <span class="badge bg-primary-lt">Официално</span>
+                                {% if announcement.id in unread_announcement_ids %}
+                                    <span class="badge bg-danger-lt text-danger">Непрочетено</span>
+                                {% endif %}
+                                {% if announcement.publishedAt %}
+                                    <time class="text-secondary small ms-sm-auto" datetime="{{ announcement.publishedAt|date('c') }}">{{ announcement.publishedAt|date('d.m.Y H:i') }}</time>
+                                {% endif %}
+                            </div>
+                            <div class="fw-semibold text-body mb-1">{{ announcement.title }}</div>
+                            <div class="text-secondary">{{ announcement.body|slice(0, 220) }}{% if announcement.body|length > 220 %}…{% endif %}</div>
+                        </div>
+                        <span class="text-secondary" aria-hidden="true">›</span>
                     </div>
-                    <h2><a href="{{ path('app_announcement_show', {id: announcement.id}) }}">{{ announcement.title }}</a></h2>
-                    <p>{{ announcement.body|slice(0, 220) }}{% if announcement.body|length > 220 %}…{% endif %}</p>
-                </article>
-            {% else %}
-                <div class="card empty-state">
-                    <h2>Няма публикувани обяви</h2>
-                    <p>Когато бъде публикувана официална информация, тя ще се появи тук.</p>
-                </div>
+                </a>
             {% endfor %}
         </div>
-    </section>
+    </div>
+{% endif %}
 {% endblock %}

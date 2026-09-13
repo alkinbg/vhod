@@ -3,26 +3,28 @@
 {% block title %}Начало · Vhod{% endblock %}
 
 {% block body %}
-<div class="page-header d-print-none mb-3">
-    <div class="row align-items-center">
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center g-3">
         <div class="col">
             <div class="page-pretitle">Нашият вход</div>
             <h1 class="page-title">Здравей{% if person %}, {{ person.firstName }}{% endif %}.</h1>
-            <div class="text-secondary mt-1">Всичко важно за входа на едно място.</div>
+            <div class="text-secondary mt-1">Най-важното за дома и общността ви на едно място.</div>
         </div>
     </div>
 </div>
 
-<div class="row row-deck row-cards">
+{% set unreadCount = announcement_unread_count() %}
+<div class="row row-deck row-cards mb-4" data-testid="resident-dashboard-summary">
     <div class="col-sm-6 col-xl-3">
         <article class="card h-100">
-            <div class="card-body d-flex flex-column">
-                <div class="subheader">Моето салдо</div>
-                <div class="h1 mb-3">{{ (total_balance_cents / 100)|number_format(2, '.', '') }} €</div>
-                <p class="text-secondary">Общо за активните обекти, свързани с профила ви.</p>
-                <div class="mt-auto">
-                    <a class="btn btn-outline-primary w-100" href="{{ path('app_book') }}">Моята книга</a>
-                </div>
+            <div class="card-status-top bg-primary"></div>
+            <div class="card-body">
+                <div class="subheader mb-2">Моето салдо</div>
+                <div class="h1 mb-1">{{ (total_balance_cents / 100)|number_format(2, '.', '') }} €</div>
+                <div class="text-secondary small">Общо за активните обекти в профила</div>
+            </div>
+            <div class="card-footer bg-transparent border-0 pt-0">
+                <a class="link-primary fw-semibold" href="{{ path('app_book') }}">Моята книга →</a>
             </div>
         </article>
     </div>
@@ -30,81 +32,107 @@
     <div class="col-sm-6 col-xl-3">
         <article class="card h-100">
             <div class="card-body">
-                <div class="subheader">Моите обекти</div>
-                <div class="h1 mb-3">{{ unit_balances|length }}</div>
+                <div class="subheader mb-2">Моите обекти</div>
+                <div class="h1 mb-1">{{ unit_balances|length }}</div>
                 {% if unit_balances %}
-                    <p class="text-secondary mb-0">{% for row in unit_balances %}{% if not loop.first %}, {% endif %}{{ row.unit.designation }}{% endfor %}</p>
+                    <div class="text-secondary small text-truncate">
+                        {% for row in unit_balances %}{% if not loop.first %}, {% endif %}{{ row.unit.designation }}{% endfor %}
+                    </div>
                 {% else %}
-                    <p class="text-secondary mb-0">Няма активен собственик/ползвател, свързан с профила.</p>
+                    <div class="text-secondary small">Няма свързан активен обект</div>
                 {% endif %}
             </div>
-        </article>
-    </div>
-
-    <div class="col-sm-6 col-xl-3">
-        <article class="card h-100">
-            <div class="card-body d-flex flex-column">
-                <div class="subheader">Активни сигнали</div>
-                <div class="h1 mb-3" data-testid="active-maintenance-count">{{ active_signal_count }}</div>
-                <p class="text-secondary">Отворени, в работа или изчакващи сигнали, подадени от вас.</p>
-                <div class="mt-auto">
-                    <a class="btn btn-outline-primary w-100" href="{{ path('app_maintenance_index') }}">Поддръжка</a>
-                </div>
+            <div class="card-footer bg-transparent border-0 pt-0">
+                <a class="link-secondary fw-semibold" href="{{ path('app_book') }}">Данни за обектите →</a>
             </div>
         </article>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-        <article class="card h-100 official-card general-assembly-dashboard-card">
-            <div class="card-body d-flex flex-column">
-                <div class="subheader">Официално</div>
-                <h2 class="h3 mb-3">Общи събрания</h2>
-                <p class="text-secondary">Покани, дневен ред, решения и финализирани протоколи.</p>
-                <div class="mt-auto">
-                    <a class="btn btn-outline-primary w-100" href="{{ path('app_assemblies_index') }}">Виж събранията</a>
-                </div>
-            </div>
-        </article>
-    </div>
-
-    <div class="col-md-6">
         <article class="card h-100">
-            <div class="card-header align-items-start">
-                <div>
-                    <div class="subheader">Общност</div>
-                    <h2 class="card-title mt-1">Какво обсъждат съседите</h2>
-                </div>
-                <span class="badge text-bg-secondary ms-auto">Активно</span>
+            <div class="card-body">
+                <div class="subheader mb-2">Активни сигнали</div>
+                <div class="h1 mb-1" data-testid="active-maintenance-count">{{ active_signal_count }}</div>
+                <div class="text-secondary small">Отворени или все още обработвани от вас</div>
             </div>
-            <div class="card-body d-flex flex-column">
-                <p class="text-secondary">Публикации, идеи и взаимопомощ между хората от входа.</p>
-                <div class="mt-auto">
-                    <a class="btn btn-outline-primary" href="{{ path('app_community_index') }}">Към общността</a>
-                </div>
+            <div class="card-footer bg-transparent border-0 pt-0">
+                <a class="link-secondary fw-semibold" href="{{ path('app_maintenance_index') }}">Към поддръжката →</a>
             </div>
         </article>
     </div>
 
-    {% set unreadCount = announcement_unread_count() %}
-    <div class="col-md-6">
-        <article class="card h-100 official-dashboard-card official-card">
-            <div class="card-header align-items-start">
+    <div class="col-sm-6 col-xl-3">
+        <article class="card h-100">
+            {% if unreadCount > 0 %}<div class="card-status-top bg-danger"></div>{% endif %}
+            <div class="card-body">
+                <div class="subheader mb-2">Непрочетени обяви</div>
+                <div class="h1 mb-1" data-testid="unread-announcement-count">{{ unreadCount }}</div>
+                <div class="text-secondary small">Официални съобщения от управлението</div>
+            </div>
+            <div class="card-footer bg-transparent border-0 pt-0">
+                <a class="link-{% if unreadCount > 0 %}danger{% else %}secondary{% endif %} fw-semibold" href="{{ path('app_announcements_index') }}">Виж обявите →</a>
+            </div>
+        </article>
+    </div>
+</div>
+
+<div class="d-flex align-items-center mb-3">
+    <div>
+        <div class="subheader">Бърз достъп</div>
+        <h2 class="h3 mb-0">Входът отблизо</h2>
+    </div>
+</div>
+
+<div class="row row-cards" data-testid="resident-dashboard-sections">
+    <div class="col-md-6 col-xl-4">
+        <article class="card h-100">
+            <div class="card-header">
                 <div>
                     <div class="subheader">Официално</div>
-                    <h2 class="card-title mt-1">Официални обяви</h2>
+                    <h2 class="card-title mt-1">Общи събрания</h2>
                 </div>
-                {% if unreadCount > 0 %}
-                    <span class="badge text-bg-danger ms-auto">{{ unreadCount }} непрочетени</span>
-                {% else %}
-                    <span class="badge text-bg-primary ms-auto">Актуално</span>
-                {% endif %}
+                <span class="badge bg-primary-lt ms-auto">Решения</span>
             </div>
-            <div class="card-body d-flex flex-column">
-                <p class="text-secondary">Публикувани съобщения от управлението на входа, отделени от разговорите в общността.</p>
-                <div class="d-flex flex-wrap gap-2 mt-auto">
-                    <a class="btn btn-primary" href="{{ path('app_announcements_index') }}">Виж обявите</a>
-                    <a class="btn btn-outline-secondary" href="{{ path('app_documents_index') }}">Документи</a>
+            <div class="card-body">
+                <p class="text-secondary mb-0">Покани, дневен ред, приети решения и финализирани протоколи.</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a class="btn btn-outline-primary" href="{{ path('app_assemblies_index') }}">Виж събранията</a>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-md-6 col-xl-4">
+        <article class="card h-100">
+            <div class="card-header">
+                <div>
+                    <div class="subheader">Съседи</div>
+                    <h2 class="card-title mt-1">Общност</h2>
                 </div>
+                <span class="badge bg-secondary-lt ms-auto">Неофициално</span>
+            </div>
+            <div class="card-body">
+                <p class="text-secondary mb-0">Разговори, идеи, взаимопомощ, събития и неформални анкети между съседи.</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a class="btn btn-outline-secondary" href="{{ path('app_community_index') }}">Към общността</a>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-md-6 col-xl-4">
+        <article class="card h-100">
+            <div class="card-header">
+                <div>
+                    <div class="subheader">Архив</div>
+                    <h2 class="card-title mt-1">Документи</h2>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-secondary mb-0">Правилници, протоколи и други документи, до които имате достъп.</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a class="btn btn-outline-secondary" href="{{ path('app_documents_index') }}">Отвори документите</a>
             </div>
         </article>
     </div>
