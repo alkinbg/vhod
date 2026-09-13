@@ -3,48 +3,65 @@
 {% block title %}Документи · Vhod{% endblock %}
 
 {% block body %}
-<section class="hero">
-    <div>
-        <p class="eyebrow">Официални документи</p>
-        <h1>Документи</h1>
-        <p class="muted">Преглед и изтегляне на документите, до които имате достъп.</p>
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Официални документи</div>
+            <h1 class="page-title">Документи</h1>
+            <div class="text-secondary mt-1">Преглед и изтегляне на документите, до които имате достъп.</div>
+        </div>
     </div>
-</section>
-
-<div class="panel">
-    <form method="get" action="{{ path('app_documents_index') }}" class="form-grid">
-        <label>Категория
-            <select name="category">
-                <option value="">Всички категории</option>
-                {% for category in categories %}
-                    <option value="{{ category.value }}"{% if selected_category is same as(category) %} selected{% endif %}>{{ category.labelBg() }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <div><button class="button" type="submit">Филтрирай</button></div>
-    </form>
 </div>
 
-<div class="panel">
-    {% if documents is empty %}
-        <p class="muted">Няма достъпни документи.</p>
-    {% else %}
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Документ</th><th>Категория</th><th>Достъп</th><th>Качен</th><th></th></tr></thead>
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" action="{{ path('app_documents_index') }}" class="row g-3 align-items-end">
+            <div class="col-sm-8 col-lg-5">
+                <label class="form-label" for="document-category">Категория</label>
+                <select class="form-select" id="document-category" name="category">
+                    <option value="">Всички категории</option>
+                    {% for category in categories %}
+                        <option value="{{ category.value }}"{% if selected_category is same as(category) %} selected{% endif %}>{{ category.labelBg() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" type="submit">Филтрирай</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if documents is empty %}
+    <div class="card" data-testid="document-list">
+        <div class="empty py-6">
+            <p class="empty-title">Няма достъпни документи</p>
+            <p class="empty-subtitle text-secondary">Няма документи, които отговарят на текущия филтър и правата ви за достъп.</p>
+        </div>
+    </div>
+{% else %}
+    <div class="card" data-testid="document-list">
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr><th>Документ</th><th>Категория</th><th>Достъп</th><th>Качен</th><th class="w-1"></th></tr>
+                </thead>
                 <tbody>
                 {% for document in documents %}
                     <tr>
-                        <td><strong>{{ document.title }}</strong>{% if document.description %}<br><small class="muted">{{ document.description }}</small>{% endif %}</td>
-                        <td>{{ document.category.labelBg() }}</td>
-                        <td>{{ document.accessLevel.labelBg() }}</td>
-                        <td>{{ document.uploadedAt|date('d.m.Y H:i', 'Europe/Sofia') }}</td>
-                        <td><a class="button secondary" href="{{ path('app_document_download', {id: document.id}) }}">Изтегли</a></td>
+                        <td>
+                            <div class="fw-semibold">{{ document.title }}</div>
+                            {% if document.description %}<div class="text-secondary small mt-1">{{ document.description }}</div>{% endif %}
+                        </td>
+                        <td><span class="badge bg-secondary-lt">{{ document.category.labelBg() }}</span></td>
+                        <td><span class="text-secondary">{{ document.accessLevel.labelBg() }}</span></td>
+                        <td class="text-secondary text-nowrap">{{ document.uploadedAt|date('d.m.Y H:i', 'Europe/Sofia') }}</td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="{{ path('app_document_download', {id: document.id}) }}">Изтегли</a></td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
         </div>
-    {% endif %}
-</div>
+    </div>
+{% endif %}
 {% endblock %}
