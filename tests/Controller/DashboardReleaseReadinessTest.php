@@ -79,5 +79,9 @@ final class DashboardReleaseReadinessTest extends WebTestCase
         self::assertStringNotContainsString('Скоро', $text);
         self::assertSelectorExists('a[href="/maintenance"]');
         self::assertSelectorExists('a[href="/community"]');
+        self::assertSelectorExists('[data-testid="resident-dashboard-summary"].row.row-cards');
+        self::assertSelectorCount(4, '[data-testid="resident-dashboard-summary"] > [class*="col-"]');
+        self::assertSelectorExists('[data-testid="resident-dashboard-sections"] .card');
+        self::assertSelectorExists('.page-header .page-title');
     }
 }
