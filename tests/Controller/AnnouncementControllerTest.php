@@ -251,14 +251,14 @@ final class AnnouncementControllerTest extends WebTestCase
         self::assertSelectorTextContains('nav a[href="/management/documents"]', 'Документи');
     }
 
-    public function testDashboardOfficialPanelLinksToAnnouncementsAndShowsUnreadCount(): void
+    public function testDashboardSummaryLinksToAnnouncementsAndShowsUnreadCount(): void
     {
         $this->client->loginUser($this->resident());
         $this->client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.official-dashboard-card a[href="/announcements"]');
-        self::assertSelectorTextContains('.official-dashboard-card', '2 непрочетени');
+        self::assertSelectorExists('[data-testid="resident-dashboard-summary"] a[href="/announcements"]');
+        self::assertSelectorTextSame('[data-testid="unread-announcement-count"]', '2');
     }
 
     private function entityManager(): EntityManagerInterface
