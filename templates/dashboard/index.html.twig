@@ -66,7 +66,7 @@
             {% if unreadCount > 0 %}<div class="card-status-top bg-danger"></div>{% endif %}
             <div class="card-body">
                 <div class="subheader mb-2">Непрочетени обяви</div>
-                <div class="h1 mb-1">{{ unreadCount }}</div>
+                <div class="h1 mb-1" data-testid="unread-announcement-count">{{ unreadCount }}</div>
                 <div class="text-secondary small">Официални съобщения от управлението</div>
             </div>
             <div class="card-footer bg-transparent border-0 pt-0">
